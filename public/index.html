@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#173b73">
+  <title>Hammer World — Strategic Command</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <main class="desktop" aria-label="Hammer World command interface">
+    <header class="titlebar">
+      <div class="brand"><span class="brand-mark" aria-hidden="true">HW</span><span>HAMMER WORLD</span><span class="brand-sub">STRATEGIC COMMAND SYSTEM</span></div>
+      <div class="window-buttons" aria-hidden="true"><span>_</span><span>□</span><span>×</span></div>
+    </header>
+    <div class="menubar"><span>Campaign</span><span>Operations</span><span>Cartography</span><span>Records</span><span class="menu-right">LOCAL COMMAND NODE · v0.1</span><button id="reset-layout" class="button small" type="button" aria-label="Reset moved and resized windows">Reset windows</button></div>
+    <section class="campaign-ribbon">
+      <div class="campaign-select-wrap"><label for="campaign-select">ACTIVE CAMPAIGN</label><select id="campaign-select"></select></div>
+      <div class="campaign-flags"><span class="demo-ribbon" id="campaign-kind">LOADING</span><span id="turn-badge" class="turn-badge">TURN —</span><span id="historical-badge" class="historical-badge" hidden>HISTORICAL · READ ONLY</span></div>
+      <button id="refresh-button" class="button small">↻ Refresh</button>
+    </section>
+    <section class="access-box" id="access-box" hidden><label for="access-token">PRIVATE ACCESS TOKEN</label><input id="access-token" type="password" autocomplete="off" placeholder="Bearer token held in memory"><div><button id="login-button" class="button small">Sign in</button><button id="logout-button" class="button small" hidden>Sign out</button></div></section>
+    <section class="resource-strip" id="resource-strip" aria-label="Campaign resources"></section>
+    <div class="workbench">
+      <nav class="sidebar" aria-label="Command sections">
+        <div class="side-heading">COMMAND</div>
+        <button class="nav-item active" data-view="planet"><span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 16 16"><rect x="1" y="1" width="6" height="6" fill="#47706b"/><rect x="9" y="1" width="6" height="6" fill="#bba765"/><rect x="1" y="9" width="6" height="6" fill="#778a5e"/><rect x="9" y="9" width="6" height="6" fill="#7e786b"/></svg></span>Maps</button>
+        <div class="side-heading">ADMINISTRATION</div>
+        <button class="nav-item" data-view="economy"><span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 16 16"><rect x="1" y="10" width="3" height="5" fill="#446c4a"/><rect x="6" y="6" width="3" height="9" fill="#b18434"/><rect x="11" y="2" width="3" height="13" fill="#315f8a"/><rect x="1" y="1" width="13" height="1" fill="#34424d"/></svg></span>Economy</button>
+        <button class="nav-item" data-view="industry">Industry</button>
+        <button class="nav-item" data-view="fleet">Fleet</button>
+        <button class="nav-item" data-view="politics">Politics</button>
+        <button class="nav-item" data-view="trade">Trade</button>
+        <button class="nav-item" data-view="factions">Factions</button>
+        <button class="nav-item" data-view="budget">Budget</button>
+        <button class="nav-item" data-view="logistics">Logistics</button>
+        <button class="nav-item" data-view="construction">Construction</button>
+        <button class="nav-item" data-view="research">Research</button>
+        <button class="nav-item" data-view="military">Military</button>
+        <button class="nav-item" data-view="diplomacy">Diplomacy</button>
+        <button class="nav-item" data-view="intelligence">Intelligence</button>
+        <button class="nav-item" data-view="exploration">Exploration</button>
+        <button class="nav-item" data-view="colonies">Colonies</button>
+        <button class="nav-item" data-view="characters">Characters</button>
+        <button class="nav-item" data-view="history"><span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 16 16"><rect x="5" y="1" width="6" height="1" fill="#263d58"/><rect x="3" y="2" width="2" height="1" fill="#263d58"/><rect x="11" y="2" width="2" height="1" fill="#263d58"/><rect x="2" y="3" width="1" height="10" fill="#263d58"/><rect x="13" y="3" width="1" height="10" fill="#263d58"/><rect x="3" y="13" width="2" height="1" fill="#263d58"/><rect x="11" y="13" width="2" height="1" fill="#263d58"/><rect x="5" y="14" width="6" height="1" fill="#263d58"/><rect x="7" y="4" width="2" height="4" fill="#b14b37"/><rect x="8" y="8" width="4" height="2" fill="#b14b37"/></svg></span>History</button>
+        <button class="nav-item" data-view="orders"><span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 16 16"><rect x="2" y="1" width="9" height="13" fill="#e9e5d4"/><rect x="4" y="4" width="5" height="1" fill="#45648b"/><rect x="4" y="7" width="5" height="1" fill="#45648b"/><rect x="4" y="10" width="4" height="1" fill="#45648b"/><rect x="11" y="9" width="2" height="5" fill="#b07b2c"/><rect x="13" y="7" width="2" height="7" fill="#9e4538"/><rect x="11" y="14" width="4" height="1" fill="#333"/></svg></span>Orders & handoff</button>
+        <div class="sidebar-spacer"></div>
+        <div class="side-heading">CONNECTION</div>
+        <div class="connection-card"><span class="status-dot"></span><div><strong>LOCAL DATABASE</strong><small id="archive-label">Archive status unknown</small></div></div>
+        <div class="side-foot">Fictional demonstration values<br>Pre-game canon remains unassigned</div>
+      </nav>
+      <section class="center-column">
+        <div id="view-title" class="section-title"><div><span class="eyebrow">PLANETARY COMMAND</span><h1>Kestrel’s Reach</h1></div><div class="map-tools"><label class="map-level-label">MAP <select id="map-level" aria-label="Map level"><option value="galactic">Galactic</option><option value="sector">Sector</option><option value="system">System</option><option value="planet" selected>Planet</option></select></label><label class="overlay-select">OVERLAY <select id="overlay-select"><option value="terrain">Terrain</option><option value="provinces">Provinces</option><option value="population">Population</option><option value="infrastructure">Infrastructure</option><option value="military">Military</option><option value="politics">Politics</option></select></label><button id="zoom-out" class="button icon-button" title="Zoom out">−</button><button id="zoom-reset" class="button small">100%</button><button id="zoom-in" class="button icon-button" title="Zoom in">+</button></div></div>
+        <div id="map-breadcrumbs" class="map-breadcrumbs" aria-label="Map context"></div>
+        <div id="live-banner" class="live-banner" hidden></div>
+        <section id="map-panel" class="map-panel">
+          <div class="map-caption drag-handle" data-drag-pane="map-panel"><span id="map-coordinates">GALACTIC CARTOGRAPHY OFFICE · SURVEY GRID</span><span id="map-scale">64 × 40 GRID</span></div>
+          <div class="map-frame"><canvas id="planet-map" aria-label="Planetary terrain map"></canvas><div id="map-placeholder" class="map-placeholder" hidden>Planetary survey unavailable<br><small>No campaign geography has been established.</small></div><div id="map-tooltip" class="map-tooltip" hidden></div></div>
+          <div class="map-legend" id="map-legend"></div>
+          <div class="map-footer"><span>◉ Select a province to inspect</span><span>Drag to pan · wheel or buttons to zoom</span></div>
+        </section>
+        <section id="economy-panel" class="view-panel" hidden></section>
+        <section id="history-panel" class="view-panel" hidden></section>
+        <section id="orders-panel" class="view-panel" hidden></section>
+        <section id="management-panel" class="view-panel" hidden></section>
+        <div class="lower-windows">
+          <section id="turn-window" class="bevel-window"><div class="window-heading drag-handle" data-drag-pane="turn-window">LAST TURN REPORT <span id="report-turn">—</span></div><div id="turn-report" class="window-body"></div></section>
+          <section id="log-window" class="bevel-window"><div class="window-heading drag-handle" data-drag-pane="log-window">COMMAND LOG <span>RECENT</span></div><div id="command-log" class="window-body log-body"></div></section>
+        </div>
+      </section>
+      <aside class="inspector">
+        <div class="inspector-title drag-handle" data-drag-pane="inspector"><span>INSPECTOR</span><span class="inspector-dots">•••</span></div>
+        <div id="inspector-content" class="inspector-content"></div>
+      </aside>
+    </div>
+    <footer class="statusbar"><span><i class="status-dot"></i><span id="status-text">Ready</span></span><span id="status-turn">TURN —</span><span id="verified-at">SNAPSHOT · UNKNOWN</span><span>DATABASE PRIMARY</span><span id="clock"></span></footer>
+  </main>
+  <script src="/static/app.js" defer></script>
+</body>
+</html>

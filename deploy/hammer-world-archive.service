@@ -1,0 +1,17 @@
+[Unit]
+Description=Hammer World bounded Drive archive pass
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=hammer-world
+Group=hammer-world
+WorkingDirectory=/opt/hammer-world
+EnvironmentFile=/etc/hammer-world/hammer-world.env
+ExecStart=/opt/hammer-world/.venv/bin/python -m app.cli sync --limit 20
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true

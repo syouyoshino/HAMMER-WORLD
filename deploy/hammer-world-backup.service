@@ -1,0 +1,15 @@
+[Unit]
+Description=Back up Hammer World PostgreSQL campaign records
+
+[Service]
+Type=oneshot
+User=hammer-world
+Group=hammer-world
+WorkingDirectory=/opt/hammer-world
+EnvironmentFile=/etc/hammer-world/hammer-world.env
+ExecStart=/bin/sh /opt/hammer-world/deploy/backup.sh
+UMask=0077
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/hammer-world

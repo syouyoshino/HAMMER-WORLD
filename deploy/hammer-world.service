@@ -1,0 +1,24 @@
+[Unit]
+Description=Hammer World private campaign interface
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=hammer-world
+Group=hammer-world
+WorkingDirectory=/opt/hammer-world
+EnvironmentFile=/etc/hammer-world/hammer-world.env
+Environment=WOLD_ACCESS_MODE=private
+ExecStart=/opt/hammer-world/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000 --no-access-log
+Restart=on-failure
+RestartSec=5
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/hammer-world
+
+[Install]
+WantedBy=multi-user.target

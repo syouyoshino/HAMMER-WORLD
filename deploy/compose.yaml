@@ -1,0 +1,20 @@
+services:
+  database:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: hammer_world
+      POSTGRES_USER: hammer_world
+      POSTGRES_PASSWORD: ${HAMMER_DB_PASSWORD:?Set HAMMER_DB_PASSWORD in your private environment}
+    ports:
+      - "127.0.0.1:${HAMMER_DB_PORT:-5432}:5432"
+    volumes:
+      - campaign_database:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hammer_world -d hammer_world"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    restart: unless-stopped
+
+volumes:
+  campaign_database:

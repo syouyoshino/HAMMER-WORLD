@@ -1,0 +1,11 @@
+[Unit]
+Description=Retry pending Hammer World archives
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=1min
+RandomizedDelaySec=10s
+Unit=hammer-world-archive.service
+
+[Install]
+WantedBy=timers.target
