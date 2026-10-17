@@ -143,3 +143,13 @@ Reviewed by GPT-6.1 Sol on high. Implementation/configuration can finish without
 - Frontend keeps the bearer only in JavaScript memory and attaches it to every API request. Reload requires login again. No token in URLs, cookies, localStorage, sessionStorage or assets. Admin features remain GM-only. This avoids adding a session framework; there is no cookie-authentication CSRF surface.
 - Deployment templates use systemd, a protected environment file, loopback uvicorn, Caddy TLS termination and automated PostgreSQL backups with tested recovery. Host/domain/certificates, database credentials, access tokens and Drive folder IDs are operator configuration, not default secrets. Browser QA must cover the user's macOS browser when available; another browser's success is not a Safari claim.
 - Controlled JSON import remains the working ChatGPT handoff. Future authenticated MCP tools reuse the same packet/preview/commit pipeline and authorization; MCP is not required for current completion. Existing live campaign documents and unknown statistics remain untouched.
+
+## ADR-010: map desktop shell
+
+Bounded integration review by GPT-6.1 Sol on high for `feature/map-desktop-shell`.
+
+- Keep the existing canvas mounted as the full-viewport application background. Window lifecycle and focus do not reload the map, regenerate geography or alter map state. Existing map controls, breadcrumbs and legend live in a floating Cartography window.
+- Extend the existing DOM panels with one desktop window registry, replacing the old unbounded transform-based pane dragging. Each management report has its own retained panel and request sequence. Opening, closing, minimizing or clearing windows preserves their contents; render only when their actual data context changes.
+- Authentication and campaign selection retain existing backend authority. Require explicit campaign selection rather than selecting the demo automatically. Invalidate asynchronous work at login/logout and campaign changes; retained windows must not show previous-context data.
+- Browser persistence is limited to versioned, finite, clamped window geometry and launcher pin preference. Tokens remain in memory. Each new page starts with windows hidden, apart from required authentication/campaign selection. Clear desktop hides windows without changing game or map state.
+- This UI branch does not change simulation, migrations, terrain generation or saved geographic coordinates, does not recover unavailable workspace changes, and does not merge or deploy automatically. Future character relationship screens can register with the shell without depending on their separate branch.

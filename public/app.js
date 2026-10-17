@@ -3,9 +3,9 @@
   const $ = (selector, root = document) => root.querySelector(selector);
   const state = {campaigns: [], campaignId: null, campaign: null, snapshot: null, view: 'planet', selectedProvince: null,
     history: [], historyLoading: false, historyTotal: 0, historyOffset: 0, historyPageSize: 50, zoom: 1, panX: 0, panY: 0, drag: null,
-    campaignLoadSeq: 0, campaignListSeq: 0, historyLoadSeq: 0, managementSeq:0, mapLoadSeq:0, snapshotLoadSeq:0, selectedEntity:null,
+    campaignLoadSeq: 0, campaignListSeq: 0, historyLoadSeq: 0, managementSeq:0, mapLoadSeq:0, snapshotLoadSeq:0, contextEpoch:0, selectedEntity:null,
     mapLevel:'planet', mapNodeId:null, mapRecord:null, accessToken:'', privateMode:false, managementSection:null,
-    overlay: 'terrain', gmToken: '', previewText: null, previewProposal: null, toastTimer: null};
+    overlay: 'terrain', gmToken: '', previewText: null, previewProposal: null, historyCompare:null, toastTimer: null, managementPanels:new Map(), managementRequests:new Map(), managementContexts:new Map()};
   const palette = {ocean:'#29495a',coast:'#c5b27a',plains:'#71855d',rock:'#817d70',forest:'#405f4a',marsh:'#627c73'};
   const terrainLabels = {ocean:'Open water',coast:'Coastal shelf',plains:'Plains',rock:'Rocklands',forest:'Forest',marsh:'Marsh'};
 
@@ -30,50 +30,51 @@
 
   async function loadCampaigns(preferred) {
     const request=++state.campaignListSeq;
-    const campaigns=await api('/api/player/campaigns');
-    if(request!==state.campaignListSeq)return;
+    const epoch=state.contextEpoch;let campaigns;
+    try{campaigns=await api('/api/player/campaigns');}catch(error){if(epoch===state.contextEpoch&&request===state.campaignListSeq)throw error;return;}
+    if(request!==state.campaignListSeq||epoch!==state.contextEpoch)return;
     state.campaigns=campaigns;
-    const select=$('#campaign-select'); select.replaceChildren();
+    const select=$('#campaign-select'); select.replaceChildren(new Option('Select campaign…',''));
     for(const campaign of campaigns){const option=el('option','',`${campaign.id} · ${campaign.kind==='demo'?'fictional demo':'pre-game'}`); option.value=campaign.id; select.append(option);}
-    if(!campaigns.length){state.campaignId=null;state.campaign=null;state.snapshot=null;render();return;}
+    if(!campaigns.length){state.campaignId=null;state.campaign=null;state.snapshot=null;return;}
     const preferredId = preferred && campaigns.some(c=>c.id===preferred) ? preferred : null;
     const currentId = campaigns.some(c=>c.id===state.campaignId) ? state.campaignId : null;
-    const demoId = (campaigns.find(c=>c.kind==='demo'&&c.schema_version==='world-v2')||campaigns.find(c=>c.kind==='demo'))?.id || null;
-    state.campaignId = preferredId || currentId || demoId || campaigns[0].id;
-    select.value=state.campaignId;
-    state.mapLevel='galactic';state.mapNodeId=null;state.mapRecord=null;
-    await loadCampaign();
+    state.campaignId = preferredId || currentId || null;
+    select.value=state.campaignId||'';
+    if(state.campaignId)await loadCampaign();
   }
   async function loadCampaign() {
     if(!state.campaignId)return;
     const campaignId=state.campaignId;
-    const request=++state.campaignLoadSeq;
-    const data=await api(`/api/player/campaigns/${encodeURIComponent(campaignId)}`);
-    if(request!==state.campaignLoadSeq||campaignId!==state.campaignId)return;
+    const request=++state.campaignLoadSeq,epoch=state.contextEpoch;
+    let data;try{data=await api(`/api/player/campaigns/${encodeURIComponent(campaignId)}`);}catch(error){if(request===state.campaignLoadSeq&&epoch===state.contextEpoch&&campaignId===state.campaignId)throw error;return;}
+    if(request!==state.campaignLoadSeq||epoch!==state.contextEpoch||campaignId!==state.campaignId)return;
     state.campaign=data;state.snapshot=data.state?{id:data.snapshot_id,turn:data.turn,state:data.state,archive_status:data.archive_status,created_at:data.created_at}:null;
     state.selectedProvince=null;state.mapLevel='galactic';state.mapNodeId=null;state.mapRecord=null;state.panX=0;state.panY=0;state.zoom=1;
     render();
-    if(state.view==='history')await loadHistory(0);
     if(data.state)await loadMap();
+    for(const [id,item] of window.HWDesktop?.windows||[])if(item.shown&&id!=='campaign'&&id!=='inspector'&&id!=='turn'&&id!=='log')onWindowOpen(id);
   }
   async function loadHistory(offset=0) {
     const campaignId=state.campaignId;
-    const request=++state.historyLoadSeq;
-    state.historyLoading=true;renderHistory();
+    if(!campaignId)return;const request=++state.historyLoadSeq,epoch=state.contextEpoch;
+    state.historyLoading=true;
     try {
       const data=await api(`/api/player/campaigns/${encodeURIComponent(campaignId)}/history?offset=${offset}&limit=${state.historyPageSize}`);
-      if(request!==state.historyLoadSeq||campaignId!==state.campaignId)return;
+      if(request!==state.historyLoadSeq||epoch!==state.contextEpoch||campaignId!==state.campaignId)return;
       state.history=data.items;state.historyTotal=data.total;state.historyOffset=data.offset;
+    } catch(error){if(request===state.historyLoadSeq&&epoch===state.contextEpoch&&campaignId===state.campaignId)throw error;
     } finally {
-      if(request===state.historyLoadSeq&&campaignId===state.campaignId){state.historyLoading=false;renderHistory();}
+      if(request===state.historyLoadSeq&&epoch===state.contextEpoch&&campaignId===state.campaignId)state.historyLoading=false;
     }
+    if(request===state.historyLoadSeq&&epoch===state.contextEpoch)renderHistory();
   }
   async function selectHistorical(snapshotId) {
-    const campaignId=state.campaignId;
+    const campaignId=state.campaignId,epoch=state.contextEpoch;
     const request=++state.snapshotLoadSeq;
-    const data=await api(`/api/player/snapshots/${encodeURIComponent(snapshotId)}`);
-    if(request!==state.snapshotLoadSeq||campaignId!==state.campaignId||data.campaign_id!==campaignId)return;
-    state.snapshot={...data,_historical:true};state.selectedProvince=null;state.mapRecord=null;state.panX=0;state.panY=0;state.zoom=1;state.mapLevel='planet';state.mapNodeId=data.state?.nodes?.find(n=>n.kind==='planet'&&n.knowledge==='surveyed')?.id||null;setView('planet');
+    let data;try{data=await api(`/api/player/snapshots/${encodeURIComponent(snapshotId)}`);}catch(error){if(epoch===state.contextEpoch&&request===state.snapshotLoadSeq&&campaignId===state.campaignId)throw error;return;}
+    if(request!==state.snapshotLoadSeq||epoch!==state.contextEpoch||campaignId!==state.campaignId||data.campaign_id!==campaignId)return;
+    const campaign=state.campaign,history=state.history.slice(),historyTotal=state.historyTotal,historyOffset=state.historyOffset,historyCompare=state.historyCompare;clearCampaignContext();state.campaign=campaign;state.campaignId=campaignId;state.snapshot={...data,_historical:true};state.history=history;state.historyTotal=historyTotal;state.historyOffset=historyOffset;state.historyCompare=historyCompare;state.selectedProvince=null;state.mapRecord=null;state.panX=0;state.panY=0;state.zoom=1;state.mapLevel='planet';state.mapNodeId=data.state?.nodes?.find(n=>n.kind==='planet'&&n.knowledge==='surveyed')?.id||null;render();setView('planet');if(state.history.length)renderHistory();for(const [id,item] of window.HWDesktop?.windows||[])if(item.shown&&id!=='campaign'&&id!=='inspector'&&id!=='turn'&&id!=='log')onWindowOpen(id);
   }
   function render() {
     const campaign=state.campaign;const snapshot=state.snapshot;const s=liveState();
@@ -88,17 +89,11 @@
     renderResources(s,campaign);renderInspector(s,campaign);renderReport(s);renderLog(s);
     const name=s?(state.mapRecord?.selected_planet?.name||state.mapRecord?.parent?.name||s.nodes?.find(n=>n.kind==='planet'&&n.knowledge==='surveyed')?.name||'Campaign overview'):(campaign?campaign.id:'Campaign unavailable');
     $('#map-level').value=state.mapLevel;
-    const viewTitle={economy:'Economy ledger',history:'Historical record',orders:'Orders & handoff'};
-    text($('.section-title h1'),state.view==='planet'?name:viewTitle[state.view]||titleCase(state.view));
-    $('#map-panel').hidden=state.view!=='planet';$('#economy-panel').hidden=state.view!=='economy';$('#history-panel').hidden=state.view!=='history';$('#orders-panel').hidden=state.view!=='orders';$('#management-panel').hidden=!isManagementView(state.view);
     $('#live-banner').hidden=!isHistorical();if(isHistorical())text($('#live-banner'),`Historical snapshot · turn ${snapshot.turn} · read only. Orders cannot be submitted against this revision.`);
-    const mapView=state.view==='planet';$('.map-tools').hidden=!mapView;$('#map-breadcrumbs').hidden=!mapView;
-    if(mapView){drawMap();renderMapLegend();renderMapBreadcrumbs();if(state.mapRecord)renderMapHeading();}
-    if(state.view==='economy')renderEconomy();if(state.view==='history')renderHistory();if(state.view==='orders')renderOrders();
-    if(isManagementView(state.view))loadManagement(state.view).catch(showError);
+    drawMap();renderMapLegend();renderMapBreadcrumbs();if(state.mapRecord)renderMapHeading();
   }
   function titleCase(value){return String(value).replace(/[-_]/g,' ').replace(/\b\w/g,c=>c.toUpperCase());}
-  function isManagementView(view){return !['planet','economy','history','orders'].includes(view);}
+  function isManagementView(view){return Boolean(reportSections?.[view]||reportAliases?.[view]);}
   function renderResources(s,campaign) {
     const root=$('#resource-strip');root.replaceChildren();
     const m=economyTotals(s);const items=[['POPULATION',m?fmt(m.population):'UNKNOWN','people'],['FOOD',m?fmt(m.food):'UNKNOWN','stock units'],['ORE',m?fmt(m.ore):'UNKNOWN','stock units'],['ENERGY',m?fmt(m.energy):'UNKNOWN','stock units']];
@@ -118,13 +113,13 @@
   }
   function snapshotArchive(){return state.snapshot?state.snapshot.archive_status||'unknown':'unknown';}
   function renderSelectedEntity(root,record){root.append(el('div','inspector-planet',record.name||record.id||'Selected record'),el('div','inspector-sub','RECORDED ENTITY · READ ONLY'));for(const [key,value]of Object.entries(record)){if(value&&typeof value==='object'&&!Array.isArray(value)){root.append(el('div','inspector-section',titleCase(key)));for(const [sub,nested]of Object.entries(value))row(root,titleCase(sub),safeValue(nested));}else if(Array.isArray(value)){root.append(el('div','inspector-section',titleCase(key)));for(const item of value)row(root,'Record',safeValue(item));}else row(root,titleCase(key),safeValue(value));}const back=el('button','button small','Clear selection');back.onclick=()=>{state.selectedEntity=null;renderInspector(liveState(),state.campaign);};root.append(back);}
-  function selectEntity(record){state.selectedEntity=record;const inspector=$('#inspector-content');inspector.replaceChildren();renderSelectedEntity(inspector,record);}
+  function selectEntity(record){state.selectedEntity=record;const inspector=$('#inspector-content');inspector.replaceChildren();renderSelectedEntity(inspector,record);window.HWDesktop?.open('inspector');}
   function row(root,label,value){const r=el('div','inspector-row');r.append(el('span','',label),el('b','',value));root.append(r);}
   function provinceTerrain(geo,p){const counts={};for(const t of geo?.tiles||[])if(t.province_id===p.id)counts[t.terrain]=(counts[t.terrain]||0)+1;return Object.entries(counts).sort((a,b)=>b[1]-a[1])[0]?.[0]||'No land tiles';}
   function renderReport(s){const root=$('#turn-report');root.replaceChildren();text($('#report-turn'),s?`TURN ${s.turn}`:'—');const o=s?.latest_outcome||s?.outcomes?.at(-1);if(!o){root.append(el('div','empty-note',s?'No turn has been resolved yet.':'No recorded report.'));return;}const prod=o.production?Object.values(o.production).reduce((a,x)=>{for(const [k,v]of Object.entries(x))a[k]=(a[k]||0)+v;return a;},{}):{};const cons=o.consumption?Object.values(o.consumption).reduce((a,x)=>{for(const [k,v]of Object.entries(x))a[k]=(a[k]||0)+v;return a;},{}):{};const consumedFood=o.total_consumption?.food??cons.food??o.food_consumed;const populationLost=Array.isArray(o.deaths)?o.deaths.reduce((a,x)=>a+x.count,0):o.population_lost;for(const [k,v]of [['Food produced',prod.food??o.food_produced],['Food consumed',consumedFood],['Ore produced',prod.ore??o.ore_produced],['Energy produced',prod.energy??o.energy_produced],['Population lost',populationLost]]){const line=el('div','report-line');line.append(el('span','',k),el('b','',v==null?'Unknown':fmt(v)));root.append(line);}}
   function renderLog(s){const root=$('#command-log');root.replaceChildren();if(!s){root.append(el('div','empty-note','No events recorded.'));return;}if(s.narrative)root.append(el('div','',s.narrative));else root.append(el('div','empty-note',s.turn===0?'Initial demonstration state committed.':'No narrative supplied for this turn.'));}
 
-  async function loadMap(){const campaignId=state.campaignId,s=liveState();if(!campaignId||!s)return;const request=++state.mapLoadSeq,snapshotId=state.snapshot?.id,overlay=state.overlay,level=state.mapLevel;const parentId=state.mapNodeId;if(!s.nodes){state.mapLevel='planet';$('#map-level').value='planet';state.mapRecord={level:'planet',selected_planet:s.planet,geometry:{planet:s.planet,provinces:s.provinces,tiles:s.tiles},records:[]};drawMap();renderMapLegend();renderMapBreadcrumbs();renderMapHeading();renderInspector(s,state.campaign);return;}const historical=isHistorical()?`&snapshot_id=${encodeURIComponent(state.snapshot.id)}`:'';let query=`level=${encodeURIComponent(level)}${historical}`;if(level!=='galactic'&&parentId)query+=`&node_id=${encodeURIComponent(parentId)}`;try{const data=await api(`/api/player/campaigns/${encodeURIComponent(campaignId)}/map?${query}&overlay=${encodeURIComponent(overlay)}`);if(request!==state.mapLoadSeq||campaignId!==state.campaignId||snapshotId!==state.snapshot?.id||level!==state.mapLevel||parentId!==state.mapNodeId||overlay!==state.overlay)return;state.mapRecord=data;state.selectedProvince=null;state.selectedEntity=null;drawMap();renderMapBreadcrumbs();renderMapHeading();renderMapLegend();renderInspector(s,state.campaign);}catch(error){if(campaignId===state.campaignId&&request===state.mapLoadSeq)notify(error.message,true);}}
+  async function loadMap(){const campaignId=state.campaignId,s=liveState();if(!campaignId||!s){drawMap();return;}const request=++state.mapLoadSeq,epoch=state.contextEpoch,snapshotId=state.snapshot?.id,overlay=state.overlay,level=state.mapLevel;const parentId=state.mapNodeId;if(!s.nodes){state.mapLevel='planet';$('#map-level').value='planet';state.mapRecord={level:'planet',selected_planet:s.planet,geometry:{planet:s.planet,provinces:s.provinces,tiles:s.tiles},records:[]};drawMap();renderMapLegend();renderMapBreadcrumbs();renderMapHeading();renderInspector(s,state.campaign);return;}const historical=isHistorical()?`&snapshot_id=${encodeURIComponent(state.snapshot.id)}`:'';let query=`level=${encodeURIComponent(level)}${historical}`;if(level!=='galactic'&&parentId)query+=`&node_id=${encodeURIComponent(parentId)}`;try{const data=await api(`/api/player/campaigns/${encodeURIComponent(campaignId)}/map?${query}&overlay=${encodeURIComponent(overlay)}`);if(request!==state.mapLoadSeq||epoch!==state.contextEpoch||campaignId!==state.campaignId||snapshotId!==state.snapshot?.id||level!==state.mapLevel||parentId!==state.mapNodeId||overlay!==state.overlay)return;state.mapRecord=data;state.selectedProvince=null;state.selectedEntity=null;drawMap();renderMapBreadcrumbs();renderMapHeading();renderMapLegend();renderInspector(s,state.campaign);}catch(error){if(epoch===state.contextEpoch&&campaignId===state.campaignId&&request===state.mapLoadSeq)notify(error.message,true);}}
   function renderMapHeading(){const record=state.mapRecord;if(!record)return;const level=record.level||'planet';const subject=level==='galactic'?'The Reach':record.selected_planet?.name||record.parent?.name||'Map';text($('.section-title h1'),`${subject} · ${titleCase(level)}`);text($('.eyebrow'),`${titleCase(level).toUpperCase()} CARTOGRAPHY`);text($('#map-coordinates'),`${titleCase(level).toUpperCase()} CARTOGRAPHY · ${record.parent?.name||subject}`);const geometry=record.geometry?.planet;text($('#map-scale'),geometry?`${geometry.width} × ${geometry.height} GRID`:`${(record.nodes||[]).length} RECORDED`);const hints=[...document.querySelectorAll('.map-footer span')];if(hints.length){text(hints[0],level==='planet'?'◉ Select a province to inspect':'◉ Select a recorded body to descend');text(hints[1],level==='planet'?'Drag to pan · wheel or buttons to zoom':'Click a known marker · drag to pan · wheel to zoom');}}
   function mapNodes(record){return record?.level==='galactic'?(record.nodes||[]):(record?.nodes||[]);}
   function renderMapBreadcrumbs(){const root=$('#map-breadcrumbs');if(!root)return;root.replaceChildren();const names=[['galactic','The Reach',null]];let nodeId=state.mapNodeId;const s=liveState();if(nodeId&&s){const chain=[];let node=s.nodes.find(n=>n.id===nodeId);while(node){chain.unshift(node);node=s.nodes.find(n=>n.id===node.parent_id);}for(const n of chain){const level=n.kind==='region'?'galactic':n.kind==='sector'?'sector':n.kind==='system'?'system':'planet';names.push([level,n.name,n.id]);}}
@@ -169,21 +164,23 @@
   function canvasPoint(event){const r=event.currentTarget.getBoundingClientRect();return{x:event.clientX-r.left,y:event.clientY-r.top};}
   function tileAt(point){const t=state.transform;if(!t||t.hierarchy)return null;const x=Math.floor((point.x-t.ox)/t.tile),y=Math.floor((point.y-t.oy)/t.tile);if(x<0||x>=t.cols||y<0||y>=t.rows)return null;return state.mapRecord?.geometry?.tiles[y*t.cols+x]||null;}
 
-  async function renderEconomy(){const root=$('#economy-panel');const campaignId=state.campaignId;const turn=liveState()?.turn;root.replaceChildren();const s=liveState(),totals=economyTotals(s);root.append(el('h2','view-heading','Economy ledger'),el('p','view-sub',s?'Recorded balances and resolved outcomes from the saved campaign history.':'No approved numerical baseline is available.'));if(!s){root.append(el('div','note-box','Economic fields stay unknown until a baseline is approved.'));return;}const grid=el('div','economy-grid');for(const [name,key]of [['POPULATION','population'],['FOOD','food'],['ORE','ore'],['ENERGY','energy'],['METALS','metals'],['MATERIEL','materiel'],['PROMETHIUM','promethium'],['CREDITS','credits']]){const box=el('div','economy-box');box.append(el('small','',name),el('strong','',totals[key]==null?'Unknown':fmt(totals[key])));grid.append(box);}root.append(grid);const chart=el('div','chart-box');chart.append(el('div','inspector-section','RECORDED HISTORY · LAST 100 SNAPSHOTS'));const legend=el('div','chart-legend');for(const [color,label]of [['#345c91','Food'],['#a47b30','Ore'],['#517355','Energy']]){const x=el('span','legend-key');const sw=el('i','swatch');sw.style.background=color;x.append(sw,document.createTextNode(label));legend.append(x);}chart.append(legend);const svg=await historyChart('food');if(state.view!=='economy'||state.campaignId!==campaignId||liveState()?.turn!==turn)return;if(svg)chart.append(svg);else chart.append(el('div','empty-note','No history available yet.'));root.append(chart);}
-  async function historyChart(metric='food',comparison=null) {
+  async function renderEconomy(){const root=$('#economy-panel');const campaignId=state.campaignId;const turn=liveState()?.turn,epoch=state.contextEpoch;root.replaceChildren();const s=liveState(),totals=economyTotals(s);root.append(el('h2','view-heading','Economy ledger'),el('p','view-sub',s?'Recorded balances and resolved outcomes from the saved campaign history.':'No approved numerical baseline is available.'));if(!s){root.append(el('div','note-box',state.campaign?'Economic fields stay unknown until a baseline is approved.':'Choose a campaign to view its economy.'));return;}const grid=el('div','economy-grid');for(const [name,key]of [['POPULATION','population'],['FOOD','food'],['ORE','ore'],['ENERGY','energy'],['METALS','metals'],['MATERIEL','materiel'],['PROMETHIUM','promethium'],['CREDITS','credits']]){const box=el('div','economy-box');box.append(el('small','',name),el('strong','',totals[key]==null?'Unknown':fmt(totals[key])));grid.append(box);}root.append(grid);const chart=el('div','chart-box');chart.append(el('div','inspector-section','RECORDED HISTORY · LAST 100 SNAPSHOTS'));const legend=el('div','chart-legend');for(const [color,label]of [['#345c91','Food'],['#a47b30','Ore'],['#517355','Energy']]){const x=el('span','legend-key');const sw=el('i','swatch');sw.style.background=color;x.append(sw,document.createTextNode(label));legend.append(x);}chart.append(legend);root.append(chart);const svg=await historyChart('food',null,'economy');if(epoch!==state.contextEpoch||state.campaignId!==campaignId||liveState()?.turn!==turn||root.closest('.desk-window')?.hidden)return;if(svg)chart.append(svg);else chart.append(el('div','empty-note','No history available yet.'));}
+  async function historyChart(metric='food',comparison=null,source='economy') {
     const s=liveState();
-    if(!s)return null;
+    if(!s||!state.campaignId)return null;
+    const epoch=state.contextEpoch,campaignId=state.campaignId,snapshotId=state.snapshot?.id;
     let items;
-    if(state.view==='history'){
+    if(source==='history'){
       const selectedTurn=state.snapshot?.turn??s.turn;
       items=state.history.filter(item=>item.turn<=selectedTurn);
     }else{
-      let first;try{first=await api(`/api/player/campaigns/${encodeURIComponent(state.campaignId)}/history?limit=1&offset=0`);}catch(_){return null;}
+      let first;try{first=await api(`/api/player/campaigns/${encodeURIComponent(campaignId)}/history?limit=1&offset=0`);}catch(_){return null;}if(epoch!==state.contextEpoch||campaignId!==state.campaignId||snapshotId!==state.snapshot?.id)return null;
       if(!first.items.length)return null;
       const visibleCount=Math.max(1,s.turn-first.items[0].turn+1),offset=Math.max(0,visibleCount-100);let data;
-      try{data=await api(`/api/player/campaigns/${encodeURIComponent(state.campaignId)}/history?limit=100&offset=${offset}`);}catch(_){return null;}
+      try{data=await api(`/api/player/campaigns/${encodeURIComponent(campaignId)}/history?limit=100&offset=${offset}`);}catch(_){return null;}if(epoch!==state.contextEpoch||campaignId!==state.campaignId||snapshotId!==state.snapshot?.id)return null;
       items=data.items.filter(item=>item.turn<=s.turn);
     }
+    if(epoch!==state.contextEpoch||campaignId!==state.campaignId||snapshotId!==state.snapshot?.id)return null;
     if(!items.length)return null;
     const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
     svg.setAttribute('viewBox','0 0 700 170');svg.setAttribute('role','img');svg.setAttribute('aria-label','Recorded resource history');
@@ -217,10 +214,10 @@
     for(const [value,name]of Object.entries(metricLabels)){const option=el('option','',name);option.value=value;metric.append(option);}metric.value=state.historyMetric||'population';metricLabel.append(metric);
     const compareLabel=el('label','','COMPARE TURNS ');const from=el('select');from.id='history-compare-from';const to=el('select');to.id='history-compare-to';
     for(const item of state.history){for(const select of [from,to]){const option=el('option','',`Turn ${item.turn}`);option.value=item.turn;select.append(option);}}
-    if(state.history.length){from.value=String(state.history[0].turn);to.value=String(state.history[state.history.length-1].turn);}
+    if(state.history.length){const turns=state.history.map(item=>item.turn);from.value=String(state.historyCompare&&turns.includes(state.historyCompare[0])?state.historyCompare[0]:turns[0]);to.value=String(state.historyCompare&&turns.includes(state.historyCompare[1])?state.historyCompare[1]:turns[turns.length-1]);}
     compareLabel.append(from,document.createTextNode(' → '),to);metricRow.append(metricLabel,compareLabel);root.append(metricRow);
     const chart=el('div','chart-box');chart.id='history-chart';root.append(chart);
-    const redraw=()=>renderHistoryChart(root);metric.onchange=()=>{state.historyMetric=metric.value;redraw();};from.onchange=to.onchange=redraw;if(state.historyLoading)root.querySelectorAll('button,select').forEach(control=>control.disabled=true);await redraw();
+    const redraw=()=>renderHistoryChart(root);metric.onchange=()=>{state.historyMetric=metric.value;redraw();};from.onchange=to.onchange=()=>{state.historyCompare=[Number(from.value),Number(to.value)];redraw();};if(state.historyLoading)root.querySelectorAll('button,select').forEach(control=>control.disabled=true);await redraw();
     if(!chart.isConnected||campaignId!==state.campaignId||snapshotId!==state.snapshot?.id)return;
     const wrap=el('div','table-wrap');const table=el('table','history-table');const thead=el('thead');const tr=el('tr');
     for(const h of ['TURN','POPULATION','FOOD','ORE','ENERGY','OUTCOME / NARRATIVE','ARCHIVE','VIEW'])tr.append(el('th','',h));thead.append(tr);table.append(thead);
@@ -233,27 +230,33 @@
   }
   async function renderHistoryChart(root){
     const chart=root.querySelector('#history-chart');if(!chart)return;chart.replaceChildren();
+    const epoch=state.contextEpoch,campaignId=state.campaignId,snapshotId=state.snapshot?.id;
     const metric=$('#history-metric')?.value||'population';const from=Number($('#history-compare-from')?.value),to=Number($('#history-compare-to')?.value);
-    const svg=await historyChart(metric,[from,to]);if(state.view!=='history'||root!==$('#history-panel')||chart!==root.querySelector('#history-chart'))return;
+    const svg=await historyChart(metric,[from,to],'history');if(epoch!==state.contextEpoch||campaignId!==state.campaignId||snapshotId!==state.snapshot?.id||root!==$('#history-panel')||chart!==root.querySelector('#history-chart')||root.closest('.desk-window')?.hidden)return;
     chart.append(svg||el('div','empty-note',`No recorded ${metric} series is available for this snapshot page.`));
     const turns=state.history.filter(item=>item.turn<=(state.snapshot?.turn??Infinity)).map(item=>item.turn);const range=turns.length?`Chart page: turns ${Math.min(...turns)}–${Math.max(...turns)}.`:'No turns on this page.';const note=el('p','chart-note',`${range} ${metric==='military'?'Counts owned active units and fleets.':metric==='military_personnel'?'Counts owned ground strength and fleet crews.':metric==='projects'?'Counts active owned projects.':metric==='research'?'Counts completed technologies.':metric==='trade_spending'?'Trade spending is included in action credit spending.':'Values come from stored snapshot summaries.'}`);chart.append(note);
   }
   const reportSections={overview:'overview',economy:'economy',budget:'budget',logistics:'logistics',construction:'construction',research:'research',military:'military',diplomacy:'diplomacy',intelligence:'intelligence',exploration:'exploration',colonies:'colonies',characters:'characters',orders:'orders'};
   const reportAliases={industry:['economy','construction'],fleet:['military'],politics:['overview','diplomacy'],trade:['logistics','diplomacy'],factions:['diplomacy']};
+  function managementPanel(view){let panel=state.managementPanels.get(view);if(panel)return panel;panel=el('section','view-panel');panel.id=`management-${view}`;state.managementPanels.set(view,panel);return panel;}
+  function managementContext(){return `${state.contextEpoch}|${state.campaignId}|${state.snapshot?.id||''}|${liveState()?.turn??''}`;}
   async function loadManagement(view){
-    const campaignId=state.campaignId;const snapshotId=state.snapshot?.id;const turn=liveState()?.turn;const request=++state.managementSeq;
-    const panel=$('#management-panel');panel.replaceChildren(el('h2','view-heading',titleCase(view)),el('p','view-sub','Recorded campaign records · unsupported canon and statistics remain Unknown.'));
-    const s=liveState();if(!s){panel.append(el('div','note-box','No approved pre-game baseline exists. All numerical and canonical values remain Unknown.'));return;}
-    if(!s.settlements){panel.append(el('div','note-box','This section uses world-v2 management records. The selected world-v1 rules remain available through their original map, economy, history and handoff views.'));return;}
+    const campaignId=state.campaignId,snapshotId=state.snapshot?.id,turn=liveState()?.turn,epoch=state.contextEpoch,context=managementContext();
+    const panel=managementPanel(view);if(state.managementContexts.get(view)===context)return;
+    const request=(state.managementRequests.get(view)||0)+1;state.managementRequests.set(view,request);
+    panel.replaceChildren(el('h2','view-heading',titleCase(view)),el('p','view-sub','Recorded campaign records · unsupported canon and statistics remain Unknown.'));
+    const s=liveState();if(!s){panel.append(el('div','note-box',state.campaign?'No approved pre-game baseline exists. All numerical and canonical values remain Unknown.':'Choose a campaign to view its records.'));state.managementContexts.set(view,context);return;}
+    if(!s.settlements){panel.append(el('div','note-box','This section uses world-v2 management records. The selected world-v1 rules remain available through its map, economy, history and handoff views.'));state.managementContexts.set(view,context);return;}
     const sections=reportAliases[view]||[reportSections[view]||'overview'];let records=[];
     try{records=await Promise.all(sections.map(section=>api(`/api/player/campaigns/${encodeURIComponent(campaignId)}/systems?section=${encodeURIComponent(section)}${snapshotId?`&snapshot_id=${encodeURIComponent(snapshotId)}`:''}`)));}
-    catch(error){if(request===state.managementSeq)panel.append(el('div','note-box',`Management records are unavailable: ${error.message}`));return;}
-    if(request!==state.managementSeq||campaignId!==state.campaignId||snapshotId!==state.snapshot?.id||turn!==liveState()?.turn)return;
+    catch(error){if(request===state.managementRequests.get(view)&&epoch===state.contextEpoch&&campaignId===state.campaignId&&snapshotId===state.snapshot?.id&&turn===liveState()?.turn)panel.append(el('div','note-box',`Management records are unavailable: ${error.message}`));return;}
+    if(request!==state.managementRequests.get(view)||epoch!==state.contextEpoch||campaignId!==state.campaignId||snapshotId!==state.snapshot?.id||turn!==liveState()?.turn)return;
     const meta=el('div','metadata-grid');for(const [label,value]of [['Campaign date','Unknown'],['Ruler','Unknown'],['Government','Unknown'],['GDP','Unknown'],['Approval','Unknown'],['Discovery risk','Unknown']]){const box=el('div','metadata-field');box.append(el('small','',label),el('b','',value));meta.append(box);}panel.append(meta);
     for(let i=0;i<records.length;i++){const data=records[i].records;const heading=el('div','inspector-section',sections[i]===view?titleCase(view):titleCase(sections[i]));panel.append(heading);renderRecord(panel,data,view);}
     if(view==='budget')panel.append(el('div','note-box','Trade spending is included in total action credit spending. Treat it as a breakdown, not an additional deduction.'));
     if(view==='orders')panel.append(el('div','note-box','Order envelopes are imported, previewed and committed in the separate Orders & handoff view. The backend owns every calculation.'));
     if(isHistorical())panel.append(el('div','note-box','Historical report · read only · values come from this selected snapshot.'));
+    state.managementContexts.set(view,context);
   }
   function safeValue(value){if(value===null||value===undefined)return 'Unknown';if(typeof value==='boolean')return value?'Yes':'No';if(typeof value==='object')return JSON.stringify(value);return String(value);}
   function renderRecord(root,data,view){
@@ -275,73 +278,53 @@
     if(!state.gmToken){notify('Enter the GM token in Orders & handoff before restoring.',true);setView('orders');return;}
     if(!window.confirm(`Create a new demo branch from historical turn ${turn}? The existing campaign remains unchanged.`))return;
     const suggested=`${state.campaignId}-branch-${turn}`;const newId=window.prompt('New branch campaign ID',suggested);if(!newId)return;
-    try{const data=await api(`/api/admin/campaigns/${encodeURIComponent(state.campaignId)}/restore`,{method:'POST',headers:authHeaders(true),body:JSON.stringify({snapshot_id:snapshotId,new_campaign_id:newId})});await loadCampaigns(data.campaign_id);setView('planet');notify(`New branch created from turn ${turn}.`);}catch(e){showError(e);}
+    const campaignId=state.campaignId,epoch=state.contextEpoch;try{const data=await api(`/api/admin/campaigns/${encodeURIComponent(campaignId)}/restore`,{method:'POST',headers:authHeaders(true),body:JSON.stringify({snapshot_id:snapshotId,new_campaign_id:newId})});if(epoch!==state.contextEpoch||campaignId!==state.campaignId)return;clearCampaignContext();state.campaignId=data.campaign_id;await loadCampaigns(data.campaign_id);setView('planet');notify(`New branch created from turn ${turn}.`);}catch(e){if(epoch===state.contextEpoch&&campaignId===state.campaignId)showError(e);}
   }
   function outcomeSummary(o){if(!o)return 'Initial state';if(o.total_consumption){const production=Object.values(o.production||{}).reduce((sum,v)=>sum+(v.food||0),0);return `Food +${fmt(production)} / −${fmt(o.total_consumption.food||0)} · ${o.battles?.length||0} battles`;}return `Food −${fmt(o.food_consumed)} · Ore +${fmt(o.ore_produced)} · Energy +${fmt(o.energy_produced)}`;}
 
   function renderOrders(){const root=$('#orders-panel');root.replaceChildren();root.append(el('h2','view-heading','Orders & handoff'),el('p','view-sub','The backend validates and calculates every preview and committed turn. Narrative stays separate from mechanics.'));if(!state.campaign||state.campaign.kind!=='demo'){root.append(el('div','note-box','This pre-game campaign has no numeric rules baseline. Decision packets and turn submission are disabled.'));return;}if(isHistorical()){root.append(el('div','note-box','Return to the live campaign revision before preparing an order packet.'));return;}const grid=el('div','orders-grid');const left=el('div');const token=el('div','form-row');const tokenLabel=el('label','','GM TOKEN · HELD IN PAGE MEMORY ONLY');tokenLabel.htmlFor='gm-token';token.append(tokenLabel);const input=el('input');input.type='password';input.id='gm-token';input.autocomplete='off';input.value=state.gmToken;input.placeholder='Set WOLD_GM_TOKEN on the server';input.oninput=()=>state.gmToken=input.value;token.append(input);left.append(token);const actions=el('div','orders-actions');const packet=el('button','button','Export decision packet');packet.onclick=exportPacket;const example=el('button','button','Load example proposal');example.onclick=loadExample;actions.append(packet,example);left.append(actions);const file=el('div','form-row');file.append(el('label','','IMPORT JSON PROPOSAL'));const upload=el('input');upload.type='file';upload.accept='application/json,.json';upload.onchange=async()=>{if(upload.files[0]){$('#proposal-json').value=await upload.files[0].text();invalidatePreview();}};file.append(upload);left.append(file);const proposal=el('div','form-row');const proposalLabel=el('label','','PROPOSAL JSON');proposalLabel.htmlFor='proposal-json';proposal.append(proposalLabel);const area=el('textarea');area.id='proposal-json';area.spellcheck=false;area.placeholder='Export a packet, then paste or load a JSON proposal.';area.oninput=invalidatePreview;proposal.append(area);left.append(proposal);const buttons=el('div','orders-actions');const preview=el('button','button','Preview');preview.id='preview-order';preview.onclick=previewOrder;const commit=el('button','button','Commit validated turn');commit.id='commit-order';commit.disabled=true;commit.onclick=commitOrder;buttons.append(preview,commit);left.append(buttons);
     const right=el('div');const box=el('div','gm-explainer','1 · Export the current decision packet.\n2 · Have the GM return the exact JSON envelope.\n3 · Load it and preview the backend calculation.\n4 · Commit only after reviewing the result.\n\nA changed proposal invalidates its preview. Reusing a submission ID with different content is rejected.');box.style.whiteSpace='pre-line';right.append(box,el('div','inspector-section','BACKEND RESPONSE'),Object.assign(el('pre','result-box'),{id:'order-result',textContent:'No request yet.'}));grid.append(left,right);root.append(grid);}
-  async function exportPacket(){const campaignId=state.campaignId;try{const packet=await api(`/api/admin/campaigns/${encodeURIComponent(campaignId)}/packet`,{headers:authHeaders()});if(campaignId!==state.campaignId)return;const blob=new Blob([JSON.stringify(packet,null,2)],{type:'application/json'});const link=document.createElement('a');link.href=URL.createObjectURL(blob);link.download=`${state.campaignId}-decision-packet-turn-${packet.turn}.json`;link.click();URL.revokeObjectURL(link.href);text($('#order-result'),`Packet exported · turn ${packet.turn} · hash ${packet.base_hash}`);}catch(e){showError(e);}}
-  async function loadExample(){const campaignId=state.campaignId;try{const packet=await api(`/api/admin/campaigns/${encodeURIComponent(campaignId)}/packet`,{headers:authHeaders()});if(campaignId!==state.campaignId)return;$('#proposal-json').value=JSON.stringify(packet.example,null,2);invalidatePreview();}catch(e){showError(e);}}
+  async function exportPacket(){const campaignId=state.campaignId,epoch=state.contextEpoch;try{const packet=await api(`/api/admin/campaigns/${encodeURIComponent(campaignId)}/packet`,{headers:authHeaders()});if(epoch!==state.contextEpoch||campaignId!==state.campaignId)return;const blob=new Blob([JSON.stringify(packet,null,2)],{type:'application/json'});const link=document.createElement('a');link.href=URL.createObjectURL(blob);link.download=`${state.campaignId}-decision-packet-turn-${packet.turn}.json`;link.click();URL.revokeObjectURL(link.href);text($('#order-result'),`Packet exported · turn ${packet.turn} · hash ${packet.base_hash}`);}catch(e){if(epoch===state.contextEpoch&&campaignId===state.campaignId)showError(e);}}
+  async function loadExample(){const campaignId=state.campaignId,epoch=state.contextEpoch;try{const packet=await api(`/api/admin/campaigns/${encodeURIComponent(campaignId)}/packet`,{headers:authHeaders()});if(epoch!==state.contextEpoch||campaignId!==state.campaignId)return;$('#proposal-json').value=JSON.stringify(packet.example,null,2);invalidatePreview();}catch(e){if(epoch===state.contextEpoch&&campaignId===state.campaignId)showError(e);}}
   function invalidatePreview(){state.previewText=null;state.previewProposal=null;const b=$('#commit-order');if(b)b.disabled=true;const result=$('#order-result');if(result&&state.view==='orders')text(result,'Proposal changed. Preview it again before committing.');}
   function previewSummary(data) {
     if(data.duplicate)return {duplicate:true,snapshot_id:data.snapshot_id,turn:data.turn,state_hash:data.state_hash,outcome:data.outcome};
     const s=data.state;const totals=s?.owned_totals;
     return {duplicate:false,state_hash:data.state_hash,balances:s?{turn:s.turn,population:totals?.population??s.population,food:totals?.resources?.food??s.food,ore:totals?.resources?.ore??s.ore,energy:totals?.resources?.energy??s.energy,credits:totals?.resources?.credits}:undefined,outcome:data.outcome};
   }
-  async function previewOrder(){const campaignId=state.campaignId;try{const area=$('#proposal-json');const parsed=JSON.parse(area.value);const data=await api(`/api/admin/campaigns/${encodeURIComponent(campaignId)}/preview`,{method:'POST',headers:authHeaders(true),body:JSON.stringify(parsed)});if(campaignId!==state.campaignId)return;state.previewText=area.value;state.previewProposal=parsed;$('#commit-order').disabled=false;text($('#order-result'),JSON.stringify(previewSummary(data),null,2));}catch(e){state.previewText=null;$('#commit-order').disabled=true;showError(e);}}
-  async function commitOrder(){const campaignId=state.campaignId;const area=$('#proposal-json');if(!state.previewText||state.previewText!==area.value){invalidatePreview();return;}try{const data=await api(`/api/admin/campaigns/${encodeURIComponent(campaignId)}/commit`,{method:'POST',headers:authHeaders(true),body:JSON.stringify(state.previewProposal)});if(campaignId!==state.campaignId){notify(`Turn committed to ${campaignId}.`);return;}state.previewText=null;$('#commit-order').disabled=true;text($('#order-result'),JSON.stringify(data,null,2));await loadCampaign();if(state.view==='history')await loadHistory(0);notify(`Turn committed · archive ${data.archive_status||'pending'}`);}catch(e){showError(e);}}
+  async function previewOrder(){const campaignId=state.campaignId,epoch=state.contextEpoch;try{const area=$('#proposal-json');const parsed=JSON.parse(area.value);const data=await api(`/api/admin/campaigns/${encodeURIComponent(campaignId)}/preview`,{method:'POST',headers:authHeaders(true),body:JSON.stringify(parsed)});if(epoch!==state.contextEpoch||campaignId!==state.campaignId)return;state.previewText=area.value;state.previewProposal=parsed;$('#commit-order').disabled=false;text($('#order-result'),JSON.stringify(previewSummary(data),null,2));}catch(e){if(epoch!==state.contextEpoch||campaignId!==state.campaignId)return;state.previewText=null;$('#commit-order').disabled=true;showError(e);}}
+  async function commitOrder(){const campaignId=state.campaignId,epoch=state.contextEpoch;const area=$('#proposal-json');if(!state.previewText||state.previewText!==area.value){invalidatePreview();return;}try{const data=await api(`/api/admin/campaigns/${encodeURIComponent(campaignId)}/commit`,{method:'POST',headers:authHeaders(true),body:JSON.stringify(state.previewProposal)});if(epoch!==state.contextEpoch||campaignId!==state.campaignId)return;state.previewText=null;$('#commit-order').disabled=true;text($('#order-result'),JSON.stringify(data,null,2));clearCampaignContext();state.campaignId=campaignId;await loadCampaign();notify(`Turn committed · archive ${data.archive_status||'pending'}`);}catch(e){if(epoch===state.contextEpoch&&campaignId===state.campaignId)showError(e);}}
   function showError(error){text($('#status-text'),error.message||String(error));notify(error.message||String(error),true);}
 
-  function setView(view){state.view=view;document.querySelectorAll('.nav-item').forEach(n=>n.classList.toggle('active',n.dataset.view===view));const titles={planet:'CARTOGRAPHY',economy:'RESOURCE ADMINISTRATION',history:'ARCHIVE & HISTORY',orders:'GM HANDOFF'};text($('.eyebrow'),titles[view]||'CAMPAIGN RECORD');text($('.section-title h1'),view==='planet'?(state.mapRecord?.selected_planet?.name||state.mapRecord?.parent?.name||'Campaign map'):{economy:'Economy ledger',history:'Historical record',orders:'Orders & handoff'}[view]||titleCase(view));render();if(view==='planet')loadMap();if(view==='history')loadHistory(0).catch(showError);}
+  function setView(view){window.HWDesktop?.open(view);}
   function startClock(){const update=()=>text($('#clock'),new Date().toLocaleTimeString('en-AU', {timeZone:'Australia/Melbourne',hour:'2-digit',minute:'2-digit',hour12:false}));update();setInterval(update,15000);}
   function initMap(){
     const canvas=$('#planet-map');
-    canvas.addEventListener('pointerdown',e=>{if(e.button!==0)return;canvas.setPointerCapture(e.pointerId);state.drag={x:e.clientX,y:e.clientY,startX:state.panX,startY:state.panY,moved:false};});
+    canvas.addEventListener('pointerdown',e=>{if(e.button!==0)return;canvas.setPointerCapture(e.pointerId);state.drag={x:e.clientX,y:e.clientY,startX:state.panX,startY:state.panY,moved:false};window.HWDesktop?.setGesture(true);});
     canvas.addEventListener('pointermove',e=>{
       const point=canvasPoint(e);if(state.drag){const dx=e.clientX-state.drag.x,dy=e.clientY-state.drag.y;if(Math.abs(dx)+Math.abs(dy)>3)state.drag.moved=true;state.panX=state.drag.startX+dx;state.panY=state.drag.startY+dy;drawMap();return;}
       const tip=$('#map-tooltip');
       if(state.transform?.hierarchy){const hit=nearestMapNode(point);if(!hit){tip.hidden=true;return;}tip.hidden=false;text(tip,`${hit.n.name} · ${titleCase(hit.n.knowledge)} · click to inspect`);tip.style.left=`${Math.min(point.x+12,canvas.clientWidth-190)}px`;tip.style.top=`${Math.min(point.y+12,canvas.clientHeight-35)}px`;return;}
       const tile=tileAt(point);if(!tile){tip.hidden=true;return;}tip.hidden=false;const p=tile.province_id&&state.mapRecord?.geometry?.provinces.find(x=>x.id===tile.province_id);text(tip,`${terrainLabels[tile.terrain]||tile.terrain} · ${p?p.name:'Open water'} · ${tile.x}, ${tile.y}`);tip.style.left=`${Math.min(point.x+12,canvas.clientWidth-190)}px`;tip.style.top=`${Math.min(point.y+12,canvas.clientHeight-35)}px`;
     });
-    canvas.addEventListener('pointerup',e=>{if(!state.drag)return;const drag=state.drag;state.drag=null;if(drag.moved)return;const point=canvasPoint(e);if(state.transform?.hierarchy){const hit=nearestMapNode(point);if(hit){const next={sector:'sector',system:'system',planet:'planet'}[hit.n.kind];if(next){state.mapLevel=next;state.mapNodeId=hit.n.id;$('#map-level').value=next;state.zoom=1;state.panX=state.panY=0;loadMap();}}return;}const tile=tileAt(point);state.selectedEntity=null;state.selectedProvince=tile?.province_id||null;renderInspector(liveState(),state.campaign);drawMap();});
-    canvas.addEventListener('pointercancel',()=>state.drag=null);canvas.addEventListener('pointerleave',()=>$('#map-tooltip').hidden=true);canvas.addEventListener('wheel',e=>{e.preventDefault();zoomMap(e.deltaY<0?1.15:1/1.15);},{passive:false});new ResizeObserver(()=>drawMap()).observe(canvas.parentElement);
+    canvas.addEventListener('pointerup',e=>{if(!state.drag)return;const drag=state.drag;state.drag=null;window.HWDesktop?.setGesture(false);if(drag.moved)return;const point=canvasPoint(e);if(state.transform?.hierarchy){const hit=nearestMapNode(point);if(hit){const next={sector:'sector',system:'system',planet:'planet'}[hit.n.kind];if(next){state.mapLevel=next;state.mapNodeId=hit.n.id;$('#map-level').value=next;state.zoom=1;state.panX=state.panY=0;loadMap();}}return;}const tile=tileAt(point);state.selectedEntity=null;state.selectedProvince=tile?.province_id||null;renderInspector(liveState(),state.campaign);if(tile?.province_id)window.HWDesktop?.open('inspector');drawMap();});
+    const cancel=()=>{state.drag=null;window.HWDesktop?.setGesture(false);};canvas.addEventListener('pointercancel',cancel);canvas.addEventListener('lostpointercapture',cancel);canvas.addEventListener('pointerleave',()=>$('#map-tooltip').hidden=true);canvas.addEventListener('wheel',e=>{e.preventDefault();zoomMap(e.deltaY<0?1.15:1/1.15);},{passive:false});new ResizeObserver(()=>drawMap()).observe(canvas.parentElement);
   }
   function nearestMapNode(point){const positions=state.transform?.positions||[];let found=null,distance=Infinity;for(const item of positions){const d=Math.hypot(item.x-point.x,item.y-point.y);if(d<distance){found=item;distance=d;}}return distance<26?found:null;}
-  function wirePaneDragging(){
-    document.querySelectorAll('[data-drag-pane]').forEach(handle=>{
-      handle.addEventListener('pointerdown',event=>{
-        if(event.button!==0||event.target.closest('button,select,input'))return;
-        const pane=document.getElementById(handle.dataset.dragPane);
-        if(!pane)return;
-        const current=pane._dragOffset||{x:0,y:0};
-        pane._dragStart={pointer:event.pointerId,x:event.clientX,y:event.clientY,baseX:current.x,baseY:current.y};
-        handle.setPointerCapture(event.pointerId);
-        event.preventDefault();
-      });
-      handle.addEventListener('pointermove',event=>{
-        const pane=document.getElementById(handle.dataset.dragPane),drag=pane?._dragStart;
-        if(!drag||drag.pointer!==event.pointerId)return;
-        const x=drag.baseX+event.clientX-drag.x,y=drag.baseY+event.clientY-drag.y;
-        pane._dragOffset={x,y};pane.style.transform=`translate(${x}px,${y}px)`;
-      });
-      const finish=event=>{const pane=document.getElementById(handle.dataset.dragPane);if(pane?._dragStart?.pointer===event.pointerId)pane._dragStart=null;};
-      handle.addEventListener('pointerup',finish);handle.addEventListener('pointercancel',finish);
-    });
-  }
-  function resetPaneLayout(){
-    for(const id of ['map-panel','inspector','turn-window','log-window']){
-      const pane=document.getElementById(id);if(!pane)continue;
-      pane.style.removeProperty('transform');pane.style.removeProperty('width');pane.style.removeProperty('height');pane._dragOffset={x:0,y:0};
-    }
-    notify('Window positions and sizes reset.');
-  }
+  function resetPaneLayout(){window.HWDesktop?.resetLayout();notify('Window positions and sizes reset.');}
 
   function zoomMap(mult){state.zoom=Math.max(1,Math.min(5,state.zoom*mult));if(state.zoom===1)state.panX=state.panY=0;text($('#zoom-reset'),`${Math.round(state.zoom*100)}%`);drawMap();}
   function installNavIcons(){const colors=['#8b7751','#376f58','#a5792c','#4d6686','#8e5041','#687849','#9a7432','#4a7191'];document.querySelectorAll('.nav-item').forEach((button,index)=>{const view=button.dataset.view;button.title=titleCase(view);button.setAttribute('aria-label',`Open ${titleCase(view)} report`);if(button.querySelector('.nav-icon'))return;const icon=el('span','nav-icon');icon.setAttribute('aria-hidden','true');const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');svg.setAttribute('viewBox','0 0 16 16');svg.setAttribute('aria-hidden','true');const base=colors[index%colors.length];const shapes=[[[2,2],[3,2],[2,3],[3,3]],[[1,1],[2,1],[3,1],[1,2],[3,2],[1,3],[2,3],[3,3]],[[1,3],[2,2],[3,1],[3,2],[3,3]],[[1,1],[2,1],[3,1],[1,2],[2,2],[3,2],[2,3],[2,4]]][index%4];for(const [x,y]of shapes){const rect=document.createElementNS(svg.namespaceURI,'rect');rect.setAttribute('x',String(x*2));rect.setAttribute('y',String(y*2));rect.setAttribute('width','2');rect.setAttribute('height','2');rect.setAttribute('fill',base);svg.append(rect);}const frame=document.createElementNS(svg.namespaceURI,'rect');frame.setAttribute('x','1');frame.setAttribute('y','1');frame.setAttribute('width','14');frame.setAttribute('height','14');frame.setAttribute('fill','none');frame.setAttribute('stroke','#283743');frame.setAttribute('stroke-width','1');svg.append(frame);icon.append(svg);button.insertBefore(icon,button.firstChild);});}
-  function wire(){installNavIcons();document.querySelectorAll('.nav-item').forEach(button=>button.addEventListener('click',()=>setView(button.dataset.view)));$('#campaign-select').addEventListener('change',e=>{state.campaignListSeq++;state.campaignId=e.target.value;state.previewText=null;state.previewProposal=null;loadCampaign().catch(showError);});$('#refresh-button').onclick=()=>loadCampaigns(state.campaignId).catch(showError);$('#overlay-select').onchange=e=>{state.overlay=e.target.value;loadMap();};$('#map-level').onchange=e=>setMapLevel(e.target.value);$('#zoom-in').onclick=()=>zoomMap(1.2);$('#zoom-out').onclick=()=>zoomMap(1/1.2);$('#zoom-reset').onclick=()=>{state.zoom=1;state.panX=state.panY=0;text($('#zoom-reset'),'100%');drawMap();};$('#reset-layout').onclick=resetPaneLayout;$('#login-button').onclick=login;$('#logout-button').onclick=logout;wirePaneDragging();$('#status-text').textContent='Connecting';}
-  async function login(){const token=$('#access-token').value.trim();if(!token){notify('Enter an access token.',true);return;}state.accessToken=token;state.gmToken=token;try{await loadCampaigns();$('#logout-button').hidden=false;$('#login-button').hidden=true;text($('#status-text'),'Private access verified');notify('Signed in for this page session.');}catch(error){state.accessToken='';state.gmToken='';notify(error.message,true);}}
-  function logout(){state.accessToken='';state.gmToken='';state.campaigns=[];state.campaign=null;state.snapshot=null;state.campaignId=null;state.history=[];state.historyLoading=false;state.historyTotal=0;state.historyOffset=0;state.selectedProvince=null;state.selectedEntity=null;state.mapRecord=null;state.mapNodeId=null;state.previewText=null;state.previewProposal=null;state.campaignLoadSeq++;state.campaignListSeq++;state.historyLoadSeq++;state.managementSeq++;state.mapLoadSeq++;state.snapshotLoadSeq++;$('#campaign-select').replaceChildren();$('#access-token').value='';$('#logout-button').hidden=true;$('#login-button').hidden=false;render();text($('#status-text'),'Sign in required');}
-  async function boot(){wire();initMap();startClock();try{const access=await api('/api/access');state.privateMode=access.login_required;$('#access-box').hidden=!state.privateMode;if(state.privateMode){text($('#status-text'),'Sign in required');return;}await loadCampaigns();text($('#status-text'),'Connected to local campaign database');}catch(e){text($('#status-text'),`API unavailable · ${e.message}`);notify(`Backend unavailable: ${e.message}`,true);} }
+  function clearCampaignContext(){state.contextEpoch++;state.campaignLoadSeq++;state.campaignListSeq++;state.historyLoadSeq++;state.mapLoadSeq++;state.snapshotLoadSeq++;for(const [view,seq]of state.managementRequests)state.managementRequests.set(view,seq+1);state.campaign=null;state.snapshot=null;state.history=[];state.historyLoading=false;state.historyTotal=0;state.historyOffset=0;state.selectedProvince=null;state.selectedEntity=null;state.mapRecord=null;state.mapNodeId=null;state.mapLevel='galactic';state.panX=state.panY=0;state.zoom=1;state.previewText=null;state.previewProposal=null;state.managementContexts.clear();state.historyMetric='population';state.historyCompare=null;for(const panel of state.managementPanels.values())panel.replaceChildren();for(const id of ['economy-panel','history-panel','orders-panel'])$( `#${id}`).replaceChildren();$('#orders-panel').dataset.ready='';$('#campaign-kind').textContent='NO CAMPAIGN';$('#turn-badge').textContent='TURN —';$('#historical-badge').hidden=true;render();}
+  function createManagementWindow(view){let panel=managementPanel(view);const labels={industry:'Industry',fleet:'Fleet',politics:'Politics',trade:'Trade',factions:'Factions',budget:'Budget',logistics:'Logistics',construction:'Construction',research:'Research',military:'Military',diplomacy:'Diplomacy',intelligence:'Intelligence',exploration:'Exploration',colonies:'Colonies',characters:'Characters'};const i=[...document.querySelectorAll('.sidebar .nav-item')].find(button=>button.dataset.view===view);const index=i?[...document.querySelectorAll('.sidebar .nav-item')].indexOf(i):4;return window.HWDesktop.createWindow(view,labels[view]||titleCase(view),panel,{x:Math.max(12,90+(index%6)*30),y:Math.max(12,55+(index%5)*28),w:520,h:460});}
+  function onWindowOpen(view){state.view=view;if(view==='planet'){if(state.campaign&&liveState()&&!state.mapRecord)loadMap().catch(showError);}else if(view==='economy')renderEconomy().catch(showError);else if(view==='history'){if(!state.history.length&&!state.historyLoading)loadHistory(0).catch(showError);else renderHistory();}else if(view==='orders'){if(!$('#orders-panel').dataset.ready){renderOrders();$('#orders-panel').dataset.ready='true';}}else if(isManagementView(view))loadManagement(view).catch(showError);}
+  function wire(){
+    installNavIcons();$('#campaign-select').addEventListener('change',async e=>{const id=e.target.value||null;if(!id)return;clearCampaignContext();state.campaignId=id;state.view='planet';$('#map-level').value='galactic';render();const epoch=state.contextEpoch;try{await loadCampaign();if(epoch===state.contextEpoch&&state.campaignId===id&&state.campaign)window.HWDesktop.close('campaign');}catch(error){if(epoch===state.contextEpoch&&state.campaignId===id)showError(error);}});$('#refresh-button').onclick=()=>loadCampaigns(state.campaignId).catch(showError);
+    $('#overlay-select').onchange=e=>{state.overlay=e.target.value;loadMap();};$('#map-level').onchange=e=>setMapLevel(e.target.value);$('#zoom-in').onclick=()=>zoomMap(1.2);$('#zoom-out').onclick=()=>zoomMap(1/1.2);$('#zoom-reset').onclick=()=>{state.zoom=1;state.panX=state.panY=0;text($('#zoom-reset'),'100%');drawMap();};$('#reset-layout').onclick=resetPaneLayout;$('#login-button').onclick=login;$('#logout-button').onclick=logout;$('#status-text').textContent='Connecting';
+    window.HWDesktop.init();window.HWDesktop.setOnOpen(onWindowOpen);window.HWDesktop.setOnFocus(view=>{state.view=view;});window.HWDesktop.setOnCreate(createManagementWindow);
+  }
+  async function login(){const token=$('#access-token').value.trim();if(!token){notify('Enter an access token.',true);return;}clearCampaignContext();state.campaignId=null;state.accessToken=token;state.gmToken=token;const epoch=state.contextEpoch;$('#logout-button').hidden=false;$('#login-button').hidden=true;text($('#status-text'),'Checking private access');try{await loadCampaigns();if(epoch!==state.contextEpoch)return;text($('#status-text'),'Private access verified · choose a campaign');notify('Signed in for this page session.');}catch(error){if(epoch!==state.contextEpoch)return;state.accessToken='';state.gmToken='';$('#logout-button').hidden=true;$('#login-button').hidden=false;notify(error.message,true);}}
+  function logout(){clearCampaignContext();state.accessToken='';state.gmToken='';state.campaigns=[];state.campaignId=null;$('#campaign-select').replaceChildren(new Option('Select campaign…',''));$('#access-token').value='';$('#logout-button').hidden=true;$('#login-button').hidden=false;render();window.HWDesktop.open('campaign');text($('#status-text'),'Sign in required');}
+  async function boot(){wire();initMap();startClock();$('#campaign-select').append(new Option('Select campaign…',''));window.HWDesktop.open('campaign');try{const access=await api('/api/access');state.privateMode=access.login_required;$('#access-box').hidden=!state.privateMode;if(state.privateMode){text($('#status-text'),'Sign in required');return;}await loadCampaigns();text($('#status-text'),state.campaignId?'Connected to local campaign database':'Choose a campaign');}catch(e){text($('#status-text'),`API unavailable · ${e.message}`);notify(`Backend unavailable: ${e.message}`,true);} }
   boot();
 })();
