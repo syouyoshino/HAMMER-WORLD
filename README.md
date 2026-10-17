@@ -29,6 +29,14 @@ The `init` command creates the legacy demo and a pre-game campaign with no basel
 
 `WOLD_DATABASE_URL` selects PostgreSQL and is required. `WOLD_DB_SCHEMA` optionally selects a schema (defaults to `public`). The application reads environment variables directly; the shell commands above load `.env` for the current session. Runtime data is ignored by Git. Legacy SQLite databases are accepted only by the explicit migration command below.
 
+## Map desktop shell
+
+Choose a campaign explicitly after signing in (or after opening the local app). The strategic map fills the viewport. Use the **HW** button at the top-left, or briefly hover at the left edge, to open the command launcher. Pin it when needed; Escape dismisses it. Reports, Cartography controls, campaign selection and contextual inspection use floating Windows 95-style windows.
+
+Drag a window by its title bar, resize it where supported, or use its minimize, maximize/restore and close controls. Restore minimized windows from the launcher. **Clear desktop** hides the windows and launcher while keeping map selection, navigation, zoom, overlays and screen contents. Geometry and pin preference are browser UI settings; a reload starts clean and requires campaign selection again. Tokens remain in page memory.
+
+This feature branch is independent of the unavailable cartography workspace and does not claim to recover it. See [the branch continuation note](docs/branches/map-desktop-shell.md) for validation and integration details.
+
 ## ChatGPT handoff
 
 Export a packet from the dashboard's controlled import panel, or use the authorized Linux CLI:

@@ -46,3 +46,17 @@ This check starts Caddy and the application on loopback, uses a temporary local 
 ## Live integration
 
 Fake Drive tests verify retries, content verification and archive isolation. They do not establish a live Google connection. After configuring credentials and separate archive destinations, verify an authenticated upload and retry against Drive before claiming synchronization. Likewise, validate the chosen external HTTPS host before claiming deployment.
+
+## Map desktop shell branch
+
+`feature/map-desktop-shell` changes the dashboard interaction model. It requires explicit campaign selection after login, launches reports from the HW command launcher, and retains multiple floating screens. The original `browser_smoke.py` and `browser_v2.py` scripts describe the previous always-visible dashboard and automatic demo selection; their selectors and assumptions require adaptation before use on this branch. The branch-specific desktop browser workflow is the acceptance entry point for the new shell:
+
+```sh
+WOLD_TEST_DATABASE_URL=postgresql://USER@HOST/ISOLATED_TEST_DATABASE \
+WOLD_CHROMIUM_EXECUTABLE=/usr/bin/chromium \
+python tests/browser_desktop.py
+```
+
+The script uses disposable schemas, starts a private loopback server and generates only explicitly fictional demo fixtures. It removes its schema/server at completion and writes fresh captures under `data/previews/chromium-desktop-*.png`.
+
+Use an isolated PostgreSQL test database and the installed Chromium executable. Captures and runtime verification output belong under ignored `data/`; never commit private campaign records or tokens. See `docs/branches/map-desktop-shell.md` for the actual observed branch results and unavailable browser coverage. Do not interpret baseline stress results as new runs on this branch.
