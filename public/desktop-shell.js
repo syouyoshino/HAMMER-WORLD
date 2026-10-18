@@ -1,7 +1,7 @@
 (() => {
   'use strict';
   const entries = new Map();
-  const shell = {active:null,workspace:null,inspector:null,dialog:null,onOpen:null,onCreate:null,gesture:false,touchMenu:false,edgeEnabled:false,edgeTimers:{show:null,hide:null}};
+  const shell = {active:null,workspace:null,inspector:null,dialog:null,dialogReturnFocus:null,onOpen:null,onCreate:null,gesture:false,touchMenu:false,edgeEnabled:false,edgeTimers:{show:null,hide:null}};
   function register(id,title,node,options={}) {
     let entry=entries.get(id);
     if(entry){if(node)entry.node=node;entry.title=title||entry.title;return entry;}
@@ -11,6 +11,7 @@
     let item=entries.get(id);
     if(!item&&shell.onCreate)item=shell.onCreate(id);
     if(!item)return;
+    const prior=entries.get(shell.active);if(prior&&prior.id!==id)prior.shown=false;
     item.shown=true;item.minimized=false;
     if(id==='planet'){returnToMap();return;}
     if(id==='campaign'){showDialog(item);return;}
@@ -32,8 +33,8 @@
   function hideInspector(){if(shell.inspector)shell.inspector.hidden=true;const item=entries.get('inspector');if(item)item.shown=false;}
   function collapseInspector(){hideInspector();document.querySelector('#hw-command')?.focus();if(shell.onOpen)shell.onOpen('planet');}
   function showInspector(item){shell.inspector.hidden=false;item.shown=true;hideWorkspace();closeDialog();shell.inspector.focus();}
-  function showDialog(item){shell.dialog.hidden=false;document.querySelector('.command-backdrop').hidden=false;item.shown=true;hideWorkspace();hideInspector();if(shell.onOpen)shell.onOpen('campaign');shell.dialog.querySelector('input:not([type=hidden])')?.focus();}
-  function closeDialog(){if(shell.dialog)shell.dialog.hidden=true;const backdrop=document.querySelector('.command-backdrop');if(backdrop)backdrop.hidden=true;const item=entries.get('campaign');if(item)item.shown=false;document.querySelector('#hw-command')?.focus();}
+  function showDialog(item){shell.dialogReturnFocus=document.querySelector('#hw-command');shell.dialog.hidden=false;document.querySelector('.command-backdrop').hidden=false;item.shown=true;hideWorkspace();hideInspector();if(shell.onOpen)shell.onOpen('campaign');shell.dialog.querySelector('input:not([type=hidden])')?.focus();}
+  function closeDialog(){const wasOpen=shell.dialog&&!shell.dialog.hidden;if(shell.dialog)shell.dialog.hidden=true;const backdrop=document.querySelector('.command-backdrop');if(backdrop)backdrop.hidden=true;const item=entries.get('campaign');if(item)item.shown=false;if(wasOpen){const target=shell.dialogReturnFocus?.isConnected&&!shell.dialogReturnFocus.closest('[hidden]')?shell.dialogReturnFocus:document.querySelector('#hw-command');target?.focus();}shell.dialogReturnFocus=null;}
   const relatedGroups=[['economy','construction','industry','budget'],['military','fleet','logistics'],['politics','diplomacy','factions','trade'],['intelligence','exploration'],['history','turn','log'],['research'],['colonies'],['characters'],['orders']];
   const tabButtons=new Map();
   function updateTabs(id){const group=relatedGroups.find(items=>items.includes(id))||[id];const root=shell.workspace.querySelector('.workspace-tabs');root.replaceChildren();for(const key of group){const tab=tabButtons.get(key);if(tab){tab.classList.toggle('active',key===id);root.append(tab);}}}
@@ -41,7 +42,7 @@
   function clear(){hideWorkspace();hideInspector();closeDialog();const menu=document.querySelector('#command-menu');if(menu){menu.hidden=true;document.querySelector('#hw-command').setAttribute('aria-expanded','false');}}
   function build(){
     const root=document.createElement('div');root.id='desktop-shell';
-    root.innerHTML='<div id="map-backdrop"></div><header class="commandbar"><button id="hw-command" type="button" aria-label="Open command menu" aria-expanded="false"><span aria-hidden="true">☰</span><b>MENU</b></button><div class="command-brand">HAMMER WORLD <span>STRATEGIC COMMAND</span></div><div class="campaign-indicator"><label for="campaign-select">CAMPAIGN</label><span id="command-campaign">UNSELECTED</span></div><div class="command-indicators"><span id="command-turn">TURN —</span><span id="command-snapshot" hidden></span><span id="command-history" hidden>HISTORICAL</span><span id="command-pending" hidden>ARCHIVE PENDING</span></div></header><div id="resource-shell"></div><nav id="command-menu" hidden aria-label="Strategic command menu"><div class="menu-head"><strong>COMMANDS</strong><button class="button small" data-menu-close>Close</button></div><div class="menu-map"><button data-open="planet">Map overview</button><button data-open="inspector">Inspect selection</button></div><div class="menu-grid"></div></nav><section id="command-workspace" hidden aria-label="Management workspace"><header class="workspace-head"><button class="button small" data-return-map>← Map</button><div><small>COMMAND WORKSPACE</small><strong class="workspace-title"></strong><span class="workspace-scope"></span></div><button class="button small" data-workspace-inspect>Inspect selection</button><button class="button small" data-workspace-close aria-label="Return to map">×</button></header><nav class="workspace-tabs" aria-label="Related views"></nav><div class="workspace-content" tabindex="-1"></div></section><aside id="command-inspector" hidden aria-label="Selected record"><header><strong>SELECTED RECORD</strong><button class="button small" data-inspector-close aria-label="Collapse inspector">×</button></header><div class="inspector-holder"></div></aside><section id="command-dialog" hidden role="dialog" aria-modal="true"><div class="dialog-title"><strong>CAMPAIGN & ACCESS</strong><button class="button small" data-dialog-close>Close</button></div><div class="dialog-content"></div></section><div class="command-backdrop" hidden></div>';
+    root.innerHTML='<div id="map-backdrop"></div><header class="commandbar"><button id="hw-command" type="button" aria-label="Open command menu" aria-expanded="false"><span aria-hidden="true">☰</span><b>MENU</b></button><div class="command-brand">HAMMER WORLD <span>STRATEGIC COMMAND</span></div><div class="campaign-indicator"><label for="campaign-select">CAMPAIGN</label><span id="command-campaign">UNSELECTED</span></div><div class="command-indicators"><span id="command-turn">TURN —</span><span id="command-snapshot" hidden></span><span id="command-history" hidden>HISTORICAL</span><span id="command-pending" hidden>ARCHIVE PENDING</span></div></header><div id="resource-shell"></div><nav id="command-menu" hidden aria-label="Strategic command menu"><div class="menu-head"><strong>COMMANDS</strong><button class="button small" data-menu-close>Close</button></div><div class="menu-map"><button data-open="planet">Map overview</button><button data-open="inspector">Inspect selection</button></div><div class="menu-grid"></div></nav><section id="command-workspace" hidden aria-label="Management workspace"><header class="workspace-head"><button class="button small" data-return-map>← Map</button><div><small>COMMAND WORKSPACE</small><strong class="workspace-title"></strong><span class="workspace-scope"></span></div><button class="button small" data-workspace-inspect aria-label="Inspect selected record">Inspect</button><button class="button small" data-workspace-close aria-label="Return to map">×</button></header><nav class="workspace-tabs" aria-label="Related views"></nav><div class="workspace-content" tabindex="-1"></div></section><aside id="command-inspector" hidden aria-label="Selected record"><header><strong>SELECTED RECORD</strong><button class="button small" data-inspector-close aria-label="Collapse inspector">×</button></header><div class="inspector-holder"></div></aside><section id="command-dialog" hidden role="dialog" aria-modal="true"><div class="dialog-title"><strong>CAMPAIGN & ACCESS</strong><button class="button small" data-dialog-close>Close</button></div><div class="dialog-content"></div></section><div class="command-backdrop" hidden></div>';
     document.body.append(root);
     const frame=document.querySelector('.map-frame'), tools=document.querySelector('.map-tools'),crumb=document.querySelector('#map-breadcrumbs'),panel=document.querySelector('#map-panel'),title=document.querySelector('#view-title');
     const map=document.createElement('div');map.className='map-command-layer';map.append(title,crumb,panel);root.querySelector('#map-backdrop').append(frame,map);
@@ -61,8 +62,15 @@
     const previewStatus=document.createElement('span');previewStatus.id='command-preview';previewStatus.textContent='PREVIEW READY';previewStatus.hidden=true;root.querySelector('.command-indicators').insertBefore(previewStatus,root.querySelector('#command-history'));
     const edgeLabel=document.createElement('label');edgeLabel.className='edge-setting';const edgeToggle=document.createElement('input');edgeToggle.type='checkbox';edgeToggle.id='edge-shortcut';edgeLabel.append(edgeToggle,document.createTextNode(' Reveal menu at screen edge'));menu.append(edgeLabel);
     try{shell.edgeEnabled=localStorage.getItem('hw.command.edge.v1')==='true';}catch{shell.edgeEnabled=false;}edgeToggle.checked=shell.edgeEnabled;
-    const menuItems=[['campaign','Campaign & access'],['economy','Economy'],['construction','Construction'],['industry','Industry'],['research','Research'],['military','Military'],['fleet','Fleet'],['logistics','Logistics'],['budget','Budget'],['politics','Politics'],['trade','Trade'],['diplomacy','Diplomacy'],['factions','Factions'],['intelligence','Intelligence'],['exploration','Exploration'],['colonies','Colonies'],['characters','Characters'],['history','History & turn log'],['orders','Orders & handoff']];
-    for(const [id,label] of menuItems){const b=document.createElement('button');b.textContent=label;b.dataset.open=id;b.onclick=()=>{menu.hidden=true;root.querySelector('#hw-command').setAttribute('aria-expanded','false');shell.touchMenu=false;setActive(id);};menuGrid.append(b);}
+    const menuGroups=[
+      ['Campaign',[['campaign','Campaign & access']]],
+      ['Economy',[['economy','Economy'],['construction','Construction'],['industry','Industry'],['budget','Budget']]],
+      ['Forces',[['military','Military'],['fleet','Fleet'],['logistics','Logistics']]],
+      ['Politics & trade',[['politics','Politics'],['diplomacy','Diplomacy'],['factions','Factions'],['trade','Trade']]],
+      ['Intelligence',[['intelligence','Intelligence'],['exploration','Exploration'],['research','Research']]],
+      ['Records',[['colonies','Colonies'],['characters','Characters'],['history','History & turn log'],['orders','Orders & handoff']]]
+    ];
+    for(const [group,items] of menuGroups){const section=document.createElement('section');section.className='menu-group';section.append(Object.assign(document.createElement('h3'),{className:'menu-group-title',textContent:group}));const links=document.createElement('div');links.className='menu-group-links';for(const [id,label]of items){const b=document.createElement('button');b.textContent=label;b.dataset.open=id;b.onclick=()=>{menu.hidden=true;root.querySelector('#hw-command').setAttribute('aria-expanded','false');shell.touchMenu=false;setActive(id);};links.append(b);}section.append(links);menuGrid.append(section);}
     root.querySelectorAll('[data-open="planet"]').forEach(b=>b.onclick=returnToMap);
     root.querySelector('[data-open="inspector"]').onclick=()=>{menu.hidden=true;root.querySelector('#hw-command').setAttribute('aria-expanded','false');showInspector(entries.get('inspector'));shell.inspector.focus();};
     const cancelEdgeTimers=()=>{clearTimeout(shell.edgeTimers.show);clearTimeout(shell.edgeTimers.hide);shell.edgeTimers.show=shell.edgeTimers.hide=null;};
@@ -78,7 +86,14 @@
     const backdrop=root.querySelector('.command-backdrop');backdrop.onclick=closeDialog;
     document.addEventListener('pointermove',event=>{if(!shell.edgeEnabled||shell.gesture||event.pointerType==='touch'||shell.touchMenu)return;if(event.clientX<=3){clearTimeout(shell.edgeTimers.hide);clearTimeout(shell.edgeTimers.show);if(menu.hidden)shell.edgeTimers.show=setTimeout(()=>setMenu(true),240);}else if(!menu.matches(':hover')){clearTimeout(shell.edgeTimers.show);clearTimeout(shell.edgeTimers.hide);if(!menu.hidden)shell.edgeTimers.hide=setTimeout(()=>setMenu(false),460);}});
     menu.addEventListener('pointerenter',()=>clearTimeout(shell.edgeTimers.hide));menu.addEventListener('pointerleave',()=>{if(shell.edgeEnabled&&!shell.gesture&&!shell.touchMenu)shell.edgeTimers.hide=setTimeout(()=>setMenu(false),460);});
-    document.addEventListener('keydown',e=>{if(e.key==='Escape'){setMenu(false);if(!shell.dialog.hidden)closeDialog();else if(!shell.workspace.hidden)returnToMap();else collapseInspector();}});
+    document.addEventListener('keydown',e=>{
+      if(!shell.dialog.hidden&&e.key==='Tab'){
+        const focusable=[...shell.dialog.querySelectorAll('button:not(:disabled),input:not(:disabled),select:not(:disabled),textarea:not(:disabled),[tabindex]:not([tabindex="-1"])')].filter(node=>node.getClientRects().length>0);
+        if(focusable.length){const first=focusable[0],last=focusable.at(-1);if(!shell.dialog.contains(document.activeElement)){e.preventDefault();first.focus();}else if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus();}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}}
+        else{e.preventDefault();shell.dialog.focus();}
+      }
+      if(e.key==='Escape'){setMenu(false);if(!shell.dialog.hidden)closeDialog();else if(!shell.workspace.hidden)returnToMap();else collapseInspector();}
+    });
     window.addEventListener('resize',()=>{});
     shell.open=setActive;shell.createWindow=register;
   }

@@ -31,9 +31,9 @@ The `init` command creates the legacy demo and a pre-game campaign with no basel
 
 ## Strategic command interface
 
-Choose a campaign explicitly after signing in. The live strategic map stays mounted behind a compact command interface. **Menu** opens the available management destinations; campaign, turn and historical state remain visible. An optional edge-menu shortcut is separate from the primary button and starts disabled.
+The interface uses a monochrome aerospace-instrument design: off-white surfaces, graphite readouts, fine rules and a bundled technical monospace. Choose a campaign explicitly after signing in. The live strategic map stays mounted behind a compact command interface. **Menu** opens the available management destinations; campaign, turn and historical state remain visible. An optional edge-menu shortcut is separate from the primary button and starts disabled.
 
-Select a recorded province or settlement to inspect its condition. **Economy** and **Construction** open one management workspace with related navigation and explicit local/campaign scope. **Map** returns to strategic navigation without arranging windows. Collapse the inspector without clearing selection. Existing History comparisons and Orders & handoff retain their context when navigating between views.
+Select a recorded province or settlement to inspect its condition. **Economy** and **Construction** open one management workspace with related navigation and explicit local/campaign scope. **Map** returns to strategic navigation without arranging windows. Collapse the inspector without clearing selection. Existing History comparisons and Orders & handoff retain their context when navigating between views. Orders exposes proposal/preview state first, with token and JSON controls under a disclosure; calculated balances and settlement breakdowns remain reviewable before committing.
 
 Local stocks and recorded outcomes are not a ranked economic diagnosis or forecast. Character inspection shows available role/assignment records; relationship data is not supplied by the current model. Missing values remain unknown. No relationship graph or mechanics are fabricated.
 

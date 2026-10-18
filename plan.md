@@ -6,7 +6,7 @@ Status: local fictional demo implementation and acceptance complete, including t
 
 Build a persistent browser-based Warhammer 40,000 grand-strategy command interface. ChatGPT acts as GM; the Linux backend calculates and commits approved numerical rules; the dashboard visualizes recorded state. The actual campaign starts pre-game with unknown statistics. A clearly labelled fictional demo is isolated from campaign data.
 
-Preserve the Windows 95/98 visual direction: grey bevelled panels, blue title bars, bitmap-style typography, pixel maps and icons, dense statistics, persistent resource bar, navigation sidebar, resizable inspectors and event feed. The local demo now supports Galactic, Sector, System and Planetary maps and management reports; unsupported real campaign fields remain unknown.
+Current user-approved visual direction (18 October 2026): minimalist aerospace instrumentation, with off-white surfaces, graphite monospaced type, fine rules, alignment-led information groups and restrained selected controls. This supersedes the earlier Windows 95/98 visual direction. Retain the permanent map, compact command access, one management workspace and contextual inspector. The local demo supports Galactic, Sector, System and Planetary maps and management reports; unsupported real campaign fields remain unknown. See docs/reviews/instrument-design.md.
 
 ## 1. Housekeeping and agent hierarchy
 

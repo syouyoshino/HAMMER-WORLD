@@ -164,3 +164,16 @@ Bounded GPT-6.1 Sol high review for the simplified strategic interface. Supersed
 - Clearly distinguish campaign totals from local records. Resolve local settlements using recorded planet/province IDs, including multiple/absent settlements. Filter construction by recorded settlement IDs where requested; never invent local production, values or unknown canon.
 - Preserve retained Orders drafts, per-view context caches, asynchronous epoch/sequence checks, historical read-only behavior and valid hidden completion. Campaign/auth/snapshot transitions invalidate stale work; primary navigation does not reload campaign data. Same-campaign refresh retains valid map context.
 - Stop using old desktop geometry/pin preferences; leave unused keys harmless for rollback. Keep `HWDesktop` registration/open/close compatibility as the extension boundary for future character relationship screens. No new dependencies, router/store framework, backend simulation or geography changes.
+
+## ADR-012: aerospace instrument presentation
+
+User-authorized visual redesign on 18 October 2026. Supersedes the Windows-era visual requirements of earlier ADRs and plan text; ADR-011's retained map/data/navigation boundaries remain in force.
+
+- Adopt off-white surfaces, graphite technical typography, fine dividers, alignment-led groups and solid selected states. Remove bevelled chrome, navy title bars and stacked decorative frames. Use a self-hosted openly licensed font with attribution; add no frontend framework.
+- Adapt the supplied instrument photographs to real strategic workflows. Preserve normal contrast, labels and usable text sizes rather than reproducing photographic blur/faintness. Do not reproduce decorative gauges, fictional telemetry, control-room jargon or arbitrary numbers.
+- Keep the actual map/canvas, geometry and recorded entities. A muted presentation palette may change; generation, camera/input semantics, campaign rules and historical state must not.
+- Show recorded local population and civilians as distinct quantities; put technical IDs behind details. Group actual settlement conditions, holdings and construction without claiming unsupported diagnosis or forecasts. Relationship absence remains explicit until the authorized data model supplies relationships.
+- Apply the validated local journey's presentation patterns to management, History, Orders and access controls. Verify with fresh full-frame screenshots and actual browser workflows, then independent critique; no numeric score or screenshot alone establishes interaction quality.
+
+- Follow-up bounded Sol high diagnosis: hierarchy nodes must project into measured persistent-chrome safe bounds while the canvas remains full-frame; exclude transient management surfaces from bounds. Clip drawing/hits consistently, preserve source coordinates and planetary projection, and use one scheduled ResizeObserver for responsive chrome. Verify actual marker descent rather than selector reachability alone.
+- Report loaders de-duplicate same-context in-flight work and reject stale completions before marking a new view ready. Cold request bursts and genuinely cached transitions are measured separately; failed reads remain retryable.
