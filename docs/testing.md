@@ -76,3 +76,6 @@ The script runs the real private application with isolated fictional fixtures an
 
 
 The instrument release candidate adds actual Chromium browser zoom100–200% in a disposable profile, full physical viewport captures, retained hierarchy/planet camera checks and direct painted-marker navigation. See `docs/reviews/instrument-verification.md` and root `design-qa.md`. Current captures/metrics are ignored runtime evidence; no private data or screenshot assets belong in commits.
+
+
+The tactical overlay extension of `tests/browser_strategic.py` also commits supported build/recruit commands in its disposable fixture to check actual work and readiness graphics. Its response-only fixtures verify literal record-title rendering and unknown progress for invalid work without changing stored records. The optional generated map is loaded and toggled while underlying canvas pixels/context remain equal. Temporary artwork's first transfer and compositor cost are not included in cached transition metrics.

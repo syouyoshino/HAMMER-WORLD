@@ -75,3 +75,8 @@ The hierarchy extension is now independently accepted as well: actual desktop cl
 ## Command-station polish acceptance (`1ce20be`)
 
 Passed scoped visual review with map artwork excluded. Fresh source photographs and eight full product frames were supplied anonymously to a fresh Sol medium critic; no previous verdict/source history was supplied before its initial assessment. It accepted the instrument/military command-station direction with no evidenced P1/P2, then accepted two final expanded facility-ID frames. Independent review was visual only. Root browser workflow checks passed separately; see the branch continuation record for exact paths, browser/performance evidence and retained P3 findings. Final desktop/mobile captures: ignored `data/instrument-polish-final/`.
+
+
+## Tactical overlay and selective graphics (`093aff7`)
+
+Passed. A fresh Sol medium critic reviewed four anonymously named original instrument photos and eight full current product frames before source/history discussion, then independently exercised read-only desktop/phone navigation, resizing and keyboard scrolling. No confirmedP1/P2; small muted metadata and long truncated phone scope remainP3. The mid-record retained-scroll phone capture is preserved; independent first opening and resize navigation showed identity before metrics. Root full regression separately passes data-backed graphics, map/context, authentication/history/Orders, real browser zoom, malicious-looking record names and invalid work handling. A bounded Sol high review verified safe fixed SVG/text-node record titles after identifying and correcting the initial interpolation defect. See `docs/reviews/tactical-overlay.md` and branch continuation for exact evidence/method/limits.

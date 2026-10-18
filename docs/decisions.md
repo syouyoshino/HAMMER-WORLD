@@ -180,3 +180,6 @@ User-authorized visual redesign on 18 October 2026. Supersedes the Windows-era v
 
 
 - ADR-012 presentation follow-up (`1ce20be`): user requested a military battle-station feel and excluded cartography from this polish. Strengthen actual readouts/labels and compact records; do not invent readiness or diagnostic values. Opt-in `?map=placeholder` is a labeled, nonpersistent, pointer-transparent review overlay; keep the real map/canvas mounted underneath and leave cartography integration separate.
+
+
+- ADR-012 tactical overlay follow-up (`093aff7`): user explicitly requested translucent UI and local fogging of the map underneath, superseding the previous rejection of blur effects for this treatment. Retain sharp instrument geometry and readable text. A labeled generated map is opt-in review artwork, toggled in place above the stable canvas; it never supplies authoritative geography. Keep solid fallbacks when backdrop blur is unsupported. Icons supplement labels; graphical readiness/progress/history uses existing public values only. Render record names as text nodes beside fixed SVG elements.
