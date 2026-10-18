@@ -36,6 +36,8 @@
   function showDialog(item){shell.dialogReturnFocus=document.querySelector('#hw-command');shell.dialog.hidden=false;document.querySelector('.command-backdrop').hidden=false;item.shown=true;hideWorkspace();hideInspector();if(shell.onOpen)shell.onOpen('campaign');shell.dialog.querySelector('input:not([type=hidden])')?.focus();}
   function closeDialog(){const wasOpen=shell.dialog&&!shell.dialog.hidden;if(shell.dialog)shell.dialog.hidden=true;const backdrop=document.querySelector('.command-backdrop');if(backdrop)backdrop.hidden=true;const item=entries.get('campaign');if(item)item.shown=false;if(wasOpen){const target=shell.dialogReturnFocus?.isConnected&&!shell.dialogReturnFocus.closest('[hidden]')?shell.dialogReturnFocus:document.querySelector('#hw-command');target?.focus();}shell.dialogReturnFocus=null;}
   const relatedGroups=[['economy','construction','industry','budget'],['military','fleet','logistics'],['politics','diplomacy','factions','trade'],['intelligence','exploration'],['history','turn','log'],['research'],['colonies'],['characters'],['orders']];
+  const iconFor={economy:'M3 12h18M5 8h14M7 4h10M7 16h10M9 20h6',construction:'M4 20 12 4l8 16M7 14h10',industry:'M4 20V9l5 4V7l5 5V4l6 4v12z',budget:'M12 3v18M17 7.5c0-2-2-3-5-3s-5 1-5 3 2 3 5 4 5 2 5 4.5-2 4-5 4-5-1.5-5-4',military:'M12 3 20 7v5c0 5-4 8-8 10-4-2-8-5-8-10V7z',fleet:'M3 17 12 4l9 13-9-3zM12 14v7',logistics:'M3 6h11v11H3zM14 10h4l3 4v3h-7zM7 20h.01M18 20h.01',intelligence:'M2 12s3-7 10-7 10 7 10 7-3 7-10 7S2 12 2 12zM12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6',research:'M9 3h6M10 3v6l-5 9a2 2 0 0 0 2 3h10a2 2 0 0 0 2-3l-5-9V3',history:'M3 12a9 9 0 1 0 3-6M3 4v5h5M12 7v5l4 2',default:'M4 5h16v14H4zM8 9h8M8 13h8M8 16h5'};
+  function labelWithIcon(label,id){const path=iconFor[id]||iconFor.default;return `<svg class="command-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="${path}"/></svg><span>${label}</span>`;}
   const tabButtons=new Map();
   function updateTabs(id){const group=relatedGroups.find(items=>items.includes(id))||[id];const root=shell.workspace.querySelector('.workspace-tabs');root.replaceChildren();for(const key of group){const tab=tabButtons.get(key);if(tab){tab.classList.toggle('active',key===id);root.append(tab);}}}
   function close(id){if(id==='inspector'){hideInspector();return;}if(id==='campaign'){closeDialog();return;}if(id==='planet')return;if(shell.active===id)hideWorkspace();const item=entries.get(id);if(item)item.shown=false;}
@@ -46,12 +48,9 @@
     document.body.append(root);
     const frame=document.querySelector('.map-frame'), tools=document.querySelector('.map-tools'),crumb=document.querySelector('#map-breadcrumbs'),panel=document.querySelector('#map-panel'),title=document.querySelector('#view-title');
     const map=document.createElement('div');map.className='map-command-layer';map.append(title,crumb,panel);root.querySelector('#map-backdrop').append(frame,map);
-    if(new URLSearchParams(location.search).get('map')==='placeholder'){
-      document.body.classList.add('map-placeholder-mode');
-      const review=document.createElement('div');review.className='map-review-placeholder';review.setAttribute('aria-label','Schematic placeholder map for UI review');
-      review.innerHTML='<div class="review-orbit review-orbit-a"></div><div class="review-orbit review-orbit-b"></div><div class="review-axis review-axis-x"></div><div class="review-axis review-axis-y"></div><div class="review-center"><strong>SCHEMATIC PLACEHOLDER</strong><span>UI review · placeholder map</span><small>Cartography developed separately</small></div>';
-      root.querySelector('#map-backdrop').append(review);
-    }
+    const review=document.createElement('div');review.className='map-review-placeholder';review.setAttribute('aria-label','Temporary map artwork, unrelated to recorded map data');
+    review.innerHTML='<div class="review-center"><strong>TEMPORARY MAP ARTWORK</strong><span>UI review only · unrelated to recorded map</span></div>';
+    review.hidden=new URLSearchParams(location.search).get('map')!=='placeholder';root.querySelector('#map-backdrop').append(review);
     const resources=document.querySelector('#resource-strip');root.querySelector('#resource-shell').append(resources);
     const camp=document.createElement('div');camp.className='campaign-dialog-body';camp.append(document.querySelector('.campaign-ribbon'),document.querySelector('.access-box'));root.querySelector('#command-dialog .dialog-content').append(camp);
     shell.workspace=root.querySelector('#command-workspace');shell.inspector=root.querySelector('#command-inspector');shell.dialog=root.querySelector('#command-dialog');shell.inspector.tabIndex=-1;
@@ -59,7 +58,7 @@
     const inspector=document.createElement('div');inspector.className='inspector-holder-inner';inspector.append(document.querySelector('#inspector-content'));shell.inspector.querySelector('.inspector-holder').append(inspector);register('inspector','Selected record',inspector);
     const tabs=[['economy','Economy'],['industry','Industry'],['construction','Construction'],['research','Research'],['military','Military'],['fleet','Fleet'],['logistics','Logistics'],['budget','Budget'],['politics','Politics'],['trade','Trade'],['diplomacy','Diplomacy'],['factions','Factions'],['intelligence','Intelligence'],['exploration','Exploration'],['colonies','Colonies'],['characters','Characters'],['history','History'],['orders','Orders & handoff'],['turn','Turn report'],['log','Command log']];
     for(const [id,label] of tabs){let node=document.querySelector(`#${id}-panel`);if(id==='turn')node=document.querySelector('#turn-window');if(id==='log')node=document.querySelector('#log-window');const registerHere=['economy','history','orders','turn','log'].includes(id);if(registerHere)register(id,label,node);
-      const tab=document.createElement('button');tab.type='button';tab.textContent=label;tab.dataset.tab=id;tab.onclick=()=>setActive(id);tabButtons.set(id,tab);
+      const tab=document.createElement('button');tab.type='button';tab.innerHTML=labelWithIcon(label,id);tab.dataset.tab=id;tab.onclick=()=>setActive(id);tabButtons.set(id,tab);
     }
     for(const item of entries.values())if(item.node&&['economy','history','orders','turn','log'].includes(item.id)){item.node.hidden=true;shell.workspace.querySelector('.workspace-content').append(item.node);}
     const campaignSelect=document.querySelector('#campaign-select'), refresh=document.querySelector('#refresh-button');
@@ -67,6 +66,8 @@
     const menu=root.querySelector('#command-menu'),menuGrid=menu.querySelector('.menu-grid');
     const previewStatus=document.createElement('span');previewStatus.id='command-preview';previewStatus.textContent='PREVIEW READY';previewStatus.hidden=true;root.querySelector('.command-indicators').insertBefore(previewStatus,root.querySelector('#command-history'));
     const edgeLabel=document.createElement('label');edgeLabel.className='edge-setting';const edgeToggle=document.createElement('input');edgeToggle.type='checkbox';edgeToggle.id='edge-shortcut';edgeLabel.append(edgeToggle,document.createTextNode(' Reveal menu at screen edge'));menu.append(edgeLabel);
+    const mapLabel=document.createElement('label');mapLabel.className='edge-setting';const mapToggle=document.createElement('input');mapToggle.type='checkbox';mapToggle.id='temporary-map-toggle';mapToggle.checked=!review.hidden;mapLabel.append(mapToggle,document.createTextNode(' Temporary map artwork'));menu.append(mapLabel);
+    mapToggle.onchange=()=>{review.hidden=!mapToggle.checked;};
     try{shell.edgeEnabled=localStorage.getItem('hw.command.edge.v1')==='true';}catch{shell.edgeEnabled=false;}edgeToggle.checked=shell.edgeEnabled;
     const menuGroups=[
       ['Campaign',[['campaign','Campaign & access']]],
@@ -76,7 +77,7 @@
       ['Intelligence',[['intelligence','Intelligence'],['exploration','Exploration'],['research','Research']]],
       ['Records',[['colonies','Colonies'],['characters','Characters'],['history','History & turn log'],['orders','Orders & handoff']]]
     ];
-    for(const [group,items] of menuGroups){const section=document.createElement('section');section.className='menu-group';section.append(Object.assign(document.createElement('h3'),{className:'menu-group-title',textContent:group}));const links=document.createElement('div');links.className='menu-group-links';for(const [id,label]of items){const b=document.createElement('button');b.textContent=label;b.dataset.open=id;b.onclick=()=>{menu.hidden=true;root.querySelector('#hw-command').setAttribute('aria-expanded','false');shell.touchMenu=false;setActive(id);};links.append(b);}section.append(links);menuGrid.append(section);}
+    for(const [group,items] of menuGroups){const section=document.createElement('section');section.className='menu-group';section.append(Object.assign(document.createElement('h3'),{className:'menu-group-title',textContent:group}));const links=document.createElement('div');links.className='menu-group-links';for(const [id,label]of items){const b=document.createElement('button');b.innerHTML=labelWithIcon(label,id);b.dataset.open=id;b.onclick=()=>{menu.hidden=true;root.querySelector('#hw-command').setAttribute('aria-expanded','false');shell.touchMenu=false;setActive(id);};links.append(b);}section.append(links);menuGrid.append(section);}
     root.querySelectorAll('[data-open="planet"]').forEach(b=>b.onclick=returnToMap);
     root.querySelector('[data-open="inspector"]').onclick=()=>{menu.hidden=true;root.querySelector('#hw-command').setAttribute('aria-expanded','false');showInspector(entries.get('inspector'));shell.inspector.focus();};
     const cancelEdgeTimers=()=>{clearTimeout(shell.edgeTimers.show);clearTimeout(shell.edgeTimers.hide);shell.edgeTimers.show=shell.edgeTimers.hide=null;};

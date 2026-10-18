@@ -486,7 +486,7 @@
         const details=el('details','record-identifiers');details.append(el('summary','','Record IDs'));row(details,'Facility',facility.id);row(details,'Settlement',settlement.id);item.append(details);group.append(item);
       }
       const localProjects=projects.filter(x=>x.settlement_id===settlement.id);
-      if(localProjects.length){group.append(el('div','inspector-section','PROJECTS'));for(const project of localProjects){const item=el('div','local-record-row');const heading=el('strong','',titleCase(project.kind||project.name||'Construction project'));item.append(heading);if(Number.isFinite(project.work_done)&&Number.isFinite(project.work_required)){row(item,'Work complete',`${fmt(project.work_done)} / ${fmt(project.work_required)}`);}else item.append(el('div','view-sub','Work progress is not recorded.'));const details=el('details','record-identifiers');details.append(el('summary','','Record IDs'));row(details,'Project',project.id);row(details,'Settlement',settlement.id);item.append(details);group.append(item);}}
+      if(localProjects.length){group.append(el('div','inspector-section','PROJECTS'));for(const project of localProjects){const item=el('div','local-record-row');const heading=el('strong','',project.facility_kind?`${titleCase(project.facility_kind)} construction`:titleCase(project.kind||project.name||'Construction project'));item.append(heading);if(Number.isFinite(project.work_done)&&Number.isFinite(project.work_required)&&project.work_required>0&&project.work_done>=0&&project.work_done<=project.work_required){const progress=el('div','project-progress local-project-progress');const bar=document.createElement('progress');bar.max=project.work_required;bar.value=project.work_done;bar.setAttribute('aria-label',`Project work ${fmt(project.work_done)} of ${fmt(project.work_required)}`);progress.append(el('span','','WORK'),bar,el('strong','',`${fmt(project.work_done)} / ${fmt(project.work_required)}`));item.append(progress);}else item.append(el('div','view-sub local-project-progress-unknown','Work progress is not recorded.'));const details=el('details','record-identifiers');details.append(el('summary','','Record IDs'));row(details,'Project',project.id);row(details,'Settlement',settlement.id);item.append(details);group.append(item);}}
       panel.append(group);
     }
     if(!facilities.length&&!projects.length)panel.append(el('div','empty-note','No facilities or projects are recorded for the matching settlement IDs.'));
@@ -505,19 +505,29 @@
     if(item.type)return titleCase(item.type);
     return 'Recorded record';
   }
-  function renderRecordCards(root,items){
+  function renderRecordCards(root,items,view='',section=''){
     if(!items.length){root.append(el('div','empty-note','No records are available for this view.'));return;}
-    const visible=['kind','type','role','assignment','owner','location_id','system_id','planet_id','settlement_id','strength','crew','capacity','food_reserve','promethium_reserve','work_done','work_required','completed','status','experience','population','turn'];
+    const visible=['kind','type','role','assignment','owner','status','location_id','system_id','planet_id','settlement_id','strength','crew','readiness','capacity','food_reserve','promethium_reserve','work_done','work_required','completed','experience','population','turn'];
     const relation=/^(location|system|planet|settlement)_id$/;
     for(const item of items){
       if(!item||typeof item!=='object'){root.append(el('div','record-summary',safeValue(item)));continue;}
-      const card=el('article','record-summary');
-      card.append(el('h3','record-summary-title',recordTitle(item)));
+      const forces=['military','fleet'].includes(view)||['units','fleets'].includes(section);
+      const card=el('article',`record-summary${forces?' force-record':''}`);
+      const recordLabel=section==='projects'&&item.facility_kind?`${titleCase(item.facility_kind)} construction`:recordTitle(item);
+      const heading=el('header','force-record-head');const title=el('h3','record-summary-title',recordLabel);if(forces){const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');svg.setAttribute('class','command-icon');svg.setAttribute('viewBox','0 0 24 24');svg.setAttribute('aria-hidden','true');const path=document.createElementNS('http://www.w3.org/2000/svg','path');path.setAttribute('d',section==='fleets'||view==='fleet'?'M2 15h20l-3 5H6zM5 12h14M8 9h8M11 3h2v9':'M12 3 20 7v5c0 5-4 8-8 10-4-2-8-5-8-10V7z');svg.append(path);title.replaceChildren(svg,document.createTextNode(` ${recordLabel}`));}heading.append(title);
+      const locationKey=['location_id','system_id','planet_id','settlement_id'].find(key=>item[key]!==undefined&&item[key]!==null);
+      if(forces){const identity=[item.owner&&titleCase(safeValue(item.owner)),item.status&&titleCase(safeValue(item.status)),locationKey&&resolveRecordReference(item[locationKey])].filter(Boolean).join(' · ');if(identity)heading.append(el('span','force-identity',identity));}
+      card.append(heading);
       const facts=el('dl','record-facts');let shown=0;
-      for(const key of visible){if(!(key in item)||key==='kind'&&recordTitle(item)===titleCase(item.kind))continue;
+      const fieldOrder=forces?[...['strength','crew','readiness'],...visible.filter(key=>!['strength','crew','readiness'].includes(key))]:visible;
+      for(const key of fieldOrder){if(!(key in item)||key==='kind'&&recordTitle(item)===titleCase(item.kind)||forces&&(['owner','status'].includes(key)||key===locationKey))continue;
         if(item[key]===null||item[key]===undefined)continue;
-        const value=relation.test(key)?resolveRecordReference(item[key]):(['kind','type','role','owner','status','assignment'].includes(key)?titleCase(safeValue(item[key])):safeValue(item[key]));
-        const fact=el('div',`record-fact fact-${key}`);fact.append(el('dt','',titleCase(key.replace(/_id$/,''))),el('dd','',value));facts.append(fact);shown++;
+        const value=relation.test(key)?resolveRecordReference(item[key]):key==='readiness'&&Number.isFinite(item[key])?`${safeValue(item[key])}%`:(['kind','type','role','owner','status','assignment'].includes(key)?titleCase(safeValue(item[key])):safeValue(item[key]));
+        const fact=el('div',`record-fact fact-${key}`);fact.append(el('dt','',titleCase(key.replace(/_id$/,''))),el('dd','',value));if(['strength','crew','readiness'].includes(key))fact.classList.add('force-primary');if(['food_reserve','promethium_reserve','capacity','location_id','system_id','planet_id','settlement_id'].includes(key))fact.classList.add('force-secondary');facts.append(fact);shown++;
+      }
+      if(section==='projects'){
+        if(Number.isFinite(item.work_done)&&Number.isFinite(item.work_required)&&item.work_required>0&&item.work_done>=0&&item.work_done<=item.work_required){const progress=el('div','project-progress');const bar=document.createElement('progress');bar.max=item.work_required;bar.value=item.work_done;bar.setAttribute('aria-label',`Project work ${fmt(item.work_done)} of ${fmt(item.work_required)}`);progress.append(el('span','','WORK'),bar,el('strong','',`${fmt(item.work_done)} / ${fmt(item.work_required)}`));card.append(progress);}
+        else card.append(el('div','view-sub project-progress-unknown','Work progress not recorded.'));
       }
       if(shown)card.append(facts);
       if(item.id){const inspect=el('button','link-button entity-select','Inspect record');inspect.type='button';inspect.onclick=()=>selectEntity(item);card.append(inspect);}
@@ -528,11 +538,11 @@
   }
   function renderRecord(root,data,view){
     if(data===null||data===undefined){root.append(el('div','empty-note','No recorded values for this turn.'));return;}
-    if(Array.isArray(data)){renderRecordCards(root,data);return;}
+    if(Array.isArray(data)){renderRecordCards(root,data,view,view);return;}
     if(typeof data!=='object'){row(root,'Value',safeValue(data));return;}
     const entries=Object.entries(data);if(!entries.length){root.append(el('div','empty-note','No recorded values.'));return;}
     if(view==='fleet')entries.sort(([a],[b])=>(a==='fleets'?-1:0)-(b==='fleets'?-1:0));
-    for(const [key,value] of entries){if(Array.isArray(value)){if(titleCase(key)!==titleCase(view))root.append(el('div','inspector-section',titleCase(key)));renderRecordCards(root,value);}
+    for(const [key,value] of entries){if(Array.isArray(value)){if(titleCase(key)!==titleCase(view))root.append(el('div','inspector-section',titleCase(key)));renderRecordCards(root,value,view,key);}
       else if(value&&typeof value==='object'){const box=el('div','report-group');box.append(el('div','report-group-title',titleCase(key)));for(const [sub,val]of Object.entries(value)){if(Array.isArray(val)){box.append(el('div','inspector-section',titleCase(sub)));renderTable(box,val,true);}else row(box,titleCase(sub),safeValue(val));}root.append(box);}
       else row(root,titleCase(key),safeValue(value));}
   }

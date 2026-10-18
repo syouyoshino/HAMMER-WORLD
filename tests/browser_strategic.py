@@ -134,6 +134,9 @@ def check_placeholder_review(browser, base, player, out):
         review = page.locator(".map-review-placeholder")
         assert review.is_visible()
         assert review.evaluate("el=>getComputedStyle(el).pointerEvents") == "none"
+        image_url = review.evaluate("el=>getComputedStyle(el).backgroundImage")
+        assert "/static/images/tactical-placeholder.png" in image_url
+        page.wait_for_function("performance.getEntriesByType('resource').some(r=>r.name.includes('/static/images/tactical-placeholder.png')&&r.responseEnd>0)")
         page.evaluate("window.reviewCanvas=document.querySelector('#planet-map')")
         descend_hierarchy(page, ["Hearth", "Cinder", "Reach"])
         page.locator("#hw-command").click()
@@ -145,6 +148,37 @@ def check_placeholder_review(browser, base, player, out):
         assert "Reach" in page.locator("#map-breadcrumbs").inner_text()
         assert page.locator("#command-workspace").is_hidden()
         page.screenshot(path=str(out / "placeholder-map.png"))
+        pixels = page.locator("#planet-map").evaluate("el=>el.toDataURL()")
+        page.locator("#hw-command").click()
+        page.locator("#temporary-map-toggle").uncheck()
+        assert review.is_hidden()
+        page.locator("#temporary-map-toggle").check()
+        assert review.is_visible()
+        assert page.locator("#planet-map").evaluate("el=>el.toDataURL()") == pixels
+        page.keyboard.press("Escape")
+        # A public response fixture proves record names remain literal text with SVG icons.
+        literal_title = '<img src=x onerror="window.recordTitleInjected=true">'
+        def named_record(route):
+            response = route.fetch()
+            data = response.json()
+            data["records"]["units"][0]["name"] = literal_title
+            route.fulfill(response=response, json=data)
+        page.route("**/systems?section=military*", named_record)
+        page.evaluate("HWDesktop.open('military')")
+        page.wait_for_function("document.querySelector('#management-military')?.innerText.includes('onerror')")
+        title = page.locator("#management-military .force-record .record-summary-title").first
+        assert title.inner_text().strip() == literal_title
+        assert title.locator("svg").count() == 1 and title.locator("img").count() == 0
+        assert not page.evaluate("Boolean(window.recordTitleInjected)")
+        def invalid_project(route):
+            response = route.fetch()
+            data = response.json()
+            data["records"]["projects"][0]["work_done"] = -1
+            route.fulfill(response=response, json=data)
+        page.route("**/systems?section=construction*", invalid_project)
+        page.evaluate("HWDesktop.open('construction')")
+        page.wait_for_selector("#management-construction .project-progress-unknown", state="attached")
+        assert page.locator("#management-construction .campaign-scope progress").count() == 0
         assert not errors, errors
         return {"direct_hierarchy_input": "passes through review backdrop", "canvas_identity": "retained", "page_errors": errors}
     finally:
@@ -487,7 +521,7 @@ def main():
                 proposal["submission_id"]="strategic-browser-turn"
                 proposal["orders"]={"allocations":[
                     {"settlement_id":"demo-v2-forge",**{key:0 for key in ALLOCATIONS},"farmers":300,"miners":20,"technicians":32,"refiners":10,"drillers":10,"machinists":5,"scientists":5,"builders":5},
-                    {"settlement_id":"demo-v2-outpost",**{key:0 for key in ALLOCATIONS},"farmers":100}],"actions":[]}
+                    {"settlement_id":"demo-v2-outpost",**{key:0 for key in ALLOCATIONS},"farmers":100}],"actions":[{"type":"build","settlement_id":"demo-v2-forge","facility_kind":"farm"},{"type":"recruit","settlement_id":"demo-v2-forge"}]}
                 page.fill("#proposal-json",json.dumps(proposal))
                 page.click("#preview-order")
                 page.wait_for_function("document.querySelector('#command-preview').hidden===false && !document.querySelector('#commit-order').disabled")
@@ -506,6 +540,26 @@ def main():
                 assert page.locator("#proposal-json").input_value()==json.dumps(proposal)
                 page.click("#commit-order")
                 page.wait_for_function("document.querySelector('#command-turn').textContent === 'TURN 1' && document.querySelector('#command-preview').hidden")
+                # Actual supported build/recruit commands supply the new graphics' values.
+                committed = httpx.get(base + "/api/player/campaigns/demo-v2", headers={"Authorization": "Bearer " + player}).json()["state"]
+                project = committed["projects"][0]
+                page.evaluate("HWDesktop.open('construction')")
+                page.wait_for_selector("#management-construction [data-scope=campaign]")
+                page.locator("#management-construction [data-scope=campaign]").click()
+                progress = page.locator("#management-construction .campaign-scope progress").first
+                progress.wait_for(state="visible")
+                assert progress.evaluate("el=>({value:el.value,max:el.max})") == {"value": project["work_done"], "max": project["work_required"]}
+                page.screenshot(path=str(out / "construction-progress.png"))
+                page.evaluate("HWDesktop.open('military')")
+                readiness = page.locator("#management-military .fact-readiness dd").first
+                readiness.wait_for(state="visible")
+                expected_unit = next(unit for unit in committed["units"] if unit.get("owner") == "player")
+                assert readiness.inner_text().rstrip("%") == str(expected_unit["readiness"])
+                page.screenshot(path=str(out / "military-readiness.png"))
+                page.evaluate("HWDesktop.open('economy')")
+                page.locator("#economy-panel [data-scope=campaign]").click()
+                page.wait_for_selector("#economy-panel .chart-box svg")
+                page.screenshot(path=str(out / "economy-trend.png"))
                 page.evaluate("window.HWDesktop.open('history')")
                 page.wait_for_function("document.querySelectorAll('#history-panel tbody tr').length===2")
                 page.select_option("#history-compare-from","0")

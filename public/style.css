@@ -238,6 +238,8 @@ button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-
 .workspace-tabs button { flex: none; min-height: 37px; padding: 6px 12px; color: var(--muted); background: transparent; border: 0; border-bottom: 2px solid transparent; font: inherit; font-size: 11px; }
 .workspace-tabs button:hover { color: var(--ink); background: var(--paper-alt); }
 .workspace-tabs button.active { color: var(--selection-ink); background: var(--selection); border-bottom-color: var(--selection); }
+.workspace-tabs button, .menu-map button, .menu-grid button { display: inline-flex; align-items: center; gap: 7px; }
+.command-icon { flex: none; width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: square; stroke-linejoin: miter; }
 .workspace-content { flex: 1; min-height: 0; overflow: auto; padding: 20px 24px 26px; background: var(--paper); overscroll-behavior: contain; }
 .workspace-content > .view-panel { min-height: 0; padding: 0; background: transparent; border: 0; }
 .view-heading { margin: 0 0 3px; color: var(--ink); font: 20px/1.35 var(--mono); font-weight: 700; }
@@ -298,6 +300,18 @@ button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-
 .record-fact.fact-strength, .record-fact.fact-crew { padding-bottom: 3px; border-bottom: 1px solid var(--line-strong); }
 .record-fact.fact-strength dd, .record-fact.fact-crew dd { font-size: 20px; font-weight: 700; }
 .record-summary .entity-select { margin: 2px 12px 2px 0; }
+.force-record { padding: 11px 0 13px; }
+.force-record-head { display: flex; align-items: baseline; justify-content: space-between; gap: 14px; }
+.force-record .record-summary-title { margin: 0; }
+.force-identity { color: var(--muted); font-size: 10px; text-align: right; }
+.force-record .record-facts { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 5px 12px; margin-top: 8px; }
+.force-record .record-fact.force-primary dd { color: var(--ink); font-size: 19px; font-weight: 700; }
+.force-record .record-fact.force-primary dt { font-size: 11px; }
+.force-record .record-fact.force-secondary dd { font-size: 12px; }
+.project-progress { display: grid; grid-template-columns: auto minmax(90px,1fr) auto; align-items: center; gap: 9px; margin: 7px 0; font-size: 10px; }
+.project-progress progress { width: 100%; height: 8px; accent-color: #394244; }
+.project-progress strong { font-size: 11px; font-weight: 700; }
+.local-record-row .local-project-progress, .local-record-row .local-project-progress-unknown { grid-column: 1 / -1; }
 .preview-summary-title { display: block; margin: 0 0 8px; font-size: 14px; }
 .preview-balances, .preview-outcomes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px 14px; margin: 0 0 12px; }
 .preview-balance, .preview-outcome { min-width: 0; }
@@ -352,34 +366,63 @@ button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-
 .toast.error { background: #5b302d; }
 .archive-pending, .archive-verified { color: var(--ink); }
 
-/* Opt-in schematic review field; the live canvas stays mounted below it. */
+/* Opt-in generated artwork for interface review; the live canvas stays mounted below it. */
 .map-review-placeholder {
   position: absolute;
   z-index: 2;
   inset: 0;
   overflow: hidden;
-  display: grid;
-  place-items: center;
-  color: var(--muted);
-  background-color: var(--map-ground);
-  background-image: linear-gradient(rgb(125 133 133 / 9%) 1px, transparent 1px), linear-gradient(90deg, rgb(125 133 133 / 9%) 1px, transparent 1px);
-  background-size: 44px 44px;
+  display: block;
+  background: center / cover no-repeat url('/static/images/tactical-placeholder.png');
   pointer-events: none;
 }
-.review-center { z-index: 1; display: grid; gap: 8px; justify-items: center; padding: 16px; background: var(--map-ground); text-align: center; }
-.review-center strong { color: var(--ink); font-size: 12px; letter-spacing: .12em; }
-.review-center span { font-size: 12px; }
-.review-center small { font-size: 10px; }
-.review-orbit { position: absolute; width: min(54vw, 560px); aspect-ratio: 1; border: 1px solid rgb(110 117 119 / 30%); border-radius: 50%; }
-.review-orbit-a { transform: scaleY(.38) rotate(-18deg); }
-.review-orbit-b { transform: scaleY(.38) rotate(38deg); }
-.review-axis { position: absolute; background: rgb(110 117 119 / 20%); }
-.review-axis-x { width: min(76vw, 820px); height: 1px; }
-.review-axis-y { width: 1px; height: min(70vh, 620px); }
-body.map-placeholder-mode .map-review-placeholder { display: grid; }
+.review-center { position: absolute; right: 12px; bottom: 88px; display: grid; gap: 3px; padding: 7px 9px; color: #252b2d; background: rgb(246 246 239 / 91%); border-left: 2px solid #424a4b; text-align: left; }
+.review-center strong { font-size: 10px; letter-spacing: .08em; }
+.review-center span { font-size: 9px; }
+.map-review-placeholder[hidden] { display: none !important; }
+.map-review-placeholder:not([hidden]) { display: block; }
+
+/* Map controls remain legible over the temporary artwork. */
+#resource-shell, #view-title, #map-breadcrumbs, #map-panel .map-caption,
+#map-panel .map-legend, #map-panel .map-footer {
+  padding: 6px 8px;
+  color: #252b2d;
+  background: #f6f6ef;
+}
+@supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  #resource-shell, #view-title, #map-breadcrumbs, #map-panel .map-caption,
+  #map-panel .map-legend, #map-panel .map-footer {
+    background: rgb(246 246 239 / 91%);
+    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
+  }
+}
+#view-title { padding: 7px 9px; }
+#map-panel .map-caption { bottom: 56px; left: 18px; }
+#map-panel .map-legend { bottom: 56px; right: 18px; }
+#map-panel .map-footer { bottom: 18px; padding-top: 7px; border-top-color: rgb(65 72 73 / 32%); }
+
+/* The shell itself blurs the map below; its child layers stay clear. */
+#command-menu, #command-workspace, #command-inspector {
+  background: #f4f4ed;
+}
+@supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  #command-menu, #command-workspace, #command-inspector {
+    background: rgb(244 244 237 / 82%);
+    -webkit-backdrop-filter: blur(11px);
+    backdrop-filter: blur(11px);
+  }
+}
+#command-workspace .workspace-head, #command-workspace .workspace-tabs,
+#command-workspace .workspace-content, #command-inspector > header,
+#command-inspector footer { background: transparent; }
+#command-inspector .inspector-holder { background: transparent; }
 
 @media (max-width: 780px) {
   body { font-size: 12px; }
+  #view-title { padding: 0 6px; }
+  #map-breadcrumbs { padding: 2px 6px; }
+  #map-panel .map-caption, #map-panel .map-legend { padding: 2px 5px; }
   .commandbar { gap: 10px; padding: 5px 8px; }
   .command-brand { display: none; }
   .campaign-indicator { margin-left: auto; }
@@ -407,6 +450,7 @@ body.map-placeholder-mode .map-review-placeholder { display: grid; }
   #map-panel .map-legend { right: 8px; bottom: 42px; left: 8px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); justify-content: stretch; max-width: none; gap: 3px 6px; }
   .legend-key { font-size: 8px; }
   #map-panel .map-footer { right: 8px; bottom: 8px; left: 8px; align-items: center; flex-direction: row; gap: 8px; font-size: 8px; }
+  .review-center { right: 8px; bottom: 112px; }
   #live-banner { top: 207px; left: 8px; }
   #command-menu { top: 50px; left: 8px; width: min(450px, calc(100vw - 16px)); padding: 12px; }
   #command-workspace { top: auto; bottom: 8px; left: 8px; width: calc(100vw - 16px); height: min(650px, calc(100vh - 230px)); min-height: 300px; transform: none; }
@@ -465,6 +509,10 @@ body.map-placeholder-mode .map-review-placeholder { display: grid; }
   .workspace-content { padding: 12px 10px 16px; }
   .local-vital-grid, .condition-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .record-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .force-record .record-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .force-record-head { align-items: flex-start; flex-direction: column; gap: 2px; }
+  .force-identity { text-align: left; }
+  .workspace-tabs .command-icon, .menu-grid .command-icon { width: 14px; height: 14px; }
   .preview-balances, .preview-outcomes { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .economy-stock-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .local-record-row { grid-template-columns: minmax(0, 1fr) auto auto; }
