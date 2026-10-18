@@ -118,6 +118,39 @@ def check_browser_zoom(playwright, executable, base, player, out):
     return results
 
 
+def check_placeholder_review(browser, base, player, out):
+    """The opt-in review backdrop must retain normal controls and canvas input."""
+    page = browser.new_page(viewport={"width": 1280, "height": 900})
+    errors = []
+    page.on("pageerror", lambda error: errors.append(str(error)))
+    try:
+        page.goto(base + "?map=placeholder")
+        page.fill("#access-token", player)
+        page.locator("#login-button").click()
+        page.wait_for_function("document.querySelectorAll('#campaign-select option').length===2")
+        page.locator("[data-dialog-close]").click()
+        page.select_option("#campaign-select", "demo-v2")
+        page.wait_for_function("document.querySelector('#map-placeholder').hidden")
+        review = page.locator(".map-review-placeholder")
+        assert review.is_visible()
+        assert review.evaluate("el=>getComputedStyle(el).pointerEvents") == "none"
+        page.evaluate("window.reviewCanvas=document.querySelector('#planet-map')")
+        descend_hierarchy(page, ["Hearth", "Cinder", "Reach"])
+        page.locator("#hw-command").click()
+        page.locator("[data-open=economy]").click()
+        page.wait_for_selector("#command-workspace:not([hidden])")
+        page.screenshot(path=str(out / "placeholder-economy.png"))
+        page.locator("[data-return-map]").click()
+        assert page.evaluate("window.reviewCanvas===document.querySelector('#planet-map')")
+        assert "Reach" in page.locator("#map-breadcrumbs").inner_text()
+        assert page.locator("#command-workspace").is_hidden()
+        page.screenshot(path=str(out / "placeholder-map.png"))
+        assert not errors, errors
+        return {"direct_hierarchy_input": "passes through review backdrop", "canvas_identity": "retained", "page_errors": errors}
+    finally:
+        page.close()
+
+
 def main():
     dsn = os.environ["WOLD_TEST_DATABASE_URL"]
     schema = "browser_strategic_" + uuid.uuid4().hex
@@ -520,6 +553,7 @@ def main():
                 metrics={"viewport":"1280x900, 656x518, 390x844","fixture":"isolated demo-v2 PostgreSQL","map_levels":["galactic","sector","system","planet"],"timings":timings,"cold_burst_history_requests":len(cold_history),"warm_cycles":len(cycle_times),"dom_nodes_before":before_dom,"dom_nodes_after":after_dom,"api_resources_before":before_requests,"api_resources_after":after_requests,"canvas_identity":"retained", "camera_overlay_selection":"pixels and controls retained", "cdp_before":before_memory, "cdp_after":after_memory,"page_errors":errors}
                 assert not errors, errors
                 (out/"metrics.json").write_text(json.dumps(metrics,indent=2)+"\n")
+                metrics["placeholder_review"] = check_placeholder_review(browser, base, player, out)
                 browser.close()
                 metrics["browser_zoom"] = check_browser_zoom(playwright, executable, base, player, out)
                 (out/"metrics.json").write_text(json.dumps(metrics,indent=2)+"\n")

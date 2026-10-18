@@ -326,7 +326,7 @@
           ['Local soldiers',settlement.local_soldiers],['Housing',settlement.housing],['Unrest',settlement.unrest]
         ]){
           if(value===undefined)continue;
-          const vital=el('div','local-vital');vital.append(el('dt','',label),el('dd','',value==null?'Unknown':fmt(value)));vitalGrid.append(vital);
+          const vital=el('div',`local-vital${label==='Local population'?' local-vital-primary':''}`);vital.append(el('dt','',label),el('dd','',value==null?'Unknown':fmt(value)));vitalGrid.append(vital);
         }
         group.append(vitalGrid);
         const outcome=s.latest_outcome,production=outcome?.production?.[settlement.id],consumption=outcome?.consumption?.[settlement.id];
@@ -517,7 +517,7 @@
       for(const key of visible){if(!(key in item)||key==='kind'&&recordTitle(item)===titleCase(item.kind))continue;
         if(item[key]===null||item[key]===undefined)continue;
         const value=relation.test(key)?resolveRecordReference(item[key]):(['kind','type','role','owner','status','assignment'].includes(key)?titleCase(safeValue(item[key])):safeValue(item[key]));
-        const fact=el('div','record-fact');fact.append(el('dt','',titleCase(key.replace(/_id$/,''))),el('dd','',value));facts.append(fact);shown++;
+        const fact=el('div',`record-fact fact-${key}`);fact.append(el('dt','',titleCase(key.replace(/_id$/,''))),el('dd','',value));facts.append(fact);shown++;
       }
       if(shown)card.append(facts);
       if(item.id){const inspect=el('button','link-button entity-select','Inspect record');inspect.type='button';inspect.onclick=()=>selectEntity(item);card.append(inspect);}
