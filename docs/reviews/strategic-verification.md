@@ -1,5 +1,7 @@
 # Strategic interface verification
 
+Historical evidence for milestone `85971b0`. Current instrument-design verification is in `instrument-verification.md`; later coverage supersedes its browser-zoom limitation.
+
 ## Environment and scope
 
 Observed environment: managed Linux 6.18.55 x86_64, glibc 2.41; three visible logical CPUs (AMD EPYC 9V74 host model); Python 3.12.14; Node 24.19.0; Debian Chromium 154.0.8037.57; PostgreSQL 17.11 on loopback. Browser runs use isolated schemas, standard fictional fixtures and a private loopback API. They do not initialize or alter a real campaign.

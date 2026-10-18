@@ -72,4 +72,7 @@ WOLD_CHROMIUM_EXECUTABLE=/usr/bin/chromium \
 python tests/browser_strategic.py
 ```
 
-The script runs the real private application with isolated fictional fixtures and retains evidence under ignored `data/strategic-candidate/`. See `docs/reviews/strategic-verification.md` for actual coverage, environment, timing definitions and limits. The older `browser_desktop.py` is useful to reproduce the `65f8321` baseline; it does not define the current workspace UX. Keep historical evidence distinct from fresh candidate results.
+The script runs the real private application with isolated fictional fixtures and retains evidence under ignored `data/instrument-candidate/` (override with `WOLD_BROWSER_ARTIFACT_DIR`). See `docs/reviews/strategic-verification.md` for actual coverage, environment, timing definitions and limits. The older `browser_desktop.py` is useful to reproduce the `65f8321` baseline; it does not define the current workspace UX. Keep historical evidence distinct from fresh candidate results.
+
+
+The instrument release candidate adds actual Chromium browser zoom100–200% in a disposable profile, full physical viewport captures, retained hierarchy/planet camera checks and direct painted-marker navigation. See `docs/reviews/instrument-verification.md` and root `design-qa.md`. Current captures/metrics are ignored runtime evidence; no private data or screenshot assets belong in commits.
