@@ -70,3 +70,8 @@ The final implementation checklist is complete: material findings corrected; fre
 
 
 The hierarchy extension is now independently accepted as well: actual desktop clicks, phone taps and200% browser-zoom direct Hearth → Cinder → Reach descent passed, with all known markers below persistent chrome. No new P0/P1/P2 remained. Final full-suite metrics and boundaries are recorded in `docs/reviews/instrument-verification.md`. Per-context in-flight de-duplication/stale-completion/retry probes passed separately; cached timing starts only after the new context is warmed.
+
+
+## Command-station polish acceptance (`1ce20be`)
+
+Passed scoped visual review with map artwork excluded. Fresh source photographs and eight full product frames were supplied anonymously to a fresh Sol medium critic; no previous verdict/source history was supplied before its initial assessment. It accepted the instrument/military command-station direction with no evidenced P1/P2, then accepted two final expanded facility-ID frames. Independent review was visual only. Root browser workflow checks passed separately; see the branch continuation record for exact paths, browser/performance evidence and retained P3 findings. Final desktop/mobile captures: ignored `data/instrument-polish-final/`.

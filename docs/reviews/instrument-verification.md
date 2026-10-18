@@ -39,3 +39,8 @@ These counts include the expanded four-map/direct-descent and cold-warmup test s
 Nine focused backend/API tests passed freshly in1.149s: the five v2 acceptance cases plus static/API handoff, private campaign filtering, preview/commit/retry/stale and pre-game/restore behavior. Backend source and simulation rules are unchanged. No expensive simulation stress repeat was performed for these presentation changes; existing10,000-turn evidence belongs to the earlier backend milestone.
 
 Chromium desktop and emulated touch are covered. WebKit remains unavailable: its distribution hosts rejected downloads under the workspace policy in the earlier milestone. Native macOS Safari remains unverified. No deployed/operational-security/backups/recovery certification is claimed.
+
+
+## Subsequent command-station polish
+
+See `docs/branches/map-desktop-shell.md`, Military command-station polish, for fresh `1ce20be` evidence. The complete Chromium regression passed, including a new `?map=placeholder` input/canvas-retention check. Updated runtime measurements are in ignored `data/instrument-polish-regression/metrics.json`; the final CSS disclosure-width fix was then checked by fresh desktop/phone captures. Original environment/method boundaries still apply.

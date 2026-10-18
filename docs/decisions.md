@@ -177,3 +177,6 @@ User-authorized visual redesign on 18 October 2026. Supersedes the Windows-era v
 
 - Follow-up bounded Sol high diagnosis: hierarchy nodes must project into measured persistent-chrome safe bounds while the canvas remains full-frame; exclude transient management surfaces from bounds. Clip drawing/hits consistently, preserve source coordinates and planetary projection, and use one scheduled ResizeObserver for responsive chrome. Verify actual marker descent rather than selector reachability alone.
 - Report loaders de-duplicate same-context in-flight work and reject stale completions before marking a new view ready. Cold request bursts and genuinely cached transitions are measured separately; failed reads remain retryable.
+
+
+- ADR-012 presentation follow-up (`1ce20be`): user requested a military battle-station feel and excluded cartography from this polish. Strengthen actual readouts/labels and compact records; do not invent readiness or diagnostic values. Opt-in `?map=placeholder` is a labeled, nonpersistent, pointer-transparent review overlay; keep the real map/canvas mounted underneath and leave cartography integration separate.
