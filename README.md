@@ -29,13 +29,15 @@ The `init` command creates the legacy demo and a pre-game campaign with no basel
 
 `WOLD_DATABASE_URL` selects PostgreSQL and is required. `WOLD_DB_SCHEMA` optionally selects a schema (defaults to `public`). The application reads environment variables directly; the shell commands above load `.env` for the current session. Runtime data is ignored by Git. Legacy SQLite databases are accepted only by the explicit migration command below.
 
-## Map desktop shell
+## Strategic command interface
 
-Choose a campaign explicitly after signing in (or after opening the local app). The strategic map fills the viewport. Use the **HW** button at the top-left, or briefly hover at the left edge, to open the command launcher. Pin it when needed; Escape dismisses it. Reports, Cartography controls, campaign selection and contextual inspection use floating Windows 95-style windows.
+Choose a campaign explicitly after signing in. The live strategic map stays mounted behind a compact command interface. **Menu** opens the available management destinations; campaign, turn and historical state remain visible. An optional edge-menu shortcut is separate from the primary button and starts disabled.
 
-Drag a window by its title bar, resize it where supported, or use its minimize, maximize/restore and close controls. Restore minimized windows from the launcher. **Clear desktop** hides the windows and launcher while keeping map selection, navigation, zoom, overlays and screen contents. Geometry and pin preference are browser UI settings; a reload starts clean and requires campaign selection again. Tokens remain in page memory.
+Select a recorded province or settlement to inspect its condition. **Economy** and **Construction** open one management workspace with related navigation and explicit local/campaign scope. **Map** returns to strategic navigation without arranging windows. Collapse the inspector without clearing selection. Existing History comparisons and Orders & handoff retain their context when navigating between views.
 
-This feature branch is independent of the unavailable cartography workspace and does not claim to recover it. See [the branch continuation note](docs/branches/map-desktop-shell.md) for validation and integration details.
+Local stocks and recorded outcomes are not a ranked economic diagnosis or forecast. Character inspection shows available role/assignment records; relationship data is not supplied by the current model. Missing values remain unknown. No relationship graph or mechanics are fabricated.
+
+This branch is an interface release candidate. It neither recovers the unavailable cloud workspace nor modifies the separate character-relationships branch. See [the continuation note](docs/branches/map-desktop-shell.md) and [workflow comparison record](docs/reviews/strategic-workflow-comparison.md) for evidence and limitations. It is not a deployed or operationally certified release.
 
 ## ChatGPT handoff
 

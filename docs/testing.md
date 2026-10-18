@@ -60,3 +60,16 @@ python tests/browser_desktop.py
 The script uses disposable schemas, starts a private loopback server and generates only explicitly fictional demo fixtures. It removes its schema/server at completion and writes fresh captures under `data/previews/chromium-desktop-*.png`.
 
 Use an isolated PostgreSQL test database and the installed Chromium executable. Captures and runtime verification output belong under ignored `data/`; never commit private campaign records or tokens. See `docs/branches/map-desktop-shell.md` for the actual observed branch results and unavailable browser coverage. Do not interpret baseline stress results as new runs on this branch.
+
+
+## Simplified strategic-interface candidate
+
+Use the new interaction contract rather than the prior floating-window selectors:
+
+```sh
+WOLD_TEST_DATABASE_URL=postgresql://USER@HOST/ISOLATED_TEST_DATABASE \
+WOLD_CHROMIUM_EXECUTABLE=/usr/bin/chromium \
+python tests/browser_strategic.py
+```
+
+The script runs the real private application with isolated fictional fixtures and retains evidence under ignored `data/strategic-candidate/`. See `docs/reviews/strategic-verification.md` for actual coverage, environment, timing definitions and limits. The older `browser_desktop.py` is useful to reproduce the `65f8321` baseline; it does not define the current workspace UX. Keep historical evidence distinct from fresh candidate results.
