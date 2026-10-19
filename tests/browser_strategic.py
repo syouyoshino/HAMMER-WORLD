@@ -170,6 +170,18 @@ def check_placeholder_review(browser, base, player, out):
         page.locator("#temporary-map-toggle").check()
         assert review.is_visible()
         assert page.locator("#planet-map").evaluate("el=>el.toDataURL()") == pixels
+        # Navigation labels remain readable, with distinct domain symbols and colour
+        # cues supplementing the labels rather than replacing them.
+        menu_items = page.locator("#command-menu .menu-grid button").evaluate_all("""nodes=>nodes.map(n=>{
+          const label=n.querySelector('span'), icon=n.querySelector('svg');
+          const a=n.getBoundingClientRect(), b=label.getBoundingClientRect();
+          return {id:n.dataset.open, fits:b.right<=a.right+1 && b.left>=a.left,
+            stroke:getComputedStyle(icon).stroke, path:icon.querySelector('path').getAttribute('d')};
+        })""")
+        assert all(item["fits"] for item in menu_items), menu_items
+        assert len({item["stroke"] for item in menu_items}) >= 4
+        distinct = {item["path"] for item in menu_items if item["id"] in ("characters", "diplomacy", "trade", "orders")}
+        assert len(distinct) == 4
         page.keyboard.press("Escape")
         # A public response fixture proves record names remain literal text with SVG icons.
         literal_title = '<img src=x onerror="window.recordTitleInjected=true">'
@@ -182,9 +194,27 @@ def check_placeholder_review(browser, base, player, out):
         page.evaluate("HWDesktop.open('military')")
         page.wait_for_function("document.querySelector('#management-military')?.innerText.includes('onerror')")
         title = page.locator("#management-military .force-record .record-summary-title").first
-        assert title.inner_text().strip() == literal_title
+        assert title.evaluate("el=>[...el.childNodes].filter(n=>n.nodeType===Node.TEXT_NODE).map(n=>n.textContent).join('').trim()") == literal_title
         assert title.locator("svg").count() == 1 and title.locator("img").count() == 0
         assert not page.evaluate("Boolean(window.recordTitleInjected)")
+        page.evaluate("HWDesktop.open('fleet')")
+        page.wait_for_selector("#management-fleet .force-owner-tag")
+        fleet_cards = page.locator("#management-fleet .force-record")
+        ground = fleet_cards.filter(has=page.locator("h3", has_text="Ground")).first
+        transport = fleet_cards.filter(has=page.locator("h3", has_text="Transport")).first
+        assert ground.locator("h3 path").get_attribute("d") != transport.locator("h3 path").get_attribute("d")
+        assert page.locator("#management-fleet .force-owner-tag", has_text="FOREIGN").count() > 0
+        page.evaluate("HWDesktop.open('industry')")
+        page.wait_for_selector("#management-industry .settlement-breakdown")
+        production = public_state["latest_outcome"]["production"][settlement["id"]]
+        breakdown = page.locator("#management-industry .settlement-breakdown").filter(has=page.locator("h4", has_text=settlement["name"])).first
+        assert f"{production['food']} units" in breakdown.inner_text()
+        page.evaluate("HWDesktop.open('budget')")
+        page.wait_for_selector("#management-budget .settlement-breakdown")
+        budget = httpx.get(base + "/api/player/campaigns/demo-v2/systems?section=budget", headers={"Authorization": "Bearer " + player}).json()["records"]
+        spending = page.locator("#management-budget .settlement-breakdown").filter(has=page.locator("h4", has_text=settlement["name"])).first
+        assert f"{budget['spending'][settlement['id']]['upkeep_credits']} credits" in spending.inner_text()
+        assert "{" not in spending.inner_text()
         def invalid_project(route):
             response = route.fetch()
             data = response.json()
@@ -445,7 +475,7 @@ def main():
                         sentinels = list(dict.fromkeys(x for record in expected for x in strings(record)))[:3]
                         page.wait_for_function("arg=>{const p=document.querySelector('#management-'+arg.view);return p&&arg.values.every(x=>p.textContent.includes(x))}", arg={"view":destination,"values":sentinels})
                         if not sentinels:
-                            page.wait_for_function("view=>document.querySelector('#management-'+view)?.querySelector('.empty-note')?.textContent.match(/No recorded values|No records/)", arg=destination)
+                            page.wait_for_function("view=>[...document.querySelectorAll('#management-'+view+' .empty-note')].some(n=>/^No .*record/.test(n.textContent))", arg=destination)
                     visible = page.locator(".workspace-content > :not([hidden])")
                     assert visible.count() == 1, f"More than one primary report visible for {destination}"
                 page.evaluate("window.HWDesktop.open('history')")

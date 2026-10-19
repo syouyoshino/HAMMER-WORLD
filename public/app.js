@@ -450,7 +450,7 @@
     const range=turns.length?`Turns ${Math.min(...turns)}–${Math.max(...turns)}.`:'No turns on this page.';const note=el('p','chart-note',`${range} ${metric==='military'?'Counts owned active units and fleets.':metric==='military_personnel'?'Counts owned ground strength and fleet crews.':metric==='projects'?'Counts active owned projects.':metric==='research'?'Counts completed technologies.':metric==='trade_spending'?'Trade spending is included in action credit spending.':'Values come from stored snapshot summaries.'}`);chart.append(note);
   }
   const reportSections={overview:'overview',economy:'economy',budget:'budget',logistics:'logistics',construction:'construction',research:'research',military:'military',diplomacy:'diplomacy',intelligence:'intelligence',exploration:'exploration',colonies:'colonies',characters:'characters',orders:'orders'};
-  const reportAliases={industry:['economy','construction'],fleet:['military'],politics:['overview','diplomacy'],trade:['logistics','diplomacy'],factions:['diplomacy']};
+  const reportAliases={industry:['economy','construction'],fleet:['military'],politics:['diplomacy','overview'],trade:['logistics','diplomacy'],factions:['diplomacy']};
   function managementPanel(view){let panel=state.managementPanels.get(view);if(panel)return panel;panel=el('section','view-panel');panel.id=`management-${view}`;state.managementPanels.set(view,panel);return panel;}
   function managementContext(){return `${state.contextEpoch}|${state.campaignId}|${state.snapshot?.id||''}|${liveState()?.turn??''}|${state.selectedProvince||''}|${state.mapRecord?.selected_planet?.id||''}`;}
   async function loadManagement(view){
@@ -476,7 +476,11 @@
       campaignPane.append(el('div','inspector-section','CAMPAIGN-WIDE FACILITIES & PROJECTS · ALL SETTLEMENTS'));
       for(let i=0;i<records.length;i++){const data=records[i].records;if(sections[i]!==view)campaignPane.append(el('div','inspector-section',titleCase(sections[i])));renderRecord(campaignPane,data,view);}
       const choose=value=>{const local=value==='local'&&Boolean(province);localPane.hidden=!local;campaignPane.hidden=local;localButton.classList.toggle('active',local);campaignButton.classList.toggle('active',!local);window.HWDesktop?.setScope(selectedScope('construction'));};localButton.onclick=()=>choose('local');campaignButton.onclick=()=>choose('campaign');choose(province?'local':'campaign');
-    }else for(let i=0;i<records.length;i++){const data=records[i].records;if(sections[i]!==view)panel.append(el('div','inspector-section',titleCase(sections[i])));renderRecord(panel,data,view);}
+    }else {
+      const introductions={industry:'Settlement production, followed by recorded facilities and projects.',politics:'Contacted factions and treaties, followed by the related settlement and turn overview.',trade:'Shipments and depot facilities, followed by contacted factions and treaties.',research:'Completed technologies and recorded research projects.',exploration:'Recorded exploration missions and discoveries.',logistics:'Recorded shipments and depot facilities.'};
+      if(introductions[view])panel.append(el('p','view-sub management-intro',introductions[view]));
+      for(let i=0;i<records.length;i++){const data=records[i].records;if(sections[i]!==view)panel.append(el('div','inspector-section',titleCase(sections[i])));renderRecord(panel,data,view,sections[i]);}
+    }
     if(view==='budget')panel.append(el('div','note-box','Trade spending is included in total action credit spending. Treat it as a breakdown, not an additional deduction.'));
     if(view==='orders')panel.append(el('div','note-box','Order envelopes are imported, previewed and committed in the separate Orders & handoff view. The backend owns every calculation.'));
     if(isHistorical())panel.append(el('div','note-box','Historical report · read only · values come from this selected snapshot.'));
@@ -503,6 +507,16 @@
     if(!facilities.length&&!projects.length)panel.append(el('div','empty-note','No facilities or projects are recorded for the matching settlement IDs.'));
   }
   function safeValue(value){if(value===null||value===undefined)return 'Unknown';if(typeof value==='boolean')return value?'Yes':'No';if(typeof value==='object')return JSON.stringify(value);return String(value);}
+  function settlementLabel(id){const s=liveState()?.settlements?.find(item=>item.id===id);return s?.name||resolveRecordReference(id);}
+  function renderSettlementBreakdown(root,heading,records,units={}){
+    if(!records||typeof records!=='object'||Array.isArray(records))return false;
+    const group=el('section','report-group');group.append(el('h3','report-group-title',heading));let count=0;
+    for(const [id,values] of Object.entries(records)){if(!values||typeof values!=='object'||Array.isArray(values))continue;const block=el('div','settlement-breakdown');block.append(el('h4','settlement-breakdown-title',settlementLabel(id)));const dl=el('dl','settlement-breakdown-facts');
+      for(const [key,value] of Object.entries(values)){if(value===null||value===undefined||typeof value==='object')continue;dl.append(el('dt','',titleCase(key.replaceAll('_',' '))),el('dd','',`${safeValue(value)}${units[key]?' '+units[key]:''}`));count++;}
+      if(dl.childElementCount){block.append(dl);group.append(block);}
+    }
+    if(count)root.append(group);return count>0;
+  }
   function resolveRecordReference(value){
     if(typeof value!=='string')return safeValue(value);
     const s=liveState(),records=[...(s?.nodes||[]),...(s?.settlements||[]),...(s?.facilities||[]),...(s?.projects||[]),...(state.mapRecord?.nodes||[]),...(state.mapRecord?.bodies||[]),...(state.mapRecord?.geometry?.provinces||[])];
@@ -517,17 +531,17 @@
     return 'Recorded record';
   }
   function renderRecordCards(root,items,view='',section=''){
-    if(!items.length){root.append(el('div','empty-note','No records are available for this view.'));return;}
-    const visible=['kind','type','role','assignment','owner','status','location_id','system_id','planet_id','settlement_id','strength','crew','readiness','capacity','food_reserve','promethium_reserve','work_done','work_required','completed','experience','population','turn'];
+    if(!items.length){const empty={technologies:'No completed technologies are recorded.',missions:'No exploration missions are recorded.',discoveries:'No discoveries are recorded.',shipments:'No shipments are recorded.',depots:'No depot facilities are recorded.'};const message=section==='projects'?(view==='research'?'No research projects are recorded.':'No construction projects are recorded.'):empty[section]||'No records are available for this view.';root.append(el('div','empty-note',message));return;}
+    const visible=['kind','type','role','assignment','owner','contacted','status','location_id','system_id','planet_id','settlement_id','strength','crew','readiness','capacity','food_reserve','promethium_reserve','work_done','work_required','completed','experience','population','turn'];
     const relation=/^(location|system|planet|settlement)_id$/;
     for(const item of items){
       if(!item||typeof item!=='object'){root.append(el('div','record-summary',safeValue(item)));continue;}
       const forces=['military','fleet'].includes(view)||['units','fleets'].includes(section);
       const card=el('article',`record-summary${forces?' force-record':''}`);
       const recordLabel=section==='projects'&&item.facility_kind?`${titleCase(item.facility_kind)} construction`:recordTitle(item);
-      const heading=el('header','force-record-head');const title=el('h3','record-summary-title',recordLabel);if(forces){const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');svg.setAttribute('class','command-icon');svg.setAttribute('viewBox','0 0 24 24');svg.setAttribute('aria-hidden','true');const path=document.createElementNS('http://www.w3.org/2000/svg','path');path.setAttribute('d',section==='fleets'||view==='fleet'?'M2 15h20l-3 5H6zM5 12h14M8 9h8M11 3h2v9':'M12 3 20 7v5c0 5-4 8-8 10-4-2-8-5-8-10V7z');svg.append(path);title.replaceChildren(svg,document.createTextNode(` ${recordLabel}`));}heading.append(title);
+      const heading=el('header','force-record-head');const title=el('h3','record-summary-title',recordLabel);if(forces){const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');svg.setAttribute('class','command-icon');svg.setAttribute('viewBox','0 0 24 24');svg.setAttribute('aria-hidden','true');const path=document.createElementNS(svg.namespaceURI,'path');const fleetRecord=section==='fleets'||(section!=='units'&&['fleet','transport'].includes(item.kind));path.setAttribute('d',fleetRecord?'M2 15h20l-3 5H6zM5 12h14M8 9h8M11 3h2v9':'M12 3 20 7v5c0 5-4 8-8 10-4-2-8-5-8-10V7z');svg.append(path);title.replaceChildren(svg,document.createTextNode(` ${recordLabel}`));const ownerLabel=item.owner==='player'?'PLAYER':item.owner==='foreign'?'FOREIGN':item.owner!==undefined&&item.owner!==null?`OWNER ${safeValue(item.owner).toUpperCase()}`:'OWNER UNKNOWN';title.append(el('span',`force-owner-tag${item.owner==='player'?' is-player':item.owner==='foreign'?' is-foreign':''}`,ownerLabel));}heading.append(title);
       const locationKey=['location_id','system_id','planet_id','settlement_id'].find(key=>item[key]!==undefined&&item[key]!==null);
-      if(forces){const identity=[item.owner&&titleCase(safeValue(item.owner)),item.status&&titleCase(safeValue(item.status)),locationKey&&resolveRecordReference(item[locationKey])].filter(Boolean).join(' · ');if(identity)heading.append(el('span','force-identity',identity));}
+      if(forces){const identity=[item.status&&titleCase(safeValue(item.status)),locationKey&&resolveRecordReference(item[locationKey])].filter(Boolean).join(' · ');if(identity)heading.append(el('span','force-identity',identity));}
       card.append(heading);
       const facts=el('dl','record-facts');let shown=0;
       const fieldOrder=forces?[...['strength','crew','readiness'],...visible.filter(key=>!['strength','crew','readiness'].includes(key))]:visible;
@@ -541,21 +555,29 @@
         else card.append(el('div','view-sub project-progress-unknown','Work progress not recorded.'));
       }
       if(shown)card.append(facts);
+      if(section==='factions'&&Array.isArray(item.treaties)){const treaties=el('div','faction-treaties');treaties.append(el('div','inspector-section','TREATIES'));if(item.treaties.length){for(const treaty of item.treaties){const facts=[titleCase(treaty.kind||'Treaty'),titleCase(treaty.status||'Status unknown')];if(treaty.proposed_turn!==undefined)facts.push(`Proposed turn ${safeValue(treaty.proposed_turn)}`);if(treaty.accepted_by_gm!==undefined)facts.push(`GM accepted ${safeValue(treaty.accepted_by_gm)}`);if(treaty.accepted_turn!==undefined)facts.push(`Accepted turn ${safeValue(treaty.accepted_turn)}`);treaties.append(el('p','view-sub',facts.join(' · ')));}}else treaties.append(el('p','view-sub','No treaties recorded.'));card.append(treaties);}
       if(item.id){const inspect=el('button','link-button entity-select','Inspect record');inspect.type='button';inspect.onclick=()=>selectEntity(item);card.append(inspect);}
       const details=el('details','record-identifiers');details.append(el('summary','','All recorded fields'));
       for(const [key,value] of Object.entries(item))row(details,titleCase(key),safeValue(value));
       card.append(details);root.append(card);
     }
   }
-  function renderRecord(root,data,view){
-    if(data===null||data===undefined){root.append(el('div','empty-note','No recorded values for this turn.'));return;}
-    if(Array.isArray(data)){renderRecordCards(root,data,view,view);return;}
+  function renderRecord(root,data,view,section=view){
+    if(data===null||data===undefined){root.append(el('div','empty-note','No recorded values for this turn; unknown values are not zero.'));return;}
+    if(Array.isArray(data)){renderRecordCards(root,data,view,section);return;}
     if(typeof data!=='object'){row(root,'Value',safeValue(data));return;}
-    const entries=Object.entries(data);if(!entries.length){root.append(el('div','empty-note','No recorded values.'));return;}
+    let entries=Object.entries(data);if(!entries.length){root.append(el('div','empty-note','No recorded values.'));return;}
     if(view==='fleet')entries.sort(([a],[b])=>(a==='fleets'?-1:0)-(b==='fleets'?-1:0));
+    if(view==='industry'&&section==='economy')entries.sort(([a],[b])=>(a==='production'?-1:0)-(b==='production'?-1:0));
     for(const [key,value] of entries){if(Array.isArray(value)){if(titleCase(key)!==titleCase(view))root.append(el('div','inspector-section',titleCase(key)));renderRecordCards(root,value,view,key);}
-      else if(value&&typeof value==='object'){const box=el('div','report-group');box.append(el('div','report-group-title',titleCase(key)));for(const [sub,val]of Object.entries(value)){if(Array.isArray(val)){box.append(el('div','inspector-section',titleCase(sub)));renderTable(box,val,true);}else row(box,titleCase(sub),safeValue(val));}root.append(box);}
-      else row(root,titleCase(key),safeValue(value));}
+      else if(value&&typeof value==='object'){
+        if(section==='economy'&&key==='production'&&renderSettlementBreakdown(root,'PRODUCTION BY SETTLEMENT',value,{food:'units',ore:'units',energy:'units',metals:'units',promethium:'units',materiel:'units',data:'units'}))continue;
+        if(section==='budget'&&key==='spending'&&renderSettlementBreakdown(root,'RECORDED SETTLEMENT SPENDING',value,{upkeep_energy:'energy',upkeep_credits:'credits',welfare:'credits'}))continue;
+        if(section==='budget'&&key==='unmet_upkeep'&&Object.keys(value).length===0){root.append(el('div','empty-note','No unmet upkeep entries are recorded.'));continue;}
+        const box=el('div','report-group');box.append(el('div','report-group-title',titleCase(key)));for(const [sub,val]of Object.entries(value)){if(Array.isArray(val)){box.append(el('div','inspector-section',titleCase(sub)));renderTable(box,val,true);}else row(box,titleCase(sub),safeValue(val));}
+        if(key==='outcome'){const details=el('details','record-identifiers');details.append(el('summary','','Recorded turn details'),box);root.append(details);}else root.append(box);
+      }
+      else {const creditFields=['opening_credits','tax_revenue','trade_revenue','action_credit_spending','trade_spending','closing_credits'];const shown=section==='budget'&&creditFields.includes(key)&&Number.isFinite(value)?`${safeValue(value)} credits`:safeValue(value);row(root,titleCase(key),shown);}}
   }
   function renderTable(root,items,selectable=false){
     if(!items.length){root.append(el('div','empty-note','No records.'));return;}

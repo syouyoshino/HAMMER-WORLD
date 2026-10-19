@@ -40,7 +40,7 @@
   --apple-system-teal-contrast: #008198;
   --apple-system-indigo-contrast: #564ade;
   --apple-system-red-contrast: #e9152d;
-  --recorded: var(--apple-system-mint-contrast);
+  --recorded: var(--ink);
   --in-progress: var(--apple-system-orange);
   --readiness: var(--apple-system-blue-contrast);
   --map-ground: #f1f2ee;
@@ -209,7 +209,7 @@ button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-
   z-index: 30;
   top: 52px;
   left: 16px;
-  width: min(510px, calc(100vw - 32px));
+  width: min(560px, calc(100vw - 32px));
   max-height: calc(100vh - 64px);
   overflow: auto;
   padding: 16px;
@@ -221,10 +221,12 @@ button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-
 .menu-map, .menu-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1px 20px; padding-top: 10px; }
 .menu-map button, .menu-grid button { min-height: 36px; padding: 6px 0; color: var(--ink); background: transparent; border: 0; border-bottom: 1px solid var(--line); text-align: left; font-size: 12px; }
 .menu-map button:hover, .menu-grid button:hover { color: var(--selection-ink); background: var(--selection); padding-left: 8px; }
-.menu-grid { max-height: min(58vh, 610px); overflow: auto; align-content: start; gap: 12px 22px; }
+.menu-map button:hover .command-icon, .menu-grid button:hover .command-icon { color: inherit; }
+.menu-grid { max-height: none; overflow: visible; align-content: start; gap: 12px 22px; }
 .menu-group { min-width: 0; }
 .menu-group-title { margin: 0 0 2px; padding-bottom: 4px; color: var(--muted); border-bottom: 1px solid var(--line); font-size: 9px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
 .menu-group-links { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 12px; }
+.menu-group-campaign .menu-group-links { grid-template-columns: 1fr; }
 .edge-setting { display: flex; align-items: center; gap: 7px; margin-top: 12px; padding-top: 9px; color: var(--muted); border-top: 1px solid var(--line); font-size: 11px; }
 
 #command-workspace {
@@ -257,6 +259,12 @@ button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-
 .workspace-tabs button.active { color: var(--selection-ink); background: var(--apple-system-blue-contrast); border-bottom-color: var(--apple-system-mint); }
 .workspace-tabs button, .menu-map button, .menu-grid button { display: inline-flex; align-items: center; gap: 7px; }
 .command-icon { flex: none; width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: square; stroke-linejoin: miter; }
+.command-icon.icon-mint { color: var(--apple-system-mint-contrast); }
+.command-icon.icon-orange { color: var(--apple-system-orange-contrast); }
+.command-icon.icon-indigo { color: var(--apple-system-indigo-contrast); }
+.command-icon.icon-teal { color: var(--apple-system-teal-contrast); }
+.command-icon.icon-blue { color: var(--apple-system-blue-contrast); }
+.workspace-tabs button.active .command-icon { color: inherit; }
 .workspace-content { flex: 1; min-height: 0; overflow: auto; padding: 20px 24px 26px; background: var(--paper); overscroll-behavior: contain; }
 .workspace-content > .view-panel { min-height: 0; padding: 0; background: transparent; border: 0; }
 .view-heading { margin: 0 0 3px; color: var(--ink); font: 20px/1.35 var(--mono); font-weight: 700; }
@@ -310,6 +318,8 @@ button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-
 .condition-note { margin: 4px 0 8px; font-size: 12px; }
 .record-summary { margin: 0; padding: 9px 0; border-top: 1px solid var(--line); }
 .record-summary-title { margin: 0 0 5px; color: var(--ink); font-size: 16px; font-weight: 700; }
+.force-owner-tag { display: inline-block; margin-left: 7px; padding: 2px 5px; color: var(--ink); border: 1px solid var(--line-strong); font-size: 9px; font-weight: 700; letter-spacing: .06em; vertical-align: 2px; }
+.force-owner-tag.is-player { color: var(--apple-system-blue-contrast); border-color: var(--apple-system-blue-contrast); }
 .record-facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 3px 14px; margin: 0 0 5px; }
 .record-fact { min-width: 0; }
 .record-fact dt { color: var(--muted); font-size: 11px; }
@@ -326,6 +336,13 @@ button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-
 .force-record-head { display: flex; align-items: baseline; justify-content: space-between; gap: 14px; }
 .force-record .record-summary-title { margin: 0; }
 .force-identity { color: var(--muted); font-size: 10px; text-align: right; }
+.management-intro { margin: 2px 0 12px; padding-bottom: 8px; border-bottom: 1px solid var(--line); }
+.settlement-breakdown { padding: 7px 0; border-top: 1px solid var(--line); }
+.settlement-breakdown-title { margin: 0 0 4px; font-size: 12px; }
+.settlement-breakdown-facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 3px 14px; margin: 0; }
+.settlement-breakdown-facts dt { color: var(--muted); font-size: 10px; }
+.settlement-breakdown-facts dd { margin: 0; color: var(--ink); font-size: 12px; font-variant-numeric: tabular-nums; }
+.faction-treaties { margin-top: 6px; }
 .force-record .record-facts { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 5px 12px; margin-top: 8px; }
 .force-record .record-fact.force-primary dd { color: var(--ink); font-size: 19px; font-weight: 700; }
 .force-record .record-fact.force-primary dt { font-size: 11px; }
@@ -493,11 +510,11 @@ button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-
   .review-center { right: 8px; bottom: 112px; }
   #live-banner { top: 207px; left: 8px; }
   #command-menu { top: 50px; left: 8px; width: min(450px, calc(100vw - 16px)); padding: 12px; }
-  #command-workspace { top: auto; bottom: 8px; left: 8px; width: calc(100vw - 16px); height: min(650px, calc(100vh - 230px)); min-height: 300px; transform: none; }
+  #command-workspace { top: 52px; right: 8px; bottom: 8px; left: 8px; width: auto; height: auto; min-height: 0; max-height: none; transform: none; }
   .workspace-head { gap: 7px; min-height: 54px; padding: 6px 8px; }
   .workspace-head small { display: none; }
   .workspace-title { font-size: 14px; }
-  .workspace-scope { max-width: 180px; overflow: hidden; font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
+  .workspace-scope { max-width: none; overflow-wrap: anywhere; font-size: 11px; white-space: normal; }
   .workspace-tabs { min-height: 34px; }
   .workspace-tabs button { min-height: 33px; padding: 5px 8px; font-size: 10px; }
   .workspace-content { padding: 16px 14px 20px; }
@@ -532,8 +549,9 @@ button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-
   .command-indicators > span { font-size: 8px; }
   .command-indicators #command-snapshot { display: none !important; }
   #command-menu { max-height: calc(100vh - 58px); overflow-y: auto; }
-  .menu-grid { grid-template-columns: 1fr; max-height: none; overflow: visible; gap: 10px; }
+  .menu-grid { grid-template-columns: 1fr 1fr; max-height: none; overflow: visible; gap: 10px 14px; }
   .menu-group-links { grid-template-columns: 1fr; }
+  .menu-group-campaign .menu-group-links { grid-template-columns: 1fr; }
   .menu-grid button { min-height: 33px; white-space: normal; overflow-wrap: anywhere; }
   #resource-shell { top: 46px; }
   .resource-note { display: none; }
@@ -543,7 +561,6 @@ button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-
   #map-panel .map-caption { bottom: 78px; font-size: 8px; }
   #map-panel .map-legend { bottom: 42px; }
   #map-panel .map-footer { bottom: 8px; }
-  #command-workspace { height: min(600px, calc(100vh - 232px)); min-height: 280px; }
   .workspace-head small { font-size: 8px; }
   .workspace-head .button { min-height: 28px; padding: 4px 6px; font-size: 10px; }
   .workspace-content { padding: 12px 10px 16px; }
