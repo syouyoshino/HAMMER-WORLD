@@ -79,3 +79,6 @@ The instrument release candidate adds actual Chromium browser zoom100–200% in 
 
 
 The tactical overlay extension of `tests/browser_strategic.py` also commits supported build/recruit commands in its disposable fixture to check actual work and readiness graphics. Its response-only fixtures verify literal record-title rendering and unknown progress for invalid work without changing stored records. The optional generated map is loaded and toggled while underlying canvas pixels/context remain equal. Temporary artwork's first transfer and compositor cost are not included in cached transition metrics.
+
+
+The Apple-colour graph extension verifies local food flow against authorized recorded outcomes, no fabricated baseline graph, cached food/energy/ore switching, consecutive history failures plus recovery, and fixed12px HTML axes after phone/desktop resize. Palette values are centralized in CSS; browser capture evidence checks actual panel alpha and chart-label dimensions.

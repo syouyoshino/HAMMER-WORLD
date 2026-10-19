@@ -183,3 +183,6 @@ User-authorized visual redesign on 18 October 2026. Supersedes the Windows-era v
 
 
 - ADR-012 tactical overlay follow-up (`093aff7`): user explicitly requested translucent UI and local fogging of the map underneath, superseding the previous rejection of blur effects for this treatment. Retain sharp instrument geometry and readable text. A labeled generated map is opt-in review artwork, toggled in place above the stable canvas; it never supplies authoritative geography. Keep solid fallbacks when backdrop blur is unsupported. Icons supplement labels; graphical readiness/progress/history uses existing public values only. Render record names as text nodes beside fixed SVG elements.
+
+
+- ADR-012 colour/graph follow-up (`e39e550`): user explicitly selected Apple's official system palette. Use centralized current HIG light samples and increased-contrast variants for functional accents, preserving neutral military geometry. This web implementation does not resolve native UIColor/SwiftUI colours. Increase map visibility with63% shell opacity/10px blur; keep text opaque and unsupported-blur fallbacks solid. Quantitative history axes use fixed-size HTML labels beside a responsive SVG plot, preserving readability during cached viewport changes. Graphs use recorded values and explicit unknown states only.

@@ -80,3 +80,8 @@ Passed scoped visual review with map artwork excluded. Fresh source photographs 
 ## Tactical overlay and selective graphics (`093aff7`)
 
 Passed. A fresh Sol medium critic reviewed four anonymously named original instrument photos and eight full current product frames before source/history discussion, then independently exercised read-only desktop/phone navigation, resizing and keyboard scrolling. No confirmedP1/P2; small muted metadata and long truncated phone scope remainP3. The mid-record retained-scroll phone capture is preserved; independent first opening and resize navigation showed identity before metrics. Root full regression separately passes data-backed graphics, map/context, authentication/history/Orders, real browser zoom, malicious-looking record names and invalid work handling. A bounded Sol high review verified safe fixed SVG/text-node record titles after identifying and correcting the initial interpolation defect. See `docs/reviews/tactical-overlay.md` and branch continuation for exact evidence/method/limits.
+
+
+## Apple palette, graphs and increased transparency (`e39e550`)
+
+Passed scoped independent follow-up. A fresh critic initially found twoP2 issues: scaled phone graph text (~5px) and subdued operational labels. The same critic reviewed eight updated full frames and independently confirmed12px axes at390→1280→390px, Food→Energy selection, clearer operational copy and preserved63% fogged panels. No remainingP1/P2; units/friendly ticks resolved. RetainedP3: tall phone chrome and potential metric-colour/allegiance ambiguity despite ownership labels. See `docs/reviews/apple-system-colour.md` for source verification, preserved findings/resolutions, exact functional/performance/browser boundaries and capture paths.
