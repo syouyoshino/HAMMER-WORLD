@@ -139,9 +139,24 @@ def check_placeholder_review(browser, base, player, out):
         page.wait_for_function("performance.getEntriesByType('resource').some(r=>r.name.includes('/static/images/tactical-placeholder.png')&&r.responseEnd>0)")
         page.evaluate("window.reviewCanvas=document.querySelector('#planet-map')")
         descend_hierarchy(page, ["Hearth", "Cinder", "Reach"])
+        public_state = httpx.get(base + "/api/player/campaigns/demo-v2", headers={"Authorization": "Bearer " + player}).json()["state"]
+        settlement = public_state["settlements"][0]
+        recorded_map = httpx.get(base + "/api/player/campaigns/demo-v2/map", params={"level": "planet", "node_id": settlement["planet_id"]}, headers={"Authorization": "Bearer " + player}).json()
+        province = next(item for item in recorded_map["geometry"]["provinces"] if item["id"] == settlement["province_id"])
+        frame = page.locator(".map-frame").bounding_box()
+        tile = min(frame["width"] / 64, frame["height"] / 40)
+        page.mouse.click(frame["x"] + (province["x"] + province["width"] / 2) * tile,
+                         frame["y"] + (frame["height"] - 40 * tile) / 2 + (province["y"] + province["height"] / 2) * tile)
+        page.wait_for_selector("#command-inspector:not([hidden])")
         page.locator("#hw-command").click()
         page.locator("[data-open=economy]").click()
         page.wait_for_selector("#command-workspace:not([hidden])")
+        flow = page.locator("#economy-panel .local-scope .resource-flow-chart svg").first
+        flow.wait_for(state="visible")
+        produced = public_state["latest_outcome"]["production"][settlement["id"]]["food"]
+        consumed = public_state["latest_outcome"]["consumption"][settlement["id"]]["food"]
+        assert f"{produced:,}" in flow.get_attribute("aria-label")
+        assert f"{consumed:,}" in flow.get_attribute("aria-label")
         page.screenshot(path=str(out / "placeholder-economy.png"))
         page.locator("[data-return-map]").click()
         assert page.evaluate("window.reviewCanvas===document.querySelector('#planet-map')")
@@ -181,6 +196,35 @@ def check_placeholder_review(browser, base, player, out):
         assert page.locator("#management-construction .campaign-scope progress").count() == 0
         assert not errors, errors
         return {"direct_hierarchy_input": "passes through review backdrop", "canvas_identity": "retained", "page_errors": errors}
+    finally:
+        page.close()
+
+
+def check_stock_history_retry(browser, base, player):
+    """Repeated failures remain explicit; a later metric retry recovers in place."""
+    page = browser.new_page(viewport={"width": 1280, "height": 900})
+    errors = []
+    page.on("pageerror", lambda error: errors.append(str(error)))
+    try:
+        page.goto(base)
+        page.fill("#access-token", player)
+        page.locator("#login-button").click()
+        page.wait_for_function("document.querySelectorAll('#campaign-select option').length===2")
+        page.locator("[data-dialog-close]").click()
+        page.select_option("#campaign-select", "demo-v2")
+        page.wait_for_function("document.querySelector('#map-placeholder').hidden")
+        pattern = "**/history?limit=1&offset=0"
+        page.route(pattern, lambda route: route.fulfill(status=500, content_type="application/json", body='{"detail":"Fixture history unavailable"}'))
+        page.locator("#hw-command").click()
+        page.locator("[data-open=economy]").click()
+        page.wait_for_function("document.querySelector('#economy-panel .economy-history-plot')?.textContent.includes('Food stock history is unavailable')")
+        page.select_option("#economy-panel .economy-metric", "energy")
+        page.wait_for_function("document.querySelector('#economy-panel .economy-history-plot')?.textContent.includes('Energy stock history is unavailable')")
+        page.unroute(pattern)
+        page.select_option("#economy-panel .economy-metric", "ore")
+        page.wait_for_function("document.querySelector('#economy-panel .economy-history-plot svg')?.getAttribute('aria-label').toLowerCase().includes('ore') && document.querySelector('#economy-panel').dataset.ready==='true'")
+        assert not errors, errors
+        return {"consecutive_failures": "explicit per-resource errors", "metric_retry": "recovered in place", "page_errors": errors}
     finally:
         page.close()
 
@@ -309,6 +353,7 @@ def main():
                 assert settlement["id"] not in economy
                 assert "Housing" in economy and "Unrest" in economy
                 assert "Main economic issue and forecast are unrecorded" in economy
+                assert page.locator("#economy-panel .resource-flow-chart").count() == 0, "Baseline must not fabricate food flow"
                 page.locator("#economy-panel details summary").click()
                 assert settlement["id"] in page.locator("#economy-panel").inner_text()
                 page.locator("#economy-panel details summary").click()
@@ -559,6 +604,19 @@ def main():
                 page.evaluate("HWDesktop.open('economy')")
                 page.locator("#economy-panel [data-scope=campaign]").click()
                 page.wait_for_selector("#economy-panel .chart-box svg")
+                page.wait_for_function("document.querySelector('#economy-panel').dataset.ready==='true'")
+                history_requests_before = page.evaluate("performance.getEntriesByType('resource').filter(r=>r.name.includes('/history?')).length")
+                for metric in ["energy", "ore", "food"]:
+                    page.select_option("#economy-panel .economy-metric", metric)
+                    page.wait_for_function("metric=>document.querySelector('#economy-panel .chart-box svg')?.getAttribute('aria-label')?.toLowerCase().includes(metric)", arg=metric)
+                assert page.evaluate("performance.getEntriesByType('resource').filter(r=>r.name.includes('/history?')).length") == history_requests_before, "Switching stock metrics should reuse recorded history"
+                assert "stock units" in page.locator("#economy-panel .economy-history-head").inner_text()
+                for width in [390, 1280]:
+                    page.set_viewport_size({"width": width, "height": 900})
+                    axis_labels = page.locator("#economy-panel .history-value-axis span")
+                    assert axis_labels.count() == 5
+                    assert axis_labels.evaluate_all("nodes=>nodes.every(el=>parseFloat(getComputedStyle(el).fontSize)>=12 && el.getBoundingClientRect().height>=12)"), "Stock axes must remain readable after resizing"
+                    assert not page.evaluate("document.documentElement.scrollWidth>innerWidth")
                 page.screenshot(path=str(out / "economy-trend.png"))
                 page.evaluate("window.HWDesktop.open('history')")
                 page.wait_for_function("document.querySelectorAll('#history-panel tbody tr').length===2")
@@ -608,6 +666,7 @@ def main():
                 assert not errors, errors
                 (out/"metrics.json").write_text(json.dumps(metrics,indent=2)+"\n")
                 metrics["placeholder_review"] = check_placeholder_review(browser, base, player, out)
+                metrics["stock_history_retry"] = check_stock_history_retry(browser, base, player)
                 browser.close()
                 metrics["browser_zoom"] = check_browser_zoom(playwright, executable, base, player, out)
                 (out/"metrics.json").write_text(json.dumps(metrics,indent=2)+"\n")

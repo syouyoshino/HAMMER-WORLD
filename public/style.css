@@ -17,7 +17,7 @@
   color-scheme: light;
   --mono: "Noto Instrument Mono", "Noto Sans Mono", ui-monospace, monospace;
   --ink: #272c2f;
-  --muted: #6e7577;
+  --muted: #505a5c;
   --faint: #8d9393;
   --line: #b8bdb9;
   --line-strong: #7d8585;
@@ -26,6 +26,23 @@
   --paper-deep: #e5e7e2;
   --selection: #292f32;
   --selection-ink: #f8f8f4;
+  /* Apple HIG system colors: light + increased-contrast light reference values.
+     https://developer.apple.com/design/human-interface-guidelines/color */
+  --apple-system-blue: #0088ff;
+  --apple-system-mint: #00c8b3;
+  --apple-system-orange: #ff8d28;
+  --apple-system-teal: #00c3d0;
+  --apple-system-indigo: #6155f5;
+  --apple-system-red: #ff383c;
+  --apple-system-blue-contrast: #1e6ef4;
+  --apple-system-mint-contrast: #008575;
+  --apple-system-orange-contrast: #c55300;
+  --apple-system-teal-contrast: #008198;
+  --apple-system-indigo-contrast: #564ade;
+  --apple-system-red-contrast: #e9152d;
+  --recorded: var(--apple-system-mint-contrast);
+  --in-progress: var(--apple-system-orange);
+  --readiness: var(--apple-system-blue-contrast);
   --map-ground: #f1f2ee;
   font-family: var(--mono);
   font-synthesis: none;
@@ -237,7 +254,7 @@ button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-
 .workspace-tabs { display: flex; gap: 0; min-height: 38px; overflow-x: auto; background: var(--paper); border-bottom: 1px solid var(--line); }
 .workspace-tabs button { flex: none; min-height: 37px; padding: 6px 12px; color: var(--muted); background: transparent; border: 0; border-bottom: 2px solid transparent; font: inherit; font-size: 11px; }
 .workspace-tabs button:hover { color: var(--ink); background: var(--paper-alt); }
-.workspace-tabs button.active { color: var(--selection-ink); background: var(--selection); border-bottom-color: var(--selection); }
+.workspace-tabs button.active { color: var(--selection-ink); background: var(--apple-system-blue-contrast); border-bottom-color: var(--apple-system-mint); }
 .workspace-tabs button, .menu-map button, .menu-grid button { display: inline-flex; align-items: center; gap: 7px; }
 .command-icon { flex: none; width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: square; stroke-linejoin: miter; }
 .workspace-content { flex: 1; min-height: 0; overflow: auto; padding: 20px 24px 26px; background: var(--paper); overscroll-behavior: contain; }
@@ -248,7 +265,7 @@ button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-
 .scope-provenance { margin: 4px 0 14px; color: var(--muted); font-size: 11px; }
 .scope-tabs { display: flex; gap: 4px; margin: 0 0 18px; padding-bottom: 7px; border-bottom: 1px solid var(--line); }
 .scope-tabs button { min-height: 31px; padding: 5px 10px; color: var(--muted); background: transparent; border: 1px solid transparent; font: inherit; font-size: 11px; }
-.scope-tabs button.active { color: var(--selection-ink); background: var(--selection); border-color: var(--selection); }
+.scope-tabs button.active { color: var(--selection-ink); background: var(--apple-system-blue-contrast); border-color: var(--apple-system-mint); }
 .scope-tabs button:disabled { color: var(--faint); background: transparent; }
 .scope-pane[hidden] { display: none !important; }
 .empty-note { padding: 12px 0; color: var(--muted); font-size: 11px; }
@@ -299,6 +316,11 @@ button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-
 .record-fact dd { margin: 1px 0 0; color: var(--ink); font-size: 14px; overflow-wrap: anywhere; }
 .record-fact.fact-strength, .record-fact.fact-crew { padding-bottom: 3px; border-bottom: 1px solid var(--line-strong); }
 .record-fact.fact-strength dd, .record-fact.fact-crew dd { font-size: 20px; font-weight: 700; }
+.record-fact.fact-strength dd, .record-fact.fact-crew dd { color: var(--recorded); }
+.record-fact.fact-readiness dd { color: var(--readiness); }
+.force-record .record-fact.force-primary.fact-strength dd,
+.force-record .record-fact.force-primary.fact-crew dd { color: var(--recorded); }
+.force-record .record-fact.force-primary.fact-readiness dd { color: var(--readiness); }
 .record-summary .entity-select { margin: 2px 12px 2px 0; }
 .force-record { padding: 11px 0 13px; }
 .force-record-head { display: flex; align-items: baseline; justify-content: space-between; gap: 14px; }
@@ -310,6 +332,8 @@ button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-
 .force-record .record-fact.force-secondary dd { font-size: 12px; }
 .project-progress { display: grid; grid-template-columns: auto minmax(90px,1fr) auto; align-items: center; gap: 9px; margin: 7px 0; font-size: 10px; }
 .project-progress progress { width: 100%; height: 8px; accent-color: #394244; }
+.local-project-progress progress, .project-progress progress { accent-color: var(--in-progress); }
+.record-fact.fact-readiness progress { display: block; width: min(100%, 120px); height: 7px; margin-top: 4px; accent-color: var(--readiness); }
 .project-progress strong { font-size: 11px; font-weight: 700; }
 .local-record-row .local-project-progress, .local-record-row .local-project-progress-unknown { grid-column: 1 / -1; }
 .preview-summary-title { display: block; margin: 0 0 8px; font-size: 14px; }
@@ -333,6 +357,22 @@ button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-
 .chart-note { margin: 6px 0; color: var(--muted); font-size: 10px; }
 .chart-legend { display: flex; flex-wrap: wrap; gap: 12px; padding: 5px 0; color: var(--muted); font-size: 10px; }
 .chart-legend .swatch { width: 8px; height: 2px; border: 0; }
+.economy-history-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.economy-metric-label { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 12px; }
+.economy-metric { padding: 3px 5px; background: transparent; border: 1px solid var(--line); font-size: 12px; }
+.economy-history-plot svg { height: 150px; }
+.recorded-history-chart { padding-top: 12px; }
+.history-plot-grid { display: grid; grid-template-columns: max-content minmax(0,1fr); gap: 10px; padding: 4px 1px 0 0; }
+.history-value-axis { position: relative; min-width: 4ch; height: 144px; margin-right: 2px; color: var(--muted); font-size: 12px; }
+.history-value-axis span { position: absolute; right: 0; transform: translateY(-50%); white-space: nowrap; }
+.chart-box .history-plot-grid svg { height: 144px; overflow: visible; }
+.history-turn-axis { display: flex; grid-column: 2; justify-content: space-between; gap: 8px; color: var(--muted); font-size: 12px; }
+.history-comparison { margin-bottom: 14px; color: var(--ink); font-size: 12px; }
+.local-vital dt, .stock-reading dt, .record-fact dt, .force-record .record-fact.force-primary dt { font-size: 12px; }
+.record-identifiers, .record-identifiers summary, .local-record-row .record-identifiers .inspector-row,
+.project-progress, .force-identity, .inspector-sub, .metadata-field small, .chart-note { font-size: 11px; }
+.resource-flow-chart { margin-top: 12px; padding-top: 8px; border-top: 1px solid var(--line); }
+.resource-flow-chart svg { display: block; width: 100%; height: auto; max-height: 96px; }
 .history-controls, .metric-controls, .orders-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 12px 0; }
 .history-controls .grow { flex: 1; }
 .metric-controls { padding: 7px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
@@ -363,7 +403,7 @@ button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-
 .report-line { display: flex; justify-content: space-between; gap: 12px; padding: 5px 0; border-bottom: 1px solid var(--line); }
 .live-banner { margin: 8px 0; padding: 6px 0; color: var(--muted); border-bottom: 1px solid var(--line); font-size: 11px; }
 .toast { position: fixed; z-index: 60; bottom: 18px; left: 50%; max-width: min(90vw, 700px); padding: 9px 12px; transform: translateX(-50%); color: var(--selection-ink); background: var(--selection); font-size: 11px; }
-.toast.error { background: #5b302d; }
+.toast.error { background: var(--apple-system-red-contrast); }
 .archive-pending, .archive-verified { color: var(--ink); }
 
 /* Opt-in generated artwork for interface review; the live canvas stays mounted below it. */
@@ -376,7 +416,7 @@ button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-
   background: center / cover no-repeat url('/static/images/tactical-placeholder.png');
   pointer-events: none;
 }
-.review-center { position: absolute; right: 12px; bottom: 88px; display: grid; gap: 3px; padding: 7px 9px; color: #252b2d; background: rgb(246 246 239 / 91%); border-left: 2px solid #424a4b; text-align: left; }
+.review-center { position: absolute; right: 12px; bottom: 88px; display: grid; gap: 3px; padding: 7px 9px; color: #252b2d; background: rgb(246 246 239 / 78%); border-left: 2px solid #424a4b; text-align: left; }
 .review-center strong { font-size: 10px; letter-spacing: .08em; }
 .review-center span { font-size: 9px; }
 .map-review-placeholder[hidden] { display: none !important; }
@@ -392,7 +432,7 @@ button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-
 @supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
   #resource-shell, #view-title, #map-breadcrumbs, #map-panel .map-caption,
   #map-panel .map-legend, #map-panel .map-footer {
-    background: rgb(246 246 239 / 91%);
+    background: rgb(246 246 239 / 78%);
     -webkit-backdrop-filter: blur(8px);
     backdrop-filter: blur(8px);
   }
@@ -408,9 +448,9 @@ button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-
 }
 @supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
   #command-menu, #command-workspace, #command-inspector {
-    background: rgb(244 244 237 / 82%);
-    -webkit-backdrop-filter: blur(11px);
-    backdrop-filter: blur(11px);
+    background: rgb(244 244 237 / 63%);
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
   }
 }
 #command-workspace .workspace-head, #command-workspace .workspace-tabs,

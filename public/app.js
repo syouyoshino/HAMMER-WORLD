@@ -332,11 +332,9 @@
         const outcome=s.latest_outcome,production=outcome?.production?.[settlement.id],consumption=outcome?.consumption?.[settlement.id];
         const deaths=(outcome?.deaths||[]).filter(x=>x.settlement_id===settlement.id).reduce((sum,x)=>sum+(x.count||0),0);
         if(production||consumption){
-          const condition=el('div','condition-grid');
-          const produced=el('div','inspector-row');produced.append(el('span','','Food produced this turn'),el('b','',production?.food==null?'Unknown':fmt(production.food)));condition.append(produced);
-          const consumed=el('div','inspector-row');consumed.append(el('span','','Food consumed this turn'),el('b','',consumption?.food==null?'Unknown':fmt(consumption.food)));condition.append(consumed);
-          if(deaths){const losses=el('div','inspector-row');losses.append(el('span','','Recorded deaths this turn'),el('b','',fmt(deaths)));condition.append(losses);}
-          group.append(condition);
+          const producedFood=Number.isFinite(production?.food)&&production.food>=0?production.food:null,consumedFood=Number.isFinite(consumption?.food)&&consumption.food>=0?consumption.food:null;
+          group.append(resourceFlowChart(producedFood,consumedFood));
+          if(deaths){const losses=el('div','inspector-row');losses.append(el('span','','Recorded deaths this turn'),el('b','',fmt(deaths)));group.append(losses);}
         }else group.append(el('div','note-box condition-note','No local production or consumption outcome is recorded yet. Main economic issue and forecast are unrecorded.'));
         const facilities=(s.facilities||[]).filter(x=>x.settlement_id===settlement.id),projects=(s.projects||[]).filter(x=>x.settlement_id===settlement.id);
         row(group,'Recorded facilities',fmt(facilities.length));row(group,'Recorded projects',fmt(projects.length));
@@ -353,17 +351,27 @@
     campaignPane.append(el('div','inspector-section','CAMPAIGN-WIDE TOTALS'));
     const totals=economyTotals(s),grid=el('div','economy-grid');
     for(const [name,key]of [['POPULATION','population'],['FOOD','food'],['ORE','ore'],['ENERGY','energy'],['METALS','metals'],['MATERIEL','materiel'],['PROMETHIUM','promethium'],['CREDITS','credits']]){const box=el('div','economy-box');box.append(el('small','',name),el('strong','',totals[key]==null?'Unknown':fmt(totals[key])));grid.append(box);}campaignPane.append(grid);
-    const chart=el('div','chart-box');chart.append(el('div','inspector-section','FOOD STOCK HISTORY'));campaignPane.append(chart);root.append(localPane,campaignPane);
+    const chart=el('div','chart-box');const chartHead=el('div','economy-history-head');const stockHeading=el('div','inspector-section','CAMPAIGN STOCK HISTORY');chartHead.append(stockHeading);const metricLabel=el('label','economy-metric-label','RESOURCE '),metric=el('select','economy-metric');for(const [value,label]of [['food','Food'],['energy','Energy'],['ore','Ore']]){const option=el('option','',label);option.value=value;metric.append(option);}metric.value=state.economyHistoryMetric||'food';metricLabel.append(metric);chartHead.append(metricLabel);chart.append(chartHead);const chartPlot=el('div','economy-history-plot');chart.append(chartPlot);campaignPane.append(chart);root.append(localPane,campaignPane);
     const choose=(value)=>{const showLocal=value==='local'&&Boolean(province);localPane.hidden=!showLocal;campaignPane.hidden=showLocal;localButton.classList.toggle('active',showLocal);campaignButton.classList.toggle('active',!showLocal);window.HWDesktop?.setScope(selectedScope('economy'));};localButton.onclick=()=>choose('local');campaignButton.onclick=()=>choose('campaign');choose(local?'local':'campaign');
     const loading={context,chart},status={failed:false};state.economyLoading=loading;
     try{
-      const svg=await historyChart('food',null,'economy',status);
-      if(state.economyLoading!==loading||epoch!==state.contextEpoch||state.campaignId!==campaignId||liveState()?.turn!==turn||managementContext()!==context||root!==$('#economy-panel')||root.dataset.context!==context||!chart.isConnected||!root.contains(chart))return;
-      if(svg)chart.append(svg);else chart.append(el('div','empty-note',status.failed?'Food stock history is unavailable. Reopen Economy to retry.':turn===0?'One committed baseline is recorded. A second turn is needed to chart food stock.':'No recorded food stock series is available yet.'));
+      let stockRenderSeq=0;const renderStock=async(initial=false)=>{
+      const selectedMetric=metric.value,seq=++stockRenderSeq;state.economyHistoryMetric=selectedMetric;stockHeading.textContent=`${titleCase(selectedMetric)} stock history · stock units`;chartPlot.replaceChildren();if(initial)metric.disabled=true;const svg=await historyChart(selectedMetric,null,'economy',status,status.items);
+      if(seq!==stockRenderSeq||selectedMetric!==metric.value||epoch!==state.contextEpoch||state.campaignId!==campaignId||liveState()?.turn!==turn||managementContext()!==context||root!==$('#economy-panel')||root.dataset.context!==context||!chart.isConnected||!root.contains(chart))return;
+      metric.disabled=false;
+      if(svg)chartPlot.append(svg);else chartPlot.append(el('div','empty-note',status.failed?`${titleCase(selectedMetric)} stock history is unavailable. Reopen Economy to retry.`:turn===0?'One committed baseline is recorded. A second turn is needed to chart stock.':`No recorded ${selectedMetric} stock series is available yet.`));
       root.dataset.ready=String(!status.failed);
+      };
+      metric.onchange=()=>{status.failed=false;renderStock().catch(showError);};await renderStock(true);
     }finally{if(state.economyLoading===loading)state.economyLoading=null;}
   }
-  async function historyChart(metric='food',comparison=null,source='economy',status=null) {
+  function resourceFlowChart(produced,consumed){
+    const box=el('div','resource-flow-chart');box.append(el('div','inspector-section','FOOD FLOW · THIS TURN'));
+    const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');svg.setAttribute('viewBox','0 0 440 96');svg.setAttribute('role','img');svg.setAttribute('aria-label',`Recorded food production ${produced===null?'unknown':fmt(produced)} and consumption ${consumed===null?'unknown':fmt(consumed)}`);
+    const max=Math.max(1,produced??0,consumed??0);const rows=[['Production',produced,'var(--apple-system-mint)'],['Consumption',consumed,'var(--apple-system-orange)']];
+    rows.forEach(([label,value,color],i)=>{const y=20+i*38;const name=document.createElementNS(svg.namespaceURI,'text');name.setAttribute('x','0');name.setAttribute('y',String(y+12));name.setAttribute('fill','#343b3d');name.setAttribute('font-size','15');name.textContent=label;svg.append(name);const track=document.createElementNS(svg.namespaceURI,'rect');track.setAttribute('x','128');track.setAttribute('y',String(y));track.setAttribute('width','210');track.setAttribute('height','14');track.setAttribute('fill','#e2e5df');svg.append(track);if(value!==null){const bar=document.createElementNS(svg.namespaceURI,'rect');bar.setAttribute('x','128');bar.setAttribute('y',String(y));bar.setAttribute('width',String(Math.max(value>0?1:0,210*value/max)));bar.setAttribute('height','14');bar.setAttribute('fill',color);svg.append(bar);}const valueText=document.createElementNS(svg.namespaceURI,'text');valueText.setAttribute('x','350');valueText.setAttribute('y',String(y+12));valueText.setAttribute('fill','#343b3d');valueText.setAttribute('font-size','15');valueText.textContent=value===null?'Unknown':fmt(value);svg.append(valueText);});box.append(svg);return box;
+  }
+  async function historyChart(metric='food',comparison=null,source='economy',status=null,series=null) {
     const s=liveState();
     if(!s||!state.campaignId)return null;
     const epoch=state.contextEpoch,campaignId=state.campaignId,snapshotId=state.snapshot?.id;
@@ -371,34 +379,37 @@
     if(source==='history'){
       const selectedTurn=state.snapshot?.turn??s.turn;
       items=state.history.filter(item=>item.turn<=selectedTurn);
+    }else if(Array.isArray(series)){items=series.filter(item=>item.turn<=s.turn);
     }else{
       let first;try{first=await api(`/api/player/campaigns/${encodeURIComponent(campaignId)}/history?limit=1&offset=0`);}catch(_){if(status)status.failed=true;return null;}if(epoch!==state.contextEpoch||campaignId!==state.campaignId||snapshotId!==state.snapshot?.id)return null;
-      if(!first.items.length)return null;
+      if(!first.items.length){if(status)status.items=[];return null;}
       const visibleCount=Math.max(1,s.turn-first.items[0].turn+1),offset=Math.max(0,visibleCount-100);let data;
       try{data=await api(`/api/player/campaigns/${encodeURIComponent(campaignId)}/history?limit=100&offset=${offset}`);}catch(_){if(status)status.failed=true;return null;}if(epoch!==state.contextEpoch||campaignId!==state.campaignId||snapshotId!==state.snapshot?.id)return null;
-      items=data.items.filter(item=>item.turn<=s.turn);
+      items=data.items.filter(item=>item.turn<=s.turn);if(status)status.items=items;
     }
     if(epoch!==state.contextEpoch||campaignId!==state.campaignId||snapshotId!==state.snapshot?.id)return null;
     if(!items.length)return null;
-    const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
-    svg.setAttribute('viewBox','0 0 700 170');svg.setAttribute('role','img');svg.setAttribute('aria-label','Recorded resource history');
     const valid=items.filter(item=>Number.isFinite(item.metrics?.[metric]));
     if(valid.length<2)return null;
-    const vals=valid.map(item=>item.metrics[metric]);
-    const max=Math.max(1,...vals);
-    for(let y=0;y<4;y++){
+    const vals=valid.map(item=>item.metrics[metric]),peak=Math.max(1,...vals);
+    const magnitude=10**Math.floor(Math.log10(peak/4));
+    const tickStep=[1,2,5,10].find(step=>step*magnitude>=peak/4)*magnitude,max=tickStep*4;
+    const graph=el('div','recorded-history-chart');
+    if(comparison){const a=items.find(x=>x.turn===comparison[0]),b=items.find(x=>x.turn===comparison[1]);if(a&&b&&Number.isFinite(a.metrics?.[metric])&&Number.isFinite(b.metrics?.[metric]))graph.append(el('div','history-comparison',`Turn ${b.turn} vs ${a.turn}: ${fmt(b.metrics[metric]-a.metrics[metric])}`));}
+    const plot=el('div','history-plot-grid'),axis=el('div','history-value-axis');axis.style.minWidth=`${Math.max(4,...Array.from({length:5},(_,y)=>fmt(max-y*tickStep).length))}ch`;axis.setAttribute('aria-hidden','true');
+    const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
+    svg.setAttribute('viewBox','0 0 640 144');svg.setAttribute('preserveAspectRatio','none');svg.setAttribute('role','img');svg.setAttribute('aria-label',`Recorded ${titleCase(metric.replaceAll('_',' '))} history, turns ${valid[0].turn} to ${valid.at(-1).turn}, scale 0 to ${fmt(max)}`);svg.dataset.metric=metric;
+    for(let y=0;y<=4;y++){
+      const label=el('span','',fmt(max-y*tickStep));label.style.top=`${y*25}%`;axis.append(label);
       const line=document.createElementNS(svg.namespaceURI,'line');
-      line.setAttribute('x1','48');line.setAttribute('x2','690');line.setAttribute('y1',String(18+y*39));line.setAttribute('y2',String(18+y*39));line.setAttribute('stroke','#c5c7c1');svg.append(line);
-      const label=document.createElementNS(svg.namespaceURI,'text');label.setAttribute('x','3');label.setAttribute('y',String(21+y*39));label.setAttribute('fill','#51595b');label.setAttribute('font-size','10');label.textContent=fmt(Math.round(max*(1-y/3)));svg.append(label);
+      line.setAttribute('x1','0');line.setAttribute('x2','640');line.setAttribute('y1',String(y*36));line.setAttribute('y2',String(y*36));line.setAttribute('stroke','#a4aaa6');line.setAttribute('vector-effect','non-scaling-stroke');svg.append(line);
     }
-    const color='#343b3d';{
-      const points=valid.map((item,i)=>`${48+i*642/(valid.length-1)},${135-(item.metrics[metric]/max)*117}`).join(' ');
-      const poly=document.createElementNS(svg.namespaceURI,'polyline');
-      poly.setAttribute('points',points);poly.setAttribute('fill','none');poly.setAttribute('stroke',color);poly.setAttribute('stroke-width','2');svg.append(poly);
-      for(const [x,labelText] of [[48,`Turn ${valid[0].turn}`],[690,`Turn ${valid.at(-1).turn}`]]){const label=document.createElementNS(svg.namespaceURI,'text');label.setAttribute('x',String(x));label.setAttribute('y','164');label.setAttribute('fill','#51595b');label.setAttribute('font-size','10');label.setAttribute('text-anchor',x===48?'start':'end');label.textContent=labelText;svg.append(label);}
-    }
-    if(comparison){const a=items.find(x=>x.turn===comparison[0]),b=items.find(x=>x.turn===comparison[1]);if(a&&b&&Number.isFinite(a.metrics?.[metric])&&Number.isFinite(b.metrics?.[metric])){const delta=document.createElementNS(svg.namespaceURI,'text');delta.setAttribute('x','40');delta.setAttribute('y','14');delta.setAttribute('fill','#203040');delta.textContent=`Turn ${b.turn} vs ${a.turn}: ${fmt(b.metrics[metric]-a.metrics[metric])}`;svg.append(delta);}}
-    return svg;
+    const color=metric==='food'?'var(--apple-system-mint-contrast)':metric==='energy'?'var(--apple-system-blue-contrast)':metric==='ore'?'var(--apple-system-indigo-contrast)':'#343b3d';
+    const points=valid.map((item,i)=>`${i*640/(valid.length-1)},${144-(item.metrics[metric]/max)*144}`).join(' ');
+    const poly=document.createElementNS(svg.namespaceURI,'polyline');
+    poly.setAttribute('points',points);poly.setAttribute('fill','none');poly.setAttribute('stroke',color);poly.setAttribute('stroke-width','2');poly.setAttribute('vector-effect','non-scaling-stroke');svg.append(poly);
+    const turns=el('div','history-turn-axis');turns.append(el('span','',`Turn ${valid[0].turn}`),el('span','',`Turn ${valid.at(-1).turn}`));
+    plot.append(axis,svg,turns);graph.append(plot);return graph;
   }
 
   async function renderHistory(){
@@ -523,7 +534,7 @@
       for(const key of fieldOrder){if(!(key in item)||key==='kind'&&recordTitle(item)===titleCase(item.kind)||forces&&(['owner','status'].includes(key)||key===locationKey))continue;
         if(item[key]===null||item[key]===undefined)continue;
         const value=relation.test(key)?resolveRecordReference(item[key]):key==='readiness'&&Number.isFinite(item[key])?`${safeValue(item[key])}%`:(['kind','type','role','owner','status','assignment'].includes(key)?titleCase(safeValue(item[key])):safeValue(item[key]));
-        const fact=el('div',`record-fact fact-${key}`);fact.append(el('dt','',titleCase(key.replace(/_id$/,''))),el('dd','',value));if(['strength','crew','readiness'].includes(key))fact.classList.add('force-primary');if(['food_reserve','promethium_reserve','capacity','location_id','system_id','planet_id','settlement_id'].includes(key))fact.classList.add('force-secondary');facts.append(fact);shown++;
+        const fact=el('div',`record-fact fact-${key}`);fact.append(el('dt','',titleCase(key.replace(/_id$/,''))),el('dd','',value));if(key==='readiness'&&Number.isFinite(item.readiness)&&item.readiness>=0&&item.readiness<=100){const gauge=document.createElement('progress');gauge.max=100;gauge.value=item.readiness;gauge.setAttribute('aria-label',`Readiness ${item.readiness}%`);fact.append(gauge);}if(['strength','crew','readiness'].includes(key))fact.classList.add('force-primary');if(['food_reserve','promethium_reserve','capacity','location_id','system_id','planet_id','settlement_id'].includes(key))fact.classList.add('force-secondary');facts.append(fact);shown++;
       }
       if(section==='projects'){
         if(Number.isFinite(item.work_done)&&Number.isFinite(item.work_required)&&item.work_required>0&&item.work_done>=0&&item.work_done<=item.work_required){const progress=el('div','project-progress');const bar=document.createElement('progress');bar.max=item.work_required;bar.value=item.work_done;bar.setAttribute('aria-label',`Project work ${fmt(item.work_done)} of ${fmt(item.work_required)}`);progress.append(el('span','','WORK'),bar,el('strong','',`${fmt(item.work_done)} / ${fmt(item.work_required)}`));card.append(progress);}
@@ -646,7 +657,7 @@
   function resetPaneLayout(){window.HWDesktop?.resetLayout();notify('Window positions and sizes reset.');}
 
   function zoomMap(mult){state.zoom=Math.max(1,Math.min(5,state.zoom*mult));if(state.zoom===1)state.panX=state.panY=0;text($('#zoom-reset'),`${Math.round(state.zoom*100)}%`);drawMap();}
-  function installNavIcons(){const colors=['#8b7751','#376f58','#a5792c','#4d6686','#8e5041','#687849','#9a7432','#4a7191'];document.querySelectorAll('.nav-item').forEach((button,index)=>{const view=button.dataset.view;button.title=titleCase(view);button.setAttribute('aria-label',`Open ${titleCase(view)} report`);if(button.querySelector('.nav-icon'))return;const icon=el('span','nav-icon');icon.setAttribute('aria-hidden','true');const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');svg.setAttribute('viewBox','0 0 16 16');svg.setAttribute('aria-hidden','true');const base=colors[index%colors.length];const shapes=[[[2,2],[3,2],[2,3],[3,3]],[[1,1],[2,1],[3,1],[1,2],[3,2],[1,3],[2,3],[3,3]],[[1,3],[2,2],[3,1],[3,2],[3,3]],[[1,1],[2,1],[3,1],[1,2],[2,2],[3,2],[2,3],[2,4]]][index%4];for(const [x,y]of shapes){const rect=document.createElementNS(svg.namespaceURI,'rect');rect.setAttribute('x',String(x*2));rect.setAttribute('y',String(y*2));rect.setAttribute('width','2');rect.setAttribute('height','2');rect.setAttribute('fill',base);svg.append(rect);}const frame=document.createElementNS(svg.namespaceURI,'rect');frame.setAttribute('x','1');frame.setAttribute('y','1');frame.setAttribute('width','14');frame.setAttribute('height','14');frame.setAttribute('fill','none');frame.setAttribute('stroke','#283743');frame.setAttribute('stroke-width','1');svg.append(frame);icon.append(svg);button.insertBefore(icon,button.firstChild);});}
+  function installNavIcons(){const colors=['var(--apple-system-blue)','var(--apple-system-mint)','var(--apple-system-teal)','var(--apple-system-indigo)'];document.querySelectorAll('.nav-item').forEach((button,index)=>{const view=button.dataset.view;button.title=titleCase(view);button.setAttribute('aria-label',`Open ${titleCase(view)} report`);if(button.querySelector('.nav-icon'))return;const icon=el('span','nav-icon');icon.setAttribute('aria-hidden','true');const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');svg.setAttribute('viewBox','0 0 16 16');svg.setAttribute('aria-hidden','true');const base=colors[index%colors.length];const shapes=[[[2,2],[3,2],[2,3],[3,3]],[[1,1],[2,1],[3,1],[1,2],[3,2],[1,3],[2,3],[3,3]],[[1,3],[2,2],[3,1],[3,2],[3,3]],[[1,1],[2,1],[3,1],[1,2],[2,2],[3,2],[2,3],[2,4]]][index%4];for(const [x,y]of shapes){const rect=document.createElementNS(svg.namespaceURI,'rect');rect.setAttribute('x',String(x*2));rect.setAttribute('y',String(y*2));rect.setAttribute('width','2');rect.setAttribute('height','2');rect.setAttribute('fill',base);svg.append(rect);}const frame=document.createElementNS(svg.namespaceURI,'rect');frame.setAttribute('x','1');frame.setAttribute('y','1');frame.setAttribute('width','14');frame.setAttribute('height','14');frame.setAttribute('fill','none');frame.setAttribute('stroke','#283743');frame.setAttribute('stroke-width','1');svg.append(frame);icon.append(svg);button.insertBefore(icon,button.firstChild);});}
   function clearCampaignContext(){state.contextEpoch++;state.campaignLoadSeq++;state.campaignListSeq++;state.historyLoadSeq++;state.mapLoadSeq++;state.snapshotLoadSeq++;for(const [view,seq]of state.managementRequests)state.managementRequests.set(view,seq+1);state.campaign=null;state.snapshot=null;state.history=[];state.historyLoading=false;state.historyTotal=0;state.historyOffset=0;state.selectedProvince=null;state.selectedEntity=null;state.mapRecord=null;state.mapNodeId=null;state.mapLevel='galactic';state.panX=state.panY=0;state.zoom=1;state.previewText=null;state.previewProposal=null;state.managementContexts.clear();state.managementLoading.clear();state.economyLoading=null;state.historyMetric='population';state.historyCompare=null;for(const panel of state.managementPanels.values())panel.replaceChildren();for(const id of ['economy-panel','history-panel','orders-panel'])$( `#${id}`).replaceChildren();$('#orders-panel').dataset.ready='';$('#campaign-kind').textContent='NO CAMPAIGN';$('#turn-badge').textContent='TURN —';$('#historical-badge').hidden=true;render();}
   function createManagementWindow(view){let panel=managementPanel(view);const labels={industry:'Industry',fleet:'Fleet',politics:'Politics',trade:'Trade',factions:'Factions',budget:'Budget',logistics:'Logistics',construction:'Construction',research:'Research',military:'Military',diplomacy:'Diplomacy',intelligence:'Intelligence',exploration:'Exploration',colonies:'Colonies',characters:'Characters'};const i=[...document.querySelectorAll('.sidebar .nav-item')].find(button=>button.dataset.view===view);const index=i?[...document.querySelectorAll('.sidebar .nav-item')].indexOf(i):4;return window.HWDesktop.createWindow(view,labels[view]||titleCase(view),panel,{x:Math.max(12,90+(index%6)*30),y:Math.max(12,55+(index%5)*28),w:520,h:460});}
   function onWindowOpen(view){state.view=view;window.HWDesktop?.setScope(selectedScope(view));if(view==='planet'){if(state.campaign&&liveState()&&!state.mapRecord)loadMap().catch(showError);}else if(view==='economy')renderEconomy().catch(showError);else if(view==='history'){if(!state.history.length&&!state.historyLoading)loadHistory(0).catch(showError);else renderHistory();}else if(view==='orders'){if(!$('#orders-panel').dataset.ready){renderOrders();$('#orders-panel').dataset.ready='true';}}else if(isManagementView(view))loadManagement(view).catch(showError);}

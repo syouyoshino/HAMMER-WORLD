@@ -43,9 +43,9 @@ body { display: block; min-height: 100%; overflow: hidden; }
 }
 @supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
   #command-workspace, #command-inspector {
-    background: rgb(244 244 237 / 82%);
-    -webkit-backdrop-filter: blur(11px);
-    backdrop-filter: blur(11px);
+    background: rgb(244 244 237 / 63%);
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
   }
 }
 #command-workspace .workspace-head, #command-workspace .workspace-tabs,
@@ -85,9 +85,9 @@ body { display: block; min-height: 100%; overflow: hidden; }
 #command-inspector .note-box { font-size: 10px; }
 @supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
   #command-workspace, #command-inspector {
-    background: rgb(244 244 237 / 82%);
-    -webkit-backdrop-filter: blur(11px);
-    backdrop-filter: blur(11px);
+    background: rgb(244 244 237 / 63%);
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
   }
 }
 
