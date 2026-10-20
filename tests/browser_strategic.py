@@ -158,6 +158,17 @@ def check_placeholder_review(browser, base, player, out):
         assert f"{produced:,}" in flow.get_attribute("aria-label")
         assert f"{consumed:,}" in flow.get_attribute("aria-label")
         page.screenshot(path=str(out / "placeholder-economy.png"))
+        # Already-mounted SVG labels must adapt too, without a chart reload.
+        page.evaluate("window.reviewFlow=document.querySelector('#economy-panel .local-scope .resource-flow-chart svg')")
+        for mode in ("dark", "light"):
+            page.locator("#hw-command").click()
+            page.select_option("#appearance-select", mode)
+            page.locator("[data-menu-close]").click()
+            label_channels = flow.locator("text").evaluate_all("nodes=>nodes.map(n=>getComputedStyle(n).fill.match(/[\\d.]+/g).slice(0,3).map(Number))")
+            assert all(min(rgb) > 200 if mode == "dark" else max(rgb) < 80 for rgb in label_channels), label_channels
+            assert page.evaluate("reviewFlow===document.querySelector('#economy-panel .local-scope .resource-flow-chart svg')")
+            if mode == "dark":
+                page.screenshot(path=str(out / "dark-local-economy.png"))
         page.locator("[data-return-map]").click()
         assert page.evaluate("window.reviewCanvas===document.querySelector('#planet-map')")
         assert "Reach" in page.locator("#map-breadcrumbs").inner_text()
@@ -228,6 +239,80 @@ def check_placeholder_review(browser, base, player, out):
         return {"direct_hierarchy_input": "passes through review backdrop", "canvas_identity": "retained", "page_errors": errors}
     finally:
         page.close()
+
+
+def check_theme_preferences(browser, base, player, out):
+    """Theme is a local UI preference; switching cannot replace strategic state."""
+    context = browser.new_context(viewport={"width": 1280, "height": 900}, color_scheme="dark")
+    page = context.new_page()
+    errors, requests = [], []
+    page.on("pageerror", lambda error: errors.append(str(error)))
+    page.on("request", lambda request: requests.append(request.url) if "/api/" in request.url else None)
+    try:
+        page.goto(base + "?map=placeholder")
+        page.wait_for_function("document.documentElement.dataset.theme==='dark'")
+        page.fill("#access-token", player)
+        page.locator("#login-button").click()
+        page.wait_for_function("document.querySelectorAll('#campaign-select option').length===2")
+        page.locator("[data-dialog-close]").click()
+        page.select_option("#campaign-select", "demo-v2")
+        page.wait_for_function("document.querySelector('#map-placeholder').hidden")
+        page.wait_for_load_state("networkidle")
+        page.evaluate("window.themeCanvas=document.querySelector('#planet-map'); window.themePixels=themeCanvas.toDataURL()")
+        before_turn = page.locator("#command-turn").inner_text()
+        page.locator("#hw-command").click()
+        request_count = len(requests)
+        for mode in ["light", "dark"] * 8:
+            page.select_option("#appearance-select", mode)
+            assert page.evaluate("document.documentElement.dataset.theme") == mode
+        page.emulate_media(color_scheme="light")
+        assert page.evaluate("document.documentElement.dataset.theme") == "dark"
+        page.select_option("#appearance-select", "system")
+        page.wait_for_function("document.documentElement.dataset.theme==='light'")
+        page.emulate_media(color_scheme="dark")
+        page.wait_for_function("document.documentElement.dataset.theme==='dark'")
+        assert len(requests) == request_count, "Theme switching fetched campaign records"
+        assert page.evaluate("themeCanvas===document.querySelector('#planet-map') && themePixels===themeCanvas.toDataURL()")
+        assert page.locator("#command-turn").inner_text() == before_turn
+        page.select_option("#appearance-select", "dark")
+        page.screenshot(path=str(out / "dark-menu.png"))
+        page.locator("#command-menu [data-open=economy]").click()
+        page.wait_for_function("document.querySelector('#economy-panel').dataset.ready==='true'")
+        surfaces = page.evaluate("""['#command-workspace','#command-inspector','#command-menu'].map(s=>{
+          const c=getComputedStyle(document.querySelector(s)).backgroundColor;
+          return {selector:s, rgba:c.match(/[\\d.]+/g).map(Number)};
+        })""")
+        assert all(max(item["rgba"][:3]) < 50 and item["rgba"][3] >= .8 for item in surfaces), surfaces
+        page.screenshot(path=str(out / "dark-economy.png"))
+        page.set_viewport_size({"width": 390, "height": 844})
+        assert not page.evaluate("document.documentElement.scrollWidth>innerWidth")
+        page.screenshot(path=str(out / "dark-mobile-economy.png"))
+        page.emulate_media(color_scheme="light")
+        page.reload()
+        page.wait_for_function("document.documentElement.dataset.theme==='dark'")
+        assert page.locator("#access-token").input_value() == ""
+        assert page.evaluate("localStorage.getItem('hw.theme.v1')") == "dark"
+        assert set(page.evaluate("Object.keys(localStorage)")) == {"hw.theme.v1"}
+        assert not errors, errors
+    finally:
+        context.close()
+    # Invalid or unavailable preference storage must not prevent startup.
+    for blocked in (False, True):
+        context = browser.new_context(color_scheme="dark")
+        if blocked:
+            context.add_init_script("for(const name of ['getItem','setItem'])Object.defineProperty(Storage.prototype,name,{value(){throw new Error('Storage blocked')}})")
+        else:
+            context.add_init_script("localStorage.setItem('hw.theme.v1','invalid')")
+        page = context.new_page()
+        page.goto(base)
+        page.wait_for_function("document.documentElement.dataset.theme==='dark'")
+        page.locator("[data-dialog-close]").click()
+        page.locator("#hw-command").click()
+        assert page.locator("#appearance-select").input_value() == "system"
+        page.select_option("#appearance-select", "light")
+        page.wait_for_function("document.documentElement.dataset.theme==='light'")
+        context.close()
+    return {"system_changes": "followed only in System mode", "reload": "explicit preference retained; auth not retained", "storage_unavailable": "operable", "theme_api_requests": 0, "canvas_pixels": "retained", "page_errors": errors}
 
 
 def check_stock_history_retry(browser, base, player):
@@ -697,6 +782,7 @@ def main():
                 (out/"metrics.json").write_text(json.dumps(metrics,indent=2)+"\n")
                 metrics["placeholder_review"] = check_placeholder_review(browser, base, player, out)
                 metrics["stock_history_retry"] = check_stock_history_retry(browser, base, player)
+                metrics["theme_preferences"] = check_theme_preferences(browser, base, player, out)
                 browser.close()
                 metrics["browser_zoom"] = check_browser_zoom(playwright, executable, base, player, out)
                 (out/"metrics.json").write_text(json.dumps(metrics,indent=2)+"\n")

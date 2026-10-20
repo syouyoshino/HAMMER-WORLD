@@ -39,14 +39,7 @@ body { display: block; min-height: 100%; overflow: hidden; }
 #command-workspace {
   max-width: 100vw;
   max-height: 100vh;
-  background: #f4f4ed;
-}
-@supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  #command-workspace, #command-inspector {
-    background: rgb(244 244 237 / 63%);
-    -webkit-backdrop-filter: blur(10px);
-    backdrop-filter: blur(10px);
-  }
+  background: var(--panel-glass-strong);
 }
 #command-workspace .workspace-head, #command-workspace .workspace-tabs,
 #command-workspace .workspace-content { background: transparent; }
@@ -58,7 +51,7 @@ body { display: block; min-height: 100%; overflow: hidden; }
   bottom: 82px;
   width: min(340px, calc(100vw - 36px));
   overflow: auto;
-  background: #f4f4ed;
+  background: var(--panel-glass-strong);
   border: 1px solid var(--line-strong);
   pointer-events: auto;
 }
@@ -85,13 +78,13 @@ body { display: block; min-height: 100%; overflow: hidden; }
 #command-inspector .note-box { font-size: 10px; }
 @supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
   #command-workspace, #command-inspector {
-    background: rgb(244 244 237 / 63%);
+    background: var(--panel-glass);
     -webkit-backdrop-filter: blur(10px);
     backdrop-filter: blur(10px);
   }
 }
 
-.command-backdrop { position: absolute; z-index: 35; inset: 0; background: rgb(39 44 47 / 24%); }
+.command-backdrop { position: absolute; z-index: 35; inset: 0; background: var(--backdrop); }
 #command-dialog { position: absolute; z-index: 40; top: 50%; left: 50%; width: min(520px, calc(100vw - 24px)); max-height: calc(100vh - 24px); transform: translate(-50%, -50%); overflow: auto; background: var(--paper); border: 1px solid var(--line-strong); }
 .dialog-title { position: sticky; z-index: 1; top: 0; display: flex; align-items: center; justify-content: space-between; padding: 9px 12px; background: var(--paper); border-bottom: 1px solid var(--line); font-size: 11px; letter-spacing: .08em; }
 .dialog-content { padding: 12px; }

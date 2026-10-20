@@ -369,7 +369,7 @@
     const box=el('div','resource-flow-chart');box.append(el('div','inspector-section','FOOD FLOW · THIS TURN'));
     const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');svg.setAttribute('viewBox','0 0 440 96');svg.setAttribute('role','img');svg.setAttribute('aria-label',`Recorded food production ${produced===null?'unknown':fmt(produced)} and consumption ${consumed===null?'unknown':fmt(consumed)}`);
     const max=Math.max(1,produced??0,consumed??0);const rows=[['Production',produced,'var(--apple-system-mint)'],['Consumption',consumed,'var(--apple-system-orange)']];
-    rows.forEach(([label,value,color],i)=>{const y=20+i*38;const name=document.createElementNS(svg.namespaceURI,'text');name.setAttribute('x','0');name.setAttribute('y',String(y+12));name.setAttribute('fill','#343b3d');name.setAttribute('font-size','15');name.textContent=label;svg.append(name);const track=document.createElementNS(svg.namespaceURI,'rect');track.setAttribute('x','128');track.setAttribute('y',String(y));track.setAttribute('width','210');track.setAttribute('height','14');track.setAttribute('fill','#e2e5df');svg.append(track);if(value!==null){const bar=document.createElementNS(svg.namespaceURI,'rect');bar.setAttribute('x','128');bar.setAttribute('y',String(y));bar.setAttribute('width',String(Math.max(value>0?1:0,210*value/max)));bar.setAttribute('height','14');bar.setAttribute('fill',color);svg.append(bar);}const valueText=document.createElementNS(svg.namespaceURI,'text');valueText.setAttribute('x','350');valueText.setAttribute('y',String(y+12));valueText.setAttribute('fill','#343b3d');valueText.setAttribute('font-size','15');valueText.textContent=value===null?'Unknown':fmt(value);svg.append(valueText);});box.append(svg);return box;
+    rows.forEach(([label,value,color],i)=>{const y=20+i*38;const name=document.createElementNS(svg.namespaceURI,'text');name.setAttribute('x','0');name.setAttribute('y',String(y+12));name.setAttribute('fill','var(--ink)');name.setAttribute('font-size','15');name.textContent=label;svg.append(name);const track=document.createElementNS(svg.namespaceURI,'rect');track.setAttribute('x','128');track.setAttribute('y',String(y));track.setAttribute('width','210');track.setAttribute('height','14');track.setAttribute('fill','var(--paper-deep)');svg.append(track);if(value!==null){const bar=document.createElementNS(svg.namespaceURI,'rect');bar.setAttribute('x','128');bar.setAttribute('y',String(y));bar.setAttribute('width',String(Math.max(value>0?1:0,210*value/max)));bar.setAttribute('height','14');bar.setAttribute('fill',color);svg.append(bar);}const valueText=document.createElementNS(svg.namespaceURI,'text');valueText.setAttribute('x','350');valueText.setAttribute('y',String(y+12));valueText.setAttribute('fill','var(--ink)');valueText.setAttribute('font-size','15');valueText.textContent=value===null?'Unknown':fmt(value);svg.append(valueText);});box.append(svg);return box;
   }
   async function historyChart(metric='food',comparison=null,source='economy',status=null,series=null) {
     const s=liveState();
@@ -402,9 +402,9 @@
     for(let y=0;y<=4;y++){
       const label=el('span','',fmt(max-y*tickStep));label.style.top=`${y*25}%`;axis.append(label);
       const line=document.createElementNS(svg.namespaceURI,'line');
-      line.setAttribute('x1','0');line.setAttribute('x2','640');line.setAttribute('y1',String(y*36));line.setAttribute('y2',String(y*36));line.setAttribute('stroke','#a4aaa6');line.setAttribute('vector-effect','non-scaling-stroke');svg.append(line);
+      line.setAttribute('x1','0');line.setAttribute('x2','640');line.setAttribute('y1',String(y*36));line.setAttribute('y2',String(y*36));line.setAttribute('stroke','var(--line)');line.setAttribute('vector-effect','non-scaling-stroke');svg.append(line);
     }
-    const color=metric==='food'?'var(--apple-system-mint-contrast)':metric==='energy'?'var(--apple-system-blue-contrast)':metric==='ore'?'var(--apple-system-indigo-contrast)':'#343b3d';
+    const color=metric==='food'?'var(--apple-system-mint-contrast)':metric==='energy'?'var(--apple-system-blue-contrast)':metric==='ore'?'var(--apple-system-indigo-contrast)':'var(--ink)';
     const points=valid.map((item,i)=>`${i*640/(valid.length-1)},${144-(item.metrics[metric]/max)*144}`).join(' ');
     const poly=document.createElementNS(svg.namespaceURI,'polyline');
     poly.setAttribute('points',points);poly.setAttribute('fill','none');poly.setAttribute('stroke',color);poly.setAttribute('stroke-width','2');poly.setAttribute('vector-effect','non-scaling-stroke');svg.append(poly);
@@ -497,7 +497,7 @@
     for(const settlement of settlements){
       const group=el('div','local-record-group');group.append(el('h3','local-record-title',settlement.name||'Recorded settlement'));
       for(const facility of facilities.filter(x=>x.settlement_id===settlement.id)){
-        const item=el('div','local-record-row');const heading=el('strong','',titleCase(facility.kind||'Facility'));const status=el('span','local-record-status',facility.completed===true?'Complete':facility.completed===false?'In progress':'Status unknown');item.append(heading,status);
+        const item=el('div','local-record-row');const heading=el('strong','',titleCase(facility.kind||'Facility'));const status=el('span',`local-record-status${facility.completed===true?' is-complete':facility.completed===false?' is-in-progress':''}`,facility.completed===true?'Complete':facility.completed===false?'In progress':'Status unknown');item.append(heading,status);
         const details=el('details','record-identifiers');details.append(el('summary','','Record IDs'));row(details,'Facility',facility.id);row(details,'Settlement',settlement.id);item.append(details);group.append(item);
       }
       const localProjects=projects.filter(x=>x.settlement_id===settlement.id);

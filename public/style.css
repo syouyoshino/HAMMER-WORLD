@@ -40,10 +40,26 @@
   --apple-system-teal-contrast: #008198;
   --apple-system-indigo-contrast: #564ade;
   --apple-system-red-contrast: #e9152d;
+  --apple-system-green: #34c759;
+  --apple-system-green-contrast: #008932;
+  --apple-system-yellow: #ffcc00;
+  --apple-system-yellow-contrast: #a16a00;
+  --apple-system-purple: #cb30e0;
+  --apple-system-purple-contrast: #b02fc2;
+  --selection-blue: #1e6ef4;
   --recorded: var(--ink);
   --in-progress: var(--apple-system-orange);
   --readiness: var(--apple-system-blue-contrast);
   --map-ground: #f1f2ee;
+  --panel-glass: rgb(244 244 237 / 63%);
+  --panel-glass-strong: #f4f4ed;
+  --map-glass: rgb(246 246 239 / 78%);
+  --map-glass-strong: #f6f6ef;
+  --backdrop: rgb(22 27 31 / 42%);
+  --table-stripe: #f3f4ef;
+  --selection-hover: #454c4f;
+  --neutral-readout: var(--paper-alt);
+  --critical-fill: #e9152d;
   font-family: var(--mono);
   font-synthesis: none;
 }
@@ -104,7 +120,7 @@ button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-
   letter-spacing: .04em;
 }
 #hw-command span { display: none; }
-#hw-command:hover { background: #454c4f; }
+#hw-command:hover { background: var(--selection-hover); }
 .command-brand { color: var(--ink); font-weight: 700; letter-spacing: .04em; white-space: nowrap; }
 .command-brand span { display: block; color: var(--muted); font-size: 9px; font-weight: 400; letter-spacing: .1em; }
 .campaign-indicator { display: flex; align-items: center; gap: 8px; min-width: 0; margin-left: auto; }
@@ -124,6 +140,8 @@ button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-
 .command-indicators #command-history, .command-indicators #command-pending, .command-indicators #command-preview {
   color: var(--ink); font-weight: 700; border-bottom: 2px solid var(--ink);
 }
+.command-indicators #command-pending { color: var(--apple-system-yellow-contrast); border-bottom-color: var(--apple-system-yellow-contrast); }
+.command-indicators #command-preview { color: var(--apple-system-green-contrast); border-bottom-color: var(--apple-system-green-contrast); }
 #refresh-button { min-height: 30px; font-size: 14px; }
 
 #resource-shell { position: absolute; z-index: 8; top: 62px; left: 18px; width: min(500px, calc(100vw - 36px)); }
@@ -256,7 +274,7 @@ button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-
 .workspace-tabs { display: flex; gap: 0; min-height: 38px; overflow-x: auto; background: var(--paper); border-bottom: 1px solid var(--line); }
 .workspace-tabs button { flex: none; min-height: 37px; padding: 6px 12px; color: var(--muted); background: transparent; border: 0; border-bottom: 2px solid transparent; font: inherit; font-size: 11px; }
 .workspace-tabs button:hover { color: var(--ink); background: var(--paper-alt); }
-.workspace-tabs button.active { color: var(--selection-ink); background: var(--apple-system-blue-contrast); border-bottom-color: var(--apple-system-mint); }
+.workspace-tabs button.active { color: var(--selection-ink); background: var(--selection-blue); border-bottom-color: var(--apple-system-mint); }
 .workspace-tabs button, .menu-map button, .menu-grid button { display: inline-flex; align-items: center; gap: 7px; }
 .command-icon { flex: none; width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: square; stroke-linejoin: miter; }
 .command-icon.icon-mint { color: var(--apple-system-mint-contrast); }
@@ -273,7 +291,7 @@ button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-
 .scope-provenance { margin: 4px 0 14px; color: var(--muted); font-size: 11px; }
 .scope-tabs { display: flex; gap: 4px; margin: 0 0 18px; padding-bottom: 7px; border-bottom: 1px solid var(--line); }
 .scope-tabs button { min-height: 31px; padding: 5px 10px; color: var(--muted); background: transparent; border: 1px solid transparent; font: inherit; font-size: 11px; }
-.scope-tabs button.active { color: var(--selection-ink); background: var(--apple-system-blue-contrast); border-color: var(--apple-system-mint); }
+.scope-tabs button.active { color: var(--selection-ink); background: var(--selection-blue); border-color: var(--apple-system-mint); }
 .scope-tabs button:disabled { color: var(--faint); background: transparent; }
 .scope-pane[hidden] { display: none !important; }
 .empty-note { padding: 12px 0; color: var(--muted); font-size: 11px; }
@@ -365,6 +383,8 @@ button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-
 .local-record-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 8px; min-height: 31px; padding: 4px 0; border-top: 1px solid var(--line); font-size: 12px; }
 .local-record-row > strong { color: var(--ink); font-weight: 500; }
 .local-record-status { color: var(--muted); font-size: 11px; }
+.local-record-status.is-complete { color: var(--apple-system-green-contrast); }
+.local-record-status.is-in-progress { color: var(--apple-system-orange-contrast); }
 .local-record-row .record-identifiers { grid-column: auto; margin: 0; justify-self: end; }
 .local-record-row .record-identifiers[open] { grid-column: 1 / -1; justify-self: stretch; }
 .local-record-row .record-identifiers summary { text-align: right; }
@@ -399,7 +419,7 @@ button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-
 .history-table { width: 100%; border-collapse: collapse; background: transparent; font-size: 11px; }
 .history-table th { position: sticky; top: 0; padding: 8px; background: var(--paper-alt); border-bottom: 1px solid var(--line-strong); font-size: 9px; text-align: left; }
 .history-table td { padding: 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
-.history-table tr:nth-child(even) { background: #f3f4ef; }
+.history-table tr:nth-child(even) { background: var(--table-stripe); }
 .history-table .narrative { max-width: 260px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .link-button { padding: 0; color: var(--ink); background: transparent; border: 0; text-decoration: underline; font: inherit; }
 .readonly-tag { padding: 2px 4px; color: var(--muted); background: var(--paper-deep); font-size: 9px; }
@@ -420,8 +440,9 @@ button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-
 .report-line { display: flex; justify-content: space-between; gap: 12px; padding: 5px 0; border-bottom: 1px solid var(--line); }
 .live-banner { margin: 8px 0; padding: 6px 0; color: var(--muted); border-bottom: 1px solid var(--line); font-size: 11px; }
 .toast { position: fixed; z-index: 60; bottom: 18px; left: 50%; max-width: min(90vw, 700px); padding: 9px 12px; transform: translateX(-50%); color: var(--selection-ink); background: var(--selection); font-size: 11px; }
-.toast.error { background: var(--apple-system-red-contrast); }
-.archive-pending, .archive-verified { color: var(--ink); }
+.toast.error { background: var(--critical-fill); }
+.archive-pending { color: var(--apple-system-yellow-contrast); }
+.archive-verified { color: var(--apple-system-green-contrast); }
 
 /* Opt-in generated artwork for interface review; the live canvas stays mounted below it. */
 .map-review-placeholder {
@@ -433,7 +454,7 @@ button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-
   background: center / cover no-repeat url('/static/images/tactical-placeholder.png');
   pointer-events: none;
 }
-.review-center { position: absolute; right: 12px; bottom: 88px; display: grid; gap: 3px; padding: 7px 9px; color: #252b2d; background: rgb(246 246 239 / 78%); border-left: 2px solid #424a4b; text-align: left; }
+.review-center { position: absolute; right: 12px; bottom: 88px; display: grid; gap: 3px; padding: 7px 9px; color: var(--ink); background: var(--map-glass); border-left: 2px solid var(--line-strong); text-align: left; }
 .review-center strong { font-size: 10px; letter-spacing: .08em; }
 .review-center span { font-size: 9px; }
 .map-review-placeholder[hidden] { display: none !important; }
@@ -443,13 +464,13 @@ button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-
 #resource-shell, #view-title, #map-breadcrumbs, #map-panel .map-caption,
 #map-panel .map-legend, #map-panel .map-footer {
   padding: 6px 8px;
-  color: #252b2d;
-  background: #f6f6ef;
+  color: var(--ink);
+  background: var(--map-glass-strong);
 }
 @supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
   #resource-shell, #view-title, #map-breadcrumbs, #map-panel .map-caption,
   #map-panel .map-legend, #map-panel .map-footer {
-    background: rgb(246 246 239 / 78%);
+    background: var(--map-glass);
     -webkit-backdrop-filter: blur(8px);
     backdrop-filter: blur(8px);
   }
@@ -457,19 +478,71 @@ button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-
 #view-title { padding: 7px 9px; }
 #map-panel .map-caption { bottom: 56px; left: 18px; }
 #map-panel .map-legend { bottom: 56px; right: 18px; }
-#map-panel .map-footer { bottom: 18px; padding-top: 7px; border-top-color: rgb(65 72 73 / 32%); }
+#map-panel .map-footer { bottom: 18px; padding-top: 7px; border-top-color: color-mix(in srgb, var(--ink) 32%, transparent); }
 
 /* The shell itself blurs the map below; its child layers stay clear. */
 #command-menu, #command-workspace, #command-inspector {
-  background: #f4f4ed;
+  background: var(--panel-glass-strong);
 }
 @supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
   #command-menu, #command-workspace, #command-inspector {
-    background: rgb(244 244 237 / 63%);
+    background: var(--panel-glass);
     -webkit-backdrop-filter: blur(10px);
     backdrop-filter: blur(10px);
   }
 }
+
+/* Appearance follows the resolved preference set before the first paint. */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --ink: #f2f2f7;
+  --muted: #b8bbc4;
+  --faint: #9296a0;
+  --line: #484b53;
+  --line-strong: #777b84;
+  --paper: #17191e;
+  --paper-alt: #20232a;
+  --paper-deep: #2a2e36;
+  --selection: #30343d;
+  --selection-ink: #ffffff;
+  --apple-system-red: #ff4245;
+  --apple-system-red-contrast: #ff6165;
+  --apple-system-orange: #ff9230;
+  --apple-system-orange-contrast: #ffa056;
+  --apple-system-yellow: #ffd600;
+  --apple-system-yellow-contrast: #fedf43;
+  --apple-system-green: #30d158;
+  --apple-system-green-contrast: #4ad968;
+  --apple-system-mint: #00dac3;
+  --apple-system-mint-contrast: #54dfcb;
+  --apple-system-teal: #00d2e0;
+  --apple-system-teal-contrast: #3bddec;
+  --apple-system-blue: #0091ff;
+  --apple-system-blue-contrast: #5cb8ff;
+  --apple-system-indigo: #6d7cff;
+  --apple-system-indigo-contrast: #a7aaff;
+  --apple-system-purple: #db34f2;
+  --apple-system-purple-contrast: #ea8dff;
+  --selection-blue: #1e6ef4;
+  --recorded: var(--ink);
+  --readiness: var(--apple-system-blue-contrast);
+  --map-ground: #17191e;
+  --panel-glass: rgb(23 25 30 / 86%);
+  --panel-glass-strong: #17191e;
+  --map-glass: rgb(23 25 30 / 88%);
+  --map-glass-strong: #17191e;
+  --backdrop: rgb(0 0 0 / 64%);
+  --table-stripe: #20232a;
+  --selection-hover: #414650;
+  --neutral-readout: var(--paper-alt);
+  --critical-fill: #e9152d;
+}
+
+.appearance-setting { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin-top: 12px; padding-top: 9px; color: var(--muted); border-top: 1px solid var(--line); font-size: 11px; }
+.appearance-setting select { min-width: 125px; min-height: 30px; padding: 4px 25px 4px 7px; color: var(--ink); background: var(--paper); border: 1px solid var(--line-strong); }
+select, input, textarea, .economy-metric { color: var(--ink); background-color: var(--paper); }
+.result-box { background: var(--neutral-readout); }
+.command-backdrop { position: absolute; z-index: 35; inset: 0; background: var(--backdrop); }
 #command-workspace .workspace-head, #command-workspace .workspace-tabs,
 #command-workspace .workspace-content, #command-inspector > header,
 #command-inspector footer { background: transparent; }
