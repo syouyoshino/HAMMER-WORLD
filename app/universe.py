@@ -188,12 +188,15 @@ def public_state_v2(state):
     facilities = [{"id":f["id"],"settlement_id":f["settlement_id"],"kind":f["kind"],"completed":f["completed"],
                    "active_turn":f["active_turn"]} for f in state["facilities"]
                   if any(s["id"] == f["settlement_id"] and s["owned"] for s in state["settlements"])]
-    units = [{k:u[k] for k in ("id","kind","owner","location_id","strength","readiness","planet_id","settlement_id","moving_until","food_reserve","transit_food") if k in u}
+    # Owned movement endpoints are recorded orders, not a geometric travel path.
+    units = [{k:u[k] for k in ("id","kind","owner","location_id","strength","readiness","planet_id","settlement_id","moving_until","food_reserve","transit_food",
+                              "origin_province_id","destination_province_id","departure_turn","supply_source_id") if k in u}
              for u in state["units"] if u["owner"] == "player"]
     units += [{"id":u["id"],"kind":u["kind"],"owner":"foreign","location_id":u["intel"].get("location_id"),
                "strength":u["intel"].get("strength"),"confidence":u["intel"]["confidence"],"observed_turn":u["intel"]["observed_turn"]}
               for u in state["units"] if u["owner"]!="player" and u.get("intel")]
-    fleets = [{k:f[k] for k in ("id","kind","owner","system_id","location_id","settlement_id","strength","crew","capacity","food_reserve","promethium_reserve","moving_until") if k in f}
+    fleets = [{k:f[k] for k in ("id","kind","owner","system_id","location_id","settlement_id","strength","crew","capacity","food_reserve","promethium_reserve","moving_until",
+                               "destination_system_id","origin_settlement_id","departure_turn") if k in f}
               for f in state["fleets"] if f["owner"] == "player"]
     fleets += [{"id":f["id"],"kind":f["kind"],"owner":"foreign","system_id":f["intel"].get("system_id"),
                 "location_id":f["intel"].get("location_id"),"strength":f["intel"].get("strength"),"confidence":f["intel"]["confidence"],
