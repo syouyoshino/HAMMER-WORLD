@@ -155,6 +155,8 @@ button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-
   border-bottom: 1px solid var(--line);
 }
 .resource-card { display: grid; grid-template-columns: 1fr auto; align-items: baseline; gap: 0 8px; min-width: 0; padding: 2px 0; }
+.resource-card.is-unknown { grid-template-columns: 1fr; align-content: start; }
+.resource-card.is-unknown .resource-value { text-align: left; }
 .resource-name { color: var(--muted); font-size: 9px; letter-spacing: .08em; white-space: nowrap; }
 .resource-value { color: var(--ink); font: 16px/1.25 var(--mono); font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
 .resource-note { grid-column: 1 / -1; color: var(--faint); font-size: 9px; }
@@ -464,6 +466,49 @@ button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-
 .review-center strong { font-size: 10px; letter-spacing: .08em; }
 .review-center span { font-size: 9px; }
 .map-review-placeholder[hidden] { display: none !important; }
+.force-map-controls { position:absolute; z-index:8; top:198px; right:18px; display:flex; align-items:center; gap:8px; pointer-events:auto; }
+.force-map-controls > button { color:#202529; background:#f3f4f2; border:1px solid #384247; }
+.force-map-controls > button[aria-pressed="true"] { color:#fff; background:var(--selection-blue); border-color:var(--selection-blue); }
+.force-map-hint { max-width:260px; padding:5px 8px; color:var(--ink); background:var(--map-glass-strong); font-size:11px; }
+.force-map-layer { position:absolute; inset:0; z-index:7; pointer-events:none; }
+.force-map-layer[hidden] { display:none; }
+.force-map-layer svg { position:absolute; inset:0; overflow:visible; }
+.force-map-counters { position:absolute; inset:0; pointer-events:none; }
+.force-route { stroke:var(--apple-system-blue); stroke-width:2; }
+.force-route.draft { stroke-dasharray:1 4; stroke-linecap:round; }
+.force-route.preview { stroke-dasharray:6 5; }
+.force-route-label { fill:var(--ink); stroke:var(--map-glass-strong); stroke-width:4px; paint-order:stroke; font:12px monospace; }
+.force-counter { position:absolute; min-width:44px; min-height:44px; transform:translate(-50%,-50%); display:flex; align-items:center; justify-content:center; gap:5px; pointer-events:auto; color:var(--ink); background:var(--map-glass-strong); border:2px solid var(--selection); border-radius:4px; font:700 18px monospace; }
+.force-counter.own { border-color:var(--apple-system-blue); }
+.force-counter-stem { stroke-width:1.5; stroke-dasharray:2 2; pointer-events:none; }
+.force-counter-stem.own { stroke:var(--apple-system-blue); }
+.force-counter-stem.observed { stroke:var(--muted); }
+.force-counter-stem.mixed { stroke:var(--ink); }
+.force-counter.observed { border-color:var(--muted); }
+.force-counter.mixed { border-color:var(--line-strong); }
+.force-counter span { font-size:18px; }
+.ground-glyph { width:16px; height:19px; background:var(--apple-system-blue); clip-path:polygon(36% 0,64% 0,75% 23%,100% 35%,100% 52%,70% 48%,70% 100%,30% 100%,30% 48%,0 52%,0 35%,25% 23%); }
+.fleet-glyph { width:19px; height:16px; background:var(--selection); clip-path:polygon(0 55%,100% 55%,78% 100%,22% 100%,42% 0,58% 0,65% 45%,34% 45%); }
+.force-counter.own .fleet-glyph,.force-counter.own .transport-glyph { background:var(--apple-system-blue); }
+.transport-glyph { width:20px; height:17px; background:var(--selection); clip-path:polygon(0 22%,58% 22%,58% 0,100% 0,100% 100%,0 100%); }
+.observed .ground-glyph, .observed .fleet-glyph { background:var(--muted); }
+.observed .transport-glyph { background:var(--muted); }
+.mixed .ground-glyph, .mixed .fleet-glyph { background:var(--ink); }
+.mixed .transport-glyph { background:var(--ink); }
+.force-map-list { position:absolute; top:292px; right:10px; display:grid; max-width:min(360px,80vw); gap:4px; pointer-events:auto; }
+.force-route-readout { position:absolute; z-index:2; top:236px; right:10px; display:grid; gap:3px; max-width:min(460px,80vw); pointer-events:none; }
+.force-route-readout[hidden] { display:none; }
+.force-route-readout-item { padding:4px 7px; color:#202529; background:#f3f4f2; border-left:2px solid var(--apple-system-blue); font:10px/1.35 monospace; }
+.force-map-legend { position:absolute; right:10px; bottom:104px; max-width:min(420px,80vw); padding:5px 8px; color:var(--ink); background:var(--map-glass-strong); font:10px/1.35 monospace; pointer-events:none; }
+.force-stack-item { min-height:44px; padding:7px 10px; text-align:left; color:var(--ink); background:var(--map-glass-strong); border:1px solid var(--line-strong); font:12px monospace; }
+.force-stack-row { display:flex; align-items:stretch; gap:4px; }
+.force-stack-row .force-stack-item { flex:1; }
+.movement-orders { margin:14px 0; padding:12px; border:1px solid var(--line); background:var(--map-glass); }
+.movement-orders h3 { margin:0 0 8px; font-size:14px; }
+.movement-form { display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
+.movement-form select { min-height:42px; max-width:100%; }
+.movement-request-list { font:12px monospace; }
+.force-targeting #planet-map { cursor:crosshair; }
 .map-review-placeholder:not([hidden]) { display: block; }
 
 /* Map controls remain legible over the temporary artwork. */
@@ -582,6 +627,9 @@ select, input, textarea, .economy-metric { color: var(--ink); background-color: 
   #zoom-out, #zoom-in { flex: 0 0 28px; width: 28px; min-height: 28px; }
   #zoom-reset { flex: 0 0 43px; min-height: 28px; padding: 3px; }
   #map-breadcrumbs { top: 164px; left: 8px; right: 8px; max-width: calc(100vw - 16px); overflow: auto; white-space: nowrap; font-size: 9px; }
+  .force-map-controls { top: 196px; right: 8px; }
+  .force-map-list { top: 300px; right: 8px; }
+  .force-route-readout { top: 238px; right: 8px; left: 8px; }
   #map-panel .map-caption { right: 8px; bottom: 78px; left: 8px; justify-content: space-between; font-size: 9px; }
   #map-panel .map-legend { right: 8px; bottom: 42px; left: 8px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); justify-content: stretch; max-width: none; gap: 3px 6px; }
   .legend-key { font-size: 8px; }
@@ -656,3 +704,11 @@ select, input, textarea, .economy-metric { color: var(--ink); background-color: 
 
 #command-dialog .campaign-current-summary dt,
 #command-dialog .inspector-section, .economy-recorded-condition .inspector-section { font-size: 11px; }
+
+/* Keep the force picker and route readout in one non-overlapping stack. */
+.force-map-panels { position:absolute; z-index:3; top:236px; right:10px; display:grid; gap:8px; width:min(360px,80vw); pointer-events:none; }
+.force-map-panels .force-route-readout { position:static; max-width:none; max-height:100px; overflow:auto; pointer-events:auto; }
+.force-map-panels .force-map-list { position:static; max-width:none; max-height:calc(100vh - 390px); overflow:auto; background:var(--paper); }
+.force-map-panels .force-map-list:empty { display:none; }
+.force-map-panels .force-route-readout[hidden] { display:none; }
+@media (max-width:780px) { .force-map-panels { top:238px; right:8px; width:calc(100% - 16px); } }

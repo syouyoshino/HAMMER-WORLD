@@ -6,6 +6,9 @@
     campaignLoadSeq: 0, campaignListSeq: 0, historyLoadSeq: 0, managementSeq:0, mapLoadSeq:0, snapshotLoadSeq:0, contextEpoch:0, selectedEntity:null,
     mapLevel:'planet', mapNodeId:null, mapRecord:null, accessToken:'', privateMode:false, accessStatus:'checking', managementSection:null,
     overlay: 'terrain', gmToken: '', previewText: null, previewProposal: null, historyCompare:null, toastTimer: null, managementPanels:new Map(), managementRequests:new Map(), managementContexts:new Map(), managementLoading:new Map(), economyLoading:null};
+  let forceMap;
+  let movementIntent=null;
+  const movementRequests=[];
   const palette = {ocean:'#eff0ed',coast:'#d9dcd7',plains:'#c9cdc8',rock:'#adb3b0',forest:'#989f9d',marsh:'#bbc1bd'};
   const terrainLabels = {ocean:'Open water',coast:'Coastal shelf',plains:'Plains',rock:'Rocklands',forest:'Forest',marsh:'Marsh'};
 
@@ -48,12 +51,13 @@
     if(!state.campaignId)return;
     const campaignId=state.campaignId;
     const preserveMap=state.campaignId===campaignId&&Boolean(state.campaign)&&!isHistorical();
+    const priorSnapshotId=state.snapshot?.id;
     const prior={level:state.mapLevel,nodeId:state.mapNodeId,province:state.selectedProvince,entity:state.selectedEntity,panX:state.panX,panY:state.panY,zoom:state.zoom,mapRecord:state.mapRecord};
     const request=++state.campaignLoadSeq,epoch=state.contextEpoch;
     let data;try{data=await api(`/api/player/campaigns/${encodeURIComponent(campaignId)}`);}catch(error){if(request===state.campaignLoadSeq&&epoch===state.contextEpoch&&campaignId===state.campaignId)throw error;return;}
     if(request!==state.campaignLoadSeq||epoch!==state.contextEpoch||campaignId!==state.campaignId)return;
-    state.campaign=data;state.snapshot=data.state?{id:data.snapshot_id,turn:data.turn,state:data.state,archive_status:data.archive_status,created_at:data.created_at}:null;
-    if(preserveMap){state.selectedProvince=prior.province;state.selectedEntity=prior.entity;state.mapLevel=prior.level;state.mapNodeId=prior.nodeId;state.mapRecord=prior.mapRecord;state.panX=prior.panX;state.panY=prior.panY;state.zoom=prior.zoom;}
+    state.campaign=data;state.snapshot=data.state?{id:data.snapshot_id,turn:data.turn,state:data.state,archive_status:data.archive_status,created_at:data.created_at}:null;if(state.previewText&&priorSnapshotId!==state.snapshot?.id)invalidatePreview();
+    if(preserveMap){state.selectedProvince=prior.province;state.selectedEntity=prior.entity?Object.values(data.state||{}).filter(Array.isArray).flat().find(item=>item?.id===prior.entity.id)||null:null;state.mapLevel=prior.level;state.mapNodeId=prior.nodeId;state.mapRecord=prior.mapRecord;state.panX=prior.panX;state.panY=prior.panY;state.zoom=prior.zoom;}
     else{state.selectedProvince=null;state.selectedEntity=null;const surveyedPlanet=data.state?.nodes?.find(n=>n.kind==='planet'&&n.knowledge==='surveyed');state.mapLevel=surveyedPlanet?'planet':'galactic';state.mapNodeId=surveyedPlanet?.id||null;state.mapRecord=null;state.panX=0;state.panY=0;state.zoom=1;}
     render();
     if(data.state)await loadMap();
@@ -96,7 +100,7 @@
     const name=s?(state.mapRecord?.selected_planet?.name||state.mapRecord?.parent?.name||s.nodes?.find(n=>n.kind==='planet'&&n.knowledge==='surveyed')?.name||'Campaign overview'):(campaign?campaign.id:'Campaign unavailable');
     $('#map-level').value=state.mapLevel;
     $('#live-banner').hidden=!isHistorical();if(isHistorical())text($('#live-banner'),`Historical snapshot · turn ${snapshot.turn} · read only. Orders cannot be submitted against this revision.`);
-    drawMap();renderMapLegend();renderMapBreadcrumbs();if(state.mapRecord)renderMapHeading();
+    drawMap();renderMapLegend();renderMapBreadcrumbs();renderMapHeading();
   }
   function updateCampaignSummary(){
     const campaign=state.campaign,snapshot=state.snapshot;
@@ -132,7 +136,7 @@
   function renderResources(s,campaign) {
     const root=$('#resource-strip');root.replaceChildren();
     const m=economyTotals(s);const items=[['POPULATION',m?fmt(m.population):'UNKNOWN','people'],['FOOD',m?fmt(m.food):'UNKNOWN','stock units'],['ORE',m?fmt(m.ore):'UNKNOWN','stock units'],['ENERGY',m?fmt(m.energy):'UNKNOWN','stock units']];
-    for(const [name,value,note] of items){const card=el('div','resource-card');card.append(el('span','resource-name',name),el('strong','resource-value',value),el('span','resource-note',s?note:(campaign&&campaign.kind==='pregame'?'Awaiting approved baseline':'No saved snapshot')));root.append(card);}
+    for(const [name,value,note] of items){const card=el('div','resource-card');if(!s)card.classList.add('is-unknown');card.append(el('span','resource-name',name),el('strong','resource-value',value),el('span','resource-note',s?note:(campaign&&campaign.kind==='pregame'?'Awaiting approved baseline':'No saved snapshot')));root.append(card);}
   }
   function economyTotals(s){if(!s)return null;if(s.owned_totals)return {population:s.owned_totals.population,...s.owned_totals.resources};if(s.settlements){const owned=s.settlements.filter(x=>x.owned);const totals={population:owned.reduce((a,x)=>a+(x.civilians||0),0)+(s.units||[]).filter(x=>x.owner==='player').reduce((a,x)=>a+(x.strength||0),0)+(s.fleets||[]).filter(x=>x.owner==='player').reduce((a,x)=>a+(x.crew||0),0)+(s.expeditions||[]).filter(x=>x.kind==='colonize').reduce((a,x)=>a+(x.settlers||0),0)};for(const k of ['food','ore','energy','materiel','data','metals','promethium','credits'])totals[k]=owned.reduce((a,x)=>a+(x.stocks?.[k]||0),0);for(const f of s.fleets||[])if(f.owner==='player'){totals.food+=f.food_reserve||0;totals.promethium+=f.promethium_reserve||0;}for(const u of s.units||[])if(u.owner==='player'){totals.food+=u.food_reserve||0;totals.food+=u.transit_food||0;}for(const sh of s.shipments||[])totals[sh.resource]=(totals[sh.resource]||0)+sh.quantity;for(const m of s.expeditions||[])if(m.kind==='colonize')totals.food+=m.food_cargo||0;return totals;}return {population:s.population,food:s.food,ore:s.ore,energy:s.energy};}
   function renderInspector(s,campaign) {
@@ -199,14 +203,14 @@
     const label=selectedLabel?String(selectedLabel):null;
     text(hint,label?`◉ Selected · ${label.length>32?`${label.slice(0,31)}…`:label}`:level==='planet'?'◉ Select a province to inspect':'◉ Select a recorded body to descend');
   }
-  function renderMapHeading(){const record=state.mapRecord;if(!record)return;const level=record.level||'planet';const subject=level==='galactic'?'The Reach':record.selected_planet?.name||record.parent?.name||'Map';text($('.section-title h1'),`${subject} · ${titleCase(level)}`);text($('.eyebrow'),`${titleCase(level).toUpperCase()} CARTOGRAPHY`);text($('#map-coordinates'),`${titleCase(level).toUpperCase()} CARTOGRAPHY · ${record.parent?.name||subject}`);const geometry=record.geometry?.planet;text($('#map-scale'),geometry?`${geometry.width} × ${geometry.height} GRID`:`${(record.nodes||[]).length} RECORDED`);const hints=[...document.querySelectorAll('.map-footer span')];if(hints.length){updateMapSelectionHint();text(hints[1],level==='planet'?'Drag to pan · wheel or buttons to zoom':'Click a known marker · drag to pan · wheel to zoom');}}
+  function renderMapHeading(){const record=state.mapRecord,hints=[...document.querySelectorAll('.map-footer span')];if(!record){text($('.section-title h1'),state.campaign?'No recorded geography':'Campaign geography unavailable');text($('.eyebrow'),'CAMPAIGN GEOGRAPHY');text($('#map-coordinates'),'CAMPAIGN GEOGRAPHY · NOT RECORDED');text($('#map-scale'),'—');if(hints.length){text(hints[0],'◉ No recorded map context');text(hints[1],'No geography available for this campaign');}return;}const level=record.level||'planet';const subject=level==='galactic'?'The Reach':record.selected_planet?.name||record.parent?.name||'Map';text($('.section-title h1'),`${subject} · ${titleCase(level)}`);text($('.eyebrow'),`${titleCase(level).toUpperCase()} CARTOGRAPHY`);text($('#map-coordinates'),`${titleCase(level).toUpperCase()} CARTOGRAPHY · ${record.parent?.name||subject}`);const geometry=record.geometry?.planet;text($('#map-scale'),geometry?`${geometry.width} × ${geometry.height} GRID`:`${(record.nodes||[]).length} RECORDED`);if(hints.length){updateMapSelectionHint();text(hints[1],level==='planet'?'Drag to pan · wheel or buttons to zoom':'Click a known marker · drag to pan · wheel to zoom');}}
   function mapNodes(record){return record?.level==='galactic'?(record.nodes||[]):(record?.nodes||[]);}
-  function renderMapBreadcrumbs(){const root=$('#map-breadcrumbs');if(!root)return;root.replaceChildren();const names=[['galactic','The Reach',null]];let nodeId=state.mapNodeId;const s=liveState();if(nodeId&&s){const chain=[];let node=s.nodes.find(n=>n.id===nodeId);while(node){chain.unshift(node);node=s.nodes.find(n=>n.id===node.parent_id);}for(const [index,n] of chain.entries()){const sameRoot=index===0&&n.name===names[0][1]&&(n.kind==='galaxy'||n.kind==='region');if(sameRoot||n.kind==='region'&&/reach/i.test(n.name))continue;const level=n.kind==='region'||n.kind==='galaxy'?'galactic':n.kind==='sector'?'sector':n.kind==='system'?'system':'planet';names.push([level,n.name,n.id]);}}
+  function renderMapBreadcrumbs(){const root=$('#map-breadcrumbs');if(!root)return;root.replaceChildren();if(!state.mapRecord){root.textContent='No recorded map context';return;}const names=[['galactic','The Reach',null]];let nodeId=state.mapNodeId;const s=liveState();if(nodeId&&s){const chain=[];let node=s.nodes.find(n=>n.id===nodeId);while(node){chain.unshift(node);node=s.nodes.find(n=>n.id===node.parent_id);}for(const [index,n] of chain.entries()){const sameRoot=index===0&&n.name===names[0][1]&&(n.kind==='galaxy'||n.kind==='region');if(sameRoot||n.kind==='region'&&/reach/i.test(n.name))continue;const level=n.kind==='region'||n.kind==='galaxy'?'galactic':n.kind==='sector'?'sector':n.kind==='system'?'system':'planet';names.push([level,n.name,n.id]);}}
     for(const [index,item] of names.entries()){if(index)root.append(document.createTextNode(' › '));const button=el('button','link-button',item[1]);button.type='button';button.dataset.mapContext=item[2]||'';button.onclick=()=>{const level=item[0];state.mapLevel=level;state.mapNodeId=item[2];$('#map-level').value=level;loadMap();};root.append(button);}}
   function setMapLevel(level){state.mapLevel=level;$('#map-level').value=level;const s=liveState();let nodeId=null;if(level==='sector')nodeId=(s?.nodes||[]).find(n=>n.kind==='sector'&&n.knowledge!=='hidden')?.id||null;else if(level==='system')nodeId=(s?.nodes||[]).find(n=>n.kind==='system'&&n.knowledge==='surveyed')?.id||null;else if(level==='planet')nodeId=(s?.nodes||[]).find(n=>n.kind==='planet'&&n.knowledge==='surveyed')?.id||null;state.mapNodeId=nodeId;state.panX=state.panY=0;state.zoom=1;loadMap();}
-  function drawMap(){const canvas=$('#planet-map'),ctx=canvas.getContext('2d'),frame=canvas.parentElement,s=liveState(),placeholder=$('#map-placeholder');const dpr=window.devicePixelRatio||1;const w=frame.clientWidth,h=frame.clientHeight;canvas.width=Math.round(w*dpr);canvas.height=Math.round(h*dpr);ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,w,h);placeholder.hidden=Boolean(s&&state.mapRecord);if(!s||!state.mapRecord)return;
-    if(state.mapRecord.level!=='planet'){drawHierarchyMap(ctx,w,h,state.mapRecord,hierarchySafeRect(frame,w,h));return;}
-    const geometry=state.mapRecord.geometry;if(!geometry){placeholder.hidden=false;return;}const planet=geometry.planet;const cols=planet.width,rows=planet.height;
+  function drawMap(){const canvas=$('#planet-map'),ctx=canvas.getContext('2d'),frame=canvas.parentElement,s=liveState(),placeholder=$('#map-placeholder');const dpr=window.devicePixelRatio||1;const w=frame.clientWidth,h=frame.clientHeight;canvas.width=Math.round(w*dpr);canvas.height=Math.round(h*dpr);ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,w,h);placeholder.hidden=Boolean(s&&state.mapRecord);if(!s||!state.mapRecord){renderForceMap();return;}
+    if(state.mapRecord.level!=='planet'){drawHierarchyMap(ctx,w,h,state.mapRecord,hierarchySafeRect(frame,w,h));renderForceMap();return;}
+    const geometry=state.mapRecord.geometry;if(!geometry){placeholder.hidden=false;renderForceMap();return;}const planet=geometry.planet;const cols=planet.width,rows=planet.height;
     const tile=Math.min(w/cols,h/rows)*state.zoom,gridW=tile*cols,gridH=tile*rows,ox=(w-gridW)/2+state.panX,oy=(h-gridH)/2+state.panY;state.transform={tile,ox,oy,cols,rows};
     ctx.fillStyle='#f1f2ee';ctx.fillRect(0,0,w,h);
     const provColors=['#aeb4b2','#c0c5c2','#9da4a2','#d0d4d0','#858d8d','#b7bdb9','#c7cbc8','#929998'];const tiles=geometry.tiles;const provinceIndex=new Map(geometry.provinces.map((p,i)=>[p.id,i]));
@@ -254,6 +258,93 @@
       ctx.fillStyle='rgba(248,248,244,.96)';ctx.fillRect(chosen.x-boxWidth/2-4,chosen.y-boxHeight/2,boxWidth+8,boxHeight);
       ctx.fillStyle='#252b2d';ctx.fillText(item.label,chosen.x,chosen.y);
     }
+    state.transform.forceObstacles=placed;
+    renderForceMap();
+  }
+  function forceLabel(record) {
+    return record?.name || record?.title || `ID …${String(record?.id || 'unknown').slice(-6)}`;
+  }
+  function renderForceMap() {
+    if (!forceMap) return;
+    const frame = $('.map-frame'), s = liveState(), record = state.mapRecord, transform = state.transform;
+    const positions = {}, forces = [], routes = [];
+    const width = frame.clientWidth, height = frame.clientHeight;
+    if (s && record && transform) {
+      if (record.level === 'planet' && transform.tile) {
+        const geo = record.geometry;
+        for (const province of geo?.provinces || []) {
+          const land = (geo.tiles || []).filter(tile => tile.province_id === province.id && tile.terrain !== 'ocean');
+          if (land.length) positions[`province:${province.id}`] = {
+            x: transform.ox + land.reduce((sum, tile) => sum + tile.x + .5, 0) / land.length * transform.tile,
+            y: transform.oy + land.reduce((sum, tile) => sum + tile.y + .5, 0) / land.length * transform.tile
+          };
+        }
+        for (const unit of s.units || []) {
+          const origin = unit.location_id || unit.origin_province_id;
+          if (!origin || unit.planet_id && geo?.provinces?.some(p => p.id === origin) === false) continue;
+          const anchor = `province:${origin}`;
+          if (!positions[anchor]) continue;
+          forces.push({id:unit.id,label:forceLabel(unit),owner:unit.owner,fleet:false,anchor,record:unit,
+            canMove:unit.owner==='player'&&!isHistorical()&&!unit.moving_until&&unit.strength>0&&unit.created_turn!==s.turn&&unit.acted_turn!==s.turn});
+          if (unit.moving_until && unit.destination_province_id) routes.push({
+            from:anchor,to:`province:${unit.destination_province_id}`,
+            fromLabel:geo.provinces.find(p=>p.id===origin)?.name||'Recorded province',
+            toLabel:geo.provinces.find(p=>p.id===unit.destination_province_id)?.name||'Recorded province',
+            label:`Transit · dep ${unit.departure_turn??'—'} · arr ${unit.moving_until}`
+          });
+        }
+      } else if (transform.hierarchy) {
+        for (const point of transform.positions || []) positions[point.n.id] = {x:point.x,y:point.y};
+      }
+      if (record.level !== 'planet') for (const fleet of s.fleets || []) {
+        const origin = fleet.system_id || fleet.location_id;
+        if (!origin || !positions[origin]) continue;
+        forces.push({id:fleet.id,label:forceLabel(fleet),owner:fleet.owner,fleet:true,
+          transport:['transport','troop_transport'].includes(fleet.kind),anchor:origin,record:fleet,
+          canMove:fleet.owner==='player'&&!isHistorical()&&!fleet.moving_until&&fleet.crew>0&&fleet.created_turn!==s.turn&&fleet.acted_turn!==s.turn});
+        if (fleet.moving_until && fleet.destination_system_id) routes.push({
+          from:origin,to:fleet.destination_system_id,
+          fromLabel:s.nodes?.find(n=>n.id===origin)?.name||'Recorded system',
+          toLabel:s.nodes?.find(n=>n.id===fleet.destination_system_id)?.name||'Recorded system',
+          label:`Transit · dep ${fleet.departure_turn??'—'} · arr ${fleet.moving_until}`
+        });
+      }
+      const orderText = $('#proposal-json')?.value || '';
+      const validated = Boolean(state.previewText && state.previewText === orderText);
+      let orderActions = [];
+      try {
+        const proposal = JSON.parse(orderText);
+        orderActions = Array.isArray(proposal?.orders?.actions) ? proposal.orders.actions : [];
+      } catch {}
+      const addRequest = (action, preview) => {
+        const style = preview ? {label:'PREVIEW',preview:true} : {label:'DRAFT',draft:true};
+        if (action.type === 'deploy_unit') {
+          const unit = (s.units || []).find(item => item.id === action.unit_id);
+          const origin = unit && (unit.location_id || unit.origin_province_id);
+          if (origin) routes.push({...style,from:`province:${origin}`,to:`province:${action.destination_province_id}`,
+            fromLabel:geoName(record, origin),toLabel:geoName(record, action.destination_province_id)});
+        } else if (action.type === 'fleet_move') {
+          const fleet = (s.fleets || []).find(item => item.id === action.fleet_id);
+          if (fleet) routes.push({...style,from:fleet.system_id,to:action.destination_system_id,
+            fromLabel:s.nodes?.find(n=>n.id===fleet.system_id)?.name||'Recorded system',
+            toLabel:s.nodes?.find(n=>n.id===action.destination_system_id)?.name||'Recorded system'});
+        }
+      };
+      for (const action of movementRequests) addRequest(action, false);
+      for (const action of orderActions.filter(item => item && typeof item === 'object' && ['deploy_unit','fleet_move'].includes(item.type))) addRequest(action, validated);
+    }
+    const count = (s?.units?.length || 0) + (s?.fleets?.length || 0);
+    const emptyMessage = count
+      ? record?.level === 'planet' ? 'No recorded ground forces appear at this planet.' : 'Select a sector to see recorded fleets, or a planet to see ground forces.'
+      : 'No recorded forces in this campaign.';
+    forceMap.render({width,height,forces,routes,drafts:[],positions,obstacles:transform?.forceObstacles||[],emptyMessage,
+      onSelectForce:item=>{state.selectedEntity=item.record;renderInspector(liveState(),state.campaign);window.HWDesktop?.open('inspector');},
+      onMove:item=>{movementIntent=item;window.HWDesktop?.open('orders');renderOrders();$('#orders-panel').dataset.ready='true';},
+      onCancelTarget:()=>{movementIntent=null;window.HWDesktop?.open('orders');renderOrders();}
+    });
+  }
+  function geoName(record, id) {
+    return record?.geometry?.provinces?.find(province => province.id === id)?.name || 'Recorded province';
   }
   function drawRecordedOverlay(ctx,geometry,tiles,ox,oy,tile,records,s){
     const byProvince=new Map(records.map(record=>[record.province_id,record]));
@@ -305,11 +396,12 @@
         const label=String(g.region?.name||'');if(label){ctx.fillStyle='#4b5355';ctx.font='11px monospace';ctx.textAlign='center';const width=ctx.measureText(label).width;ctx.fillText(label,Math.max(safe.left+width/2+4,Math.min(safe.right-width/2-4,x)),safe.top+13);}
       }
     }
-    for(const {n,x,y}of positions){const radius=record.level==='system'?10:8;ctx.fillStyle=n.kind==='star'?'#5c6466':n.kind==='belt'?'#a8aeac':n.kind==='planet'?'#858d8d':n.knowledge==='surveyed'?'#626a6c':'#b5bbba';ctx.fillRect(x-radius,y-radius,radius*2,radius*2);ctx.strokeStyle='#3e4547';ctx.strokeRect(x-radius,y-radius,radius*2,radius*2);ctx.fillStyle='#303638';ctx.font='11px monospace';ctx.textAlign='center';const label=String(n.name||'');const labelWidth=ctx.measureText(label).width,labelX=Math.max(safe.left+labelWidth/2+3,Math.min(safe.right-labelWidth/2-3,x));let labelY=y+radius+14;if(labelY>safe.bottom-2)labelY=y-radius-5;ctx.fillText(label,labelX,labelY);}
-    ctx.restore();state.transform={hierarchy:true,positions,safeRect:safe};
+    const forceObstacles=[];
+    for(const {n,x,y}of positions){const radius=record.level==='system'?10:8;ctx.fillStyle=n.kind==='star'?'#5c6466':n.kind==='belt'?'#a8aeac':n.kind==='planet'?'#858d8d':n.knowledge==='surveyed'?'#626a6c':'#b5bbba';ctx.fillRect(x-radius,y-radius,radius*2,radius*2);ctx.strokeStyle='#3e4547';ctx.strokeRect(x-radius,y-radius,radius*2,radius*2);ctx.fillStyle='#303638';ctx.font='11px monospace';ctx.textAlign='center';const label=String(n.name||'');const labelWidth=ctx.measureText(label).width,labelX=Math.max(safe.left+labelWidth/2+3,Math.min(safe.right-labelWidth/2-3,x));let labelY=y+radius+14;if(labelY>safe.bottom-2)labelY=y-radius-5;ctx.fillText(label,labelX,labelY);forceObstacles.push({left:x-radius-4,right:x+radius+4,top:y-radius-4,bottom:y+radius+4},{left:labelX-labelWidth/2-4,right:labelX+labelWidth/2+4,top:labelY-13,bottom:labelY+4});}
+    ctx.restore();state.transform={hierarchy:true,positions,safeRect:safe,forceObstacles};
   }
   function renderMapLegend(){
-    const root=$('#map-legend');root.replaceChildren();let entries;
+    const root=$('#map-legend');root.replaceChildren();if(!state.mapRecord)return;let entries;
     const unknown='repeating-linear-gradient(135deg,#343b3d 0 1.5px,#f1f2ee 1.5px 4px)';
     if(state.mapLevel!=='planet')entries=[['#626a6c',state.mapLevel==='galactic'?'Known sectors':state.mapLevel==='sector'?'Known systems':'Recorded bodies']];
     else if(state.overlay==='terrain')entries=[['ocean','Open water'],['coast','Coastal shelf'],['plains','Plains'],['rock','Rocklands'],['forest','Forest'],['marsh','Marsh']];
@@ -660,7 +752,7 @@
   function outcomeSummary(o){if(!o)return 'Initial state';if(o.total_consumption){const production=Object.values(o.production||{}).reduce((sum,v)=>sum+(v.food||0),0);return `Food +${fmt(production)} / −${fmt(o.total_consumption.food||0)} · ${o.battles?.length||0} battles`;}return `Food −${fmt(o.food_consumed)} · Ore +${fmt(o.ore_produced)} · Energy +${fmt(o.energy_produced)}`;}
 
   function renderOrders(){
-    const root=$('#orders-panel');root.replaceChildren();
+    const root=$('#orders-panel'),priorText=$('#proposal-json')?.value||'',priorOpen=$('#proposal-json')?.closest('details')?.open||false,priorToken=$('#gm-token')?.value;root.replaceChildren();
     if(!state.campaign||state.campaign.kind!=='demo'){root.append(el('div','note-box','This pre-game campaign has no numeric rules baseline. Decision packets and turn submission are disabled.'));return;}
     if(isHistorical()){root.append(el('div','note-box','Return to the live campaign revision before preparing an order packet.'));return;}
     const grid=el('div','orders-grid'),left=el('div');
@@ -669,20 +761,107 @@
     const actions=el('div','orders-actions');const packet=el('button','button','Export decision packet');packet.onclick=exportPacket;const example=el('button','button','Load example proposal');example.onclick=loadExample;actions.append(packet,example);left.append(actions);
     const source=el('details','order-source');source.append(el('summary','','Token and proposal JSON'));
     const token=el('div','form-row'),tokenLabel=el('label','','GM token · kept in page memory');tokenLabel.htmlFor='gm-token';token.append(tokenLabel);
-    const input=el('input');input.type='password';input.id='gm-token';input.autocomplete='off';input.value=state.gmToken;input.placeholder='Set WOLD_GM_TOKEN on the server';input.oninput=()=>state.gmToken=input.value;token.append(input);source.append(token);
+    const input=el('input');input.type='password';input.id='gm-token';input.autocomplete='off';input.value=priorToken??state.gmToken;input.placeholder='Set WOLD_GM_TOKEN on the server';input.oninput=()=>state.gmToken=input.value;token.append(input);source.append(token);
     const file=el('div','form-row'),fileLabel=el('label','','Import proposal file');fileLabel.htmlFor='proposal-file';file.append(fileLabel);
     const upload=el('input');upload.type='file';upload.id='proposal-file';upload.accept='application/json,.json';upload.onchange=async()=>{const fileRef=upload.files[0],epoch=state.contextEpoch,area=$('#proposal-json');if(!fileRef||!area)return;const value=await fileRef.text();if(epoch!==state.contextEpoch||!area.isConnected||area!==$('#proposal-json'))return;area.value=value;area.closest('details').open=true;invalidatePreview();};file.append(upload);source.append(file);
     const proposal=el('div','form-row'),proposalLabel=el('label','','Proposal JSON');proposalLabel.htmlFor='proposal-json';proposal.append(proposalLabel);
-    const area=el('textarea');area.id='proposal-json';area.spellcheck=false;area.placeholder='Paste a proposal, or load an example.';area.oninput=invalidatePreview;proposal.append(area);source.append(proposal);left.append(source);
+    const area=el('textarea');area.id='proposal-json';area.spellcheck=false;area.placeholder='Paste a proposal, or load an example.';area.value=priorText;area.oninput=invalidatePreview;proposal.append(area);source.open=priorOpen||Boolean(priorText);source.append(proposal);left.append(source);
     const buttons=el('div','orders-actions'),preview=el('button','button','Preview');preview.id='preview-order';preview.onclick=previewOrder;
     const commit=el('button','button','Commit validated turn');commit.id='commit-order';commit.disabled=!state.previewText||state.previewText!==area.value;commit.onclick=commitOrder;buttons.append(preview,commit);left.append(buttons);
     const right=el('div');const box=el('div','gm-explainer','Export the current packet, load or paste its returned JSON, then preview the backend calculation. Commit only after reviewing it. Editing the proposal invalidates its preview.');
     right.append(box,el('div','inspector-section','BACKEND RESPONSE'),Object.assign(el('pre','result-box'),{id:'order-result',textContent:'No request yet.'}));grid.append(left,right);root.append(grid);
+    renderMovementOrders(root);
+  }
+  function renderMovementOrders(root) {
+    const panel=el('section','movement-orders');
+    panel.append(el('h3','','Recorded movement'));
+    if(movementIntent) {
+      panel.append(el('p','view-sub',`Choose a destination for ${movementIntent.label}. Click the map or use the destination list.`));
+      const form=el('div','movement-form'),destinations=el('select'),s=liveState();
+      destinations.setAttribute('aria-label',movementIntent.fleet?'Destination system':'Destination province');
+      destinations.append(new Option('Choose destination…',''));
+      if(movementIntent.fleet) {
+        const edges=s?.links||[],id=movementIntent.record.system_id;
+        const neighborIds=edges.filter(edge=>edge.a===id||edge.b===id).map(edge=>edge.a===id?edge.b:edge.a);
+        for(const node of s?.nodes||[])if(node.kind==='system'&&node.knowledge!=='hidden'&&neighborIds.includes(node.id))destinations.append(new Option(node.name,node.id));
+      } else {
+        const provinces=state.mapRecord?.geometry?.provinces||[];
+        const allProvinces=provinces.length?provinces:(s?.provinces||[]);
+        for(const province of allProvinces)if(province.id!==movementIntent.record.location_id)destinations.append(new Option(province.name||`ID …${String(province.id).slice(-6)}`,province.id));
+      }
+      const sources=el('select');sources.setAttribute('aria-label','Supply source');
+      sources.append(new Option(movementIntent.fleet?'No settlement source':'Choose owned depot source',movementIntent.fleet?'__none':''));
+      const unit=movementIntent.record;
+      for(const site of s?.settlements||[]) {
+        if(!site.owned)continue;
+        if(movementIntent.fleet) {
+          const planetIds=(s.nodes||[]).filter(node=>node.kind==='planet'&&node.parent_id===unit.system_id).map(node=>node.id);
+          if(!planetIds.includes(site.planet_id))continue;
+        } else {
+          if(site.planet_id!==unit.planet_id)continue;
+          const depots=(s.facilities||[]).filter(f=>f.settlement_id===site.id&&f.kind==='depot'&&(f.active_turn||0)<=s.turn);
+          if(!depots.length)continue;
+        }
+        sources.append(new Option(site.name,site.id));
+      }
+      form.append(destinations,sources);
+      const target=el('button','button','Target on map');
+      target.onclick=()=>{movementIntent.destinationSelect=destinations;movementIntent.sourceSelect=sources;forceMap?.beginTarget(movementIntent);window.HWDesktop?.returnMap();};
+      const stage=el('button','button','Stage movement');
+      stage.onclick=()=>{if(!destinations.value){notify('Choose a recorded destination.',true);return;}if(!movementIntent.fleet&&!sources.value){notify('Choose an owned settlement with a recorded active depot.',true);return;}stageMovement(movementIntent,destinations.value,sources.value==='__none'?null:(sources.value||null));};
+      const cancel=el('button','button small','Cancel');
+      cancel.onclick=()=>{movementIntent=null;forceMap?.cancelTarget();renderOrders();};
+      form.append(target,stage,cancel);panel.append(form);
+    }
+    if(movementRequests.length) {
+      panel.append(el('p','view-sub',`${movementRequests.length} movement request${movementRequests.length===1?'':'s'} staged in memory.`));
+      const list=el('ul','movement-request-list'),s=liveState();
+      for(const [index,item] of movementRequests.entries()) {
+        const isFleet=item.type==='fleet_move',actorId=isFleet?item.fleet_id:item.unit_id;
+        const actor=(isFleet?s?.fleets:s?.units)?.find(force=>force.id===actorId);
+        const targetId=item.destination_system_id||item.destination_province_id;
+        const target=isFleet?s?.nodes?.find(node=>node.id===targetId):state.mapRecord?.geometry?.provinces?.find(province=>province.id===targetId);
+        const source=s?.settlements?.find(site=>site.id===item.source_id);
+        const li=el('li',''),description=el('span','movement-request-label');
+        description.textContent=`${forceLabel(actor||{id:actorId})} → ${target?.name||`Recorded destination · ID …${String(targetId).slice(-6)}`}${source?` · source ${source.name}`:''}`;
+        description.title=`${isFleet?'Fleet':'Ground'} · force ${actorId} · destination ${targetId}${item.source_id?` · source ${item.source_id}`:''}`;
+        const remove=el('button','button small','Remove');
+        li.append(description,remove);remove.onclick=()=>{movementRequests.splice(index,1);renderMovementOrders(root);renderForceMap();};list.append(li);
+      }
+      panel.append(list);
+      const exportButton=el('button','button','Export movement requests');
+      exportButton.onclick=()=>{const blob=new Blob([JSON.stringify({requests:movementRequests},null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`${state.campaignId}-movement-requests.json`;a.click();URL.revokeObjectURL(a.href);};
+      const build=el('button','button','Build proposal from GM packet');build.onclick=buildMovementProposal;panel.append(exportButton,build);
+    }
+    const existing=root.querySelector('.movement-orders');if(existing)existing.replaceWith(panel);else root.prepend(panel);
+  }
+  function stageMovement(item,destination,source){if(!item.fleet&&!source){notify('Choose an owned settlement source.',true);return;}const r=item.record,key=item.fleet?'fleet_id':'unit_id';if(movementRequests.some(a=>a[key]===r.id)){notify('This force already has a staged movement request.',true);return;}if(item.fleet)movementRequests.push({type:'fleet_move',fleet_id:r.id,destination_system_id:destination,source_id:source});else movementRequests.push({type:'deploy_unit',unit_id:r.id,destination_province_id:destination,source_id:source});movementIntent=null;forceMap?.cancelTarget();invalidatePreview();renderOrders();$('#orders-panel').dataset.ready='true';drawMap();}
+  async function buildMovementProposal(){
+    const campaignId=state.campaignId,epoch=state.contextEpoch,snapshotId=state.snapshot?.id,authToken=state.gmToken||state.accessToken,area=$('#proposal-json'),initialText=area?.value||'';
+    let proposal;
+    if(initialText.trim()){
+      try{proposal=JSON.parse(initialText);}catch{notify('The existing proposal JSON is invalid; fix it before adding movements.',true);return;}
+      if(!proposal||typeof proposal!=='object'||!proposal.orders||!Array.isArray(proposal.orders.actions)){notify('The existing proposal has no actions list; it was left unchanged.',true);return;}
+    }else{
+      try{
+        const packet=await api(`/api/admin/campaigns/${encodeURIComponent(campaignId)}/packet`,{headers:authHeaders()});
+        if(epoch!==state.contextEpoch||campaignId!==state.campaignId||snapshotId!==state.snapshot?.id||authToken!==(state.gmToken||state.accessToken)||area!==$('#proposal-json')||area?.value!==initialText)return;
+        proposal=packet.example;
+        if(!proposal||!proposal.orders||!Array.isArray(proposal.orders.actions)){notify('The GM packet example has no movement actions list.',true);return;}
+        proposal.submission_id=`movement-${crypto.randomUUID()}`;
+      }catch(error){if(epoch===state.contextEpoch&&campaignId===state.campaignId&&snapshotId===state.snapshot?.id)notify(`GM packet required to add base revision metadata: ${error.message}`,true);return;}
+    }
+    if(epoch!==state.contextEpoch||campaignId!==state.campaignId||snapshotId!==state.snapshot?.id||area!==$('#proposal-json')||area?.value!==initialText)return;
+    if(proposal.orders.actions.some(action=>!action||typeof action!=='object'||Array.isArray(action))){notify('Existing proposal actions include a malformed entry; repair them before adding movement requests.',true);return;}
+    const actors=new Set(proposal.orders.actions.map(action=>action.fleet_id||action.unit_id).filter(Boolean));
+    if(movementRequests.some(action=>actors.has(action.fleet_id||action.unit_id))){notify('A staged force already has an action in this proposal.',true);return;}
+    proposal.orders.actions.push(...movementRequests);area.value=JSON.stringify(proposal,null,2);area.closest('details').open=true;
+    movementRequests.splice(0);invalidatePreview();renderMovementOrders($('#orders-panel'));renderForceMap();notify('Movement actions added. Preview the proposal with the GM token.');
   }
   async function exportPacket(){const campaignId=state.campaignId,epoch=state.contextEpoch;try{const packet=await api(`/api/admin/campaigns/${encodeURIComponent(campaignId)}/packet`,{headers:authHeaders()});if(epoch!==state.contextEpoch||campaignId!==state.campaignId)return;const blob=new Blob([JSON.stringify(packet,null,2)],{type:'application/json'});const link=document.createElement('a');link.href=URL.createObjectURL(blob);link.download=`${state.campaignId}-decision-packet-turn-${packet.turn}.json`;link.click();URL.revokeObjectURL(link.href);setOrderStatus(`Packet exported · turn ${packet.turn} · load or paste the returned proposal.`);text($('#order-result'),`Packet exported · turn ${packet.turn} · hash ${packet.base_hash}`);}catch(e){if(epoch===state.contextEpoch&&campaignId===state.campaignId)showError(e);}}
-  async function loadExample(){const campaignId=state.campaignId,epoch=state.contextEpoch;try{const packet=await api(`/api/admin/campaigns/${encodeURIComponent(campaignId)}/packet`,{headers:authHeaders()});if(epoch!==state.contextEpoch||campaignId!==state.campaignId)return;$('#proposal-json').value=JSON.stringify(packet.example,null,2);$('#proposal-json').closest('details').open=true;invalidatePreview();}catch(e){if(epoch===state.contextEpoch&&campaignId===state.campaignId)showError(e);}}
+  async function loadExample(){const campaignId=state.campaignId,epoch=state.contextEpoch,snapshotId=state.snapshot?.id,area=$('#proposal-json'),initialText=area?.value||'',token=state.gmToken||state.accessToken;try{const packet=await api(`/api/admin/campaigns/${encodeURIComponent(campaignId)}/packet`,{headers:authHeaders()});if(epoch!==state.contextEpoch||campaignId!==state.campaignId||snapshotId!==state.snapshot?.id||token!==(state.gmToken||state.accessToken)||area!==$('#proposal-json')||area?.value!==initialText)return;const proposal=structuredClone(packet.example);proposal.submission_id=`example-${crypto.randomUUID()}`;area.value=JSON.stringify(proposal,null,2);area.closest('details').open=true;invalidatePreview();}catch(e){if(epoch===state.contextEpoch&&campaignId===state.campaignId)showError(e);}}
   function setOrderStatus(message){const status=$('#order-status');if(status)text(status,message);}
-  function invalidatePreview(){state.previewText=null;state.previewProposal=null;window.HWDesktop?.setPreviewReady(false);const b=$('#commit-order');if(b)b.disabled=true;const result=$('#order-result');if(result&&state.view==='orders')text(result,'Proposal changed. Preview it again before committing.');if($('#proposal-json')?.value)setOrderStatus('Draft changed · Preview to validate before commit.');else setOrderStatus('No proposal loaded · Export a packet or load an example.');}
+  function invalidatePreview(){state.previewText=null;state.previewProposal=null;window.HWDesktop?.setPreviewReady(false);const b=$('#commit-order');if(b)b.disabled=true;const result=$('#order-result');if(result&&state.view==='orders')text(result,'Proposal changed. Preview it again before committing.');if($('#proposal-json')?.value)setOrderStatus('Draft changed · Preview to validate before commit.');else setOrderStatus('No proposal loaded · Export a packet or load an example.');renderForceMap();}
   function previewSummary(data) {
     if(data.duplicate)return {duplicate:true,snapshot_id:data.snapshot_id,turn:data.turn,state_hash:data.state_hash,outcome:data.outcome};
     const s=data.state;const totals=s?.owned_totals;
@@ -724,7 +903,7 @@
     }
     const details=el('details','record-identifiers');details.append(el('summary','','Full backend response'));const raw=el('pre','result-box',JSON.stringify(data,null,2));details.append(raw);root.append(details);
   }
-  async function previewOrder(){const campaignId=state.campaignId,epoch=state.contextEpoch;try{const area=$('#proposal-json');const parsed=JSON.parse(area.value);const data=await api(`/api/admin/campaigns/${encodeURIComponent(campaignId)}/preview`,{method:'POST',headers:authHeaders(true),body:JSON.stringify(parsed)});if(epoch!==state.contextEpoch||campaignId!==state.campaignId)return;state.previewText=area.value;state.previewProposal=parsed;$('#commit-order').disabled=false;window.HWDesktop?.setPreviewReady(true);setOrderStatus('Preview validated · Review the backend response before commit.');renderPreviewSummary(data);}catch(e){if(epoch!==state.contextEpoch||campaignId!==state.campaignId)return;state.previewText=null;window.HWDesktop?.setPreviewReady(false);$('#commit-order').disabled=true;setOrderStatus('Preview failed · Correct the proposal and try again.');showError(e);}}
+  async function previewOrder(){const campaignId=state.campaignId,epoch=state.contextEpoch,snapshotId=state.snapshot?.id,area=$('#proposal-json'),requestText=area?.value;try{if(!area)throw new Error('Proposal field is unavailable.');const parsed=JSON.parse(requestText);const data=await api(`/api/admin/campaigns/${encodeURIComponent(campaignId)}/preview`,{method:'POST',headers:authHeaders(true),body:JSON.stringify(parsed)});if(epoch!==state.contextEpoch||campaignId!==state.campaignId||snapshotId!==state.snapshot?.id||area!==$('#proposal-json')||area.value!==requestText)return;state.previewText=requestText;state.previewProposal=parsed;$('#commit-order').disabled=false;window.HWDesktop?.setPreviewReady(true);setOrderStatus('Preview validated · Review the backend response before commit.');renderPreviewSummary(data);renderForceMap();}catch(e){if(epoch!==state.contextEpoch||campaignId!==state.campaignId||snapshotId!==state.snapshot?.id)return;if(area!==$('#proposal-json')||area?.value!==requestText)return;state.previewText=null;state.previewProposal=null;window.HWDesktop?.setPreviewReady(false);$('#commit-order').disabled=true;setOrderStatus('Preview failed · Correct the proposal and try again.');renderForceMap();showError(e);}}
   async function commitOrder(){const campaignId=state.campaignId,epoch=state.contextEpoch;const area=$('#proposal-json');if(!state.previewText||state.previewText!==area.value){invalidatePreview();return;}try{const data=await api(`/api/admin/campaigns/${encodeURIComponent(campaignId)}/commit`,{method:'POST',headers:authHeaders(true),body:JSON.stringify(state.previewProposal)});if(epoch!==state.contextEpoch||campaignId!==state.campaignId)return;state.previewText=null;window.HWDesktop?.setPreviewReady(false);$('#commit-order').disabled=true;text($('#order-result'),JSON.stringify(data,null,2));clearCampaignContext();state.campaignId=campaignId;await loadCampaign();notify(`Turn committed · archive ${data.archive_status||'pending'}`);}catch(e){if(epoch===state.contextEpoch&&campaignId===state.campaignId)showError(e);}}
   function showError(error){text($('#status-text'),error.message||String(error));notify(error.message||String(error),true);}
 
@@ -732,6 +911,7 @@
   function startClock(){const update=()=>text($('#clock'),new Date().toLocaleTimeString('en-AU', {timeZone:'Australia/Melbourne',hour:'2-digit',minute:'2-digit',hour12:false}));update();setInterval(update,15000);}
   function initMap(){
     const canvas=$('#planet-map');
+    forceMap=window.HWMilitaryMap?.setup(canvas.parentElement);
     canvas.addEventListener('pointerdown',e=>{if(e.button!==0)return;canvas.setPointerCapture(e.pointerId);state.drag={x:e.clientX,y:e.clientY,startX:state.panX,startY:state.panY,moved:false};window.HWDesktop?.setGesture(true);});
     canvas.addEventListener('pointermove',e=>{
       const point=canvasPoint(e);if(state.drag){const dx=e.clientX-state.drag.x,dy=e.clientY-state.drag.y;if(Math.abs(dx)+Math.abs(dy)>3)state.drag.moved=true;state.panX=state.drag.startX+dx;state.panY=state.drag.startY+dy;drawMap();return;}
@@ -739,7 +919,7 @@
       if(state.transform?.hierarchy){const hit=nearestMapNode(point);if(!hit){tip.hidden=true;return;}tip.hidden=false;text(tip,`${hit.n.name} · ${titleCase(hit.n.knowledge)} · click to inspect`);tip.style.left=`${Math.min(point.x+12,canvas.clientWidth-190)}px`;tip.style.top=`${Math.min(point.y+12,canvas.clientHeight-35)}px`;return;}
       const tile=tileAt(point);if(!tile){tip.hidden=true;return;}tip.hidden=false;const p=tile.province_id&&state.mapRecord?.geometry?.provinces.find(x=>x.id===tile.province_id);text(tip,`Hovered terrain: ${terrainLabels[tile.terrain]||tile.terrain} · ${p?p.name:'Open water'} · ${tile.x}, ${tile.y}`);tip.style.left=`${Math.min(point.x+12,canvas.clientWidth-240)}px`;tip.style.top=`${Math.min(point.y+12,canvas.clientHeight-35)}px`;
     });
-    canvas.addEventListener('pointerup',e=>{if(!state.drag)return;const drag=state.drag;state.drag=null;window.HWDesktop?.setGesture(false);if(drag.moved)return;const point=canvasPoint(e);if(state.transform?.hierarchy){const hit=nearestMapNode(point);if(hit){const next={sector:'sector',system:'system',planet:'planet'}[hit.n.kind];if(next){state.mapLevel=next;state.mapNodeId=hit.n.id;$('#map-level').value=next;state.zoom=1;state.panX=state.panY=0;loadMap();}}return;}const tile=tileAt(point);state.selectedEntity=null;state.selectedProvince=tile?.province_id||null;renderInspector(liveState(),state.campaign);if(tile?.province_id){window.HWDesktop?.positionInspector(e.clientX);window.HWDesktop?.open('inspector');}drawMap();});
+    canvas.addEventListener('pointerup',e=>{if(!state.drag)return;const drag=state.drag;state.drag=null;window.HWDesktop?.setGesture(false);if(drag.moved)return;const point=canvasPoint(e);if(forceMap?.targeting()){const intent=movementIntent;if(intent?.fleet){const hit=nearestMapNode(point);if(hit?.n.kind==='system'){const dest=intent.destinationSelect;dest.value=hit.n.id;stageMovement(intent,hit.n.id,intent.sourceSelect.value==='__none'?null:intent.sourceSelect.value);}else notify('Select a recorded system marker.',true);}else{const tile=tileAt(point);if(tile?.province_id&&intent?.destinationSelect){intent.destinationSelect.value=tile.province_id;stageMovement(intent,tile.province_id,intent.sourceSelect.value==='__none'?null:intent.sourceSelect.value);}else notify('Select a recorded province.',true);}forceMap?.completeTarget();return;}if(state.transform?.hierarchy){const hit=nearestMapNode(point);if(hit){const next={sector:'sector',system:'system',planet:'planet'}[hit.n.kind];if(next){state.mapLevel=next;state.mapNodeId=hit.n.id;$('#map-level').value=next;state.zoom=1;state.panX=state.panY=0;loadMap();}}return;}const tile=tileAt(point);state.selectedEntity=null;state.selectedProvince=tile?.province_id||null;renderInspector(liveState(),state.campaign);if(tile?.province_id){window.HWDesktop?.positionInspector(e.clientX);window.HWDesktop?.open('inspector');}drawMap();});
     const cancel=()=>{state.drag=null;window.HWDesktop?.setGesture(false);};canvas.addEventListener('pointercancel',cancel);canvas.addEventListener('lostpointercapture',cancel);canvas.addEventListener('pointerleave',()=>$('#map-tooltip').hidden=true);canvas.addEventListener('wheel',e=>{e.preventDefault();zoomMap(e.deltaY<0?1.15:1/1.15);},{passive:false});let drawFrame=0;const observer=new ResizeObserver(()=>{if(drawFrame)return;drawFrame=requestAnimationFrame(()=>{drawFrame=0;drawMap();});});const observed=[canvas.parentElement,...document.querySelectorAll('.commandbar,#resource-shell,#view-title,#map-breadcrumbs,#live-banner,.map-caption,#map-legend,.map-footer')];for(const node of new Set(observed))if(node)observer.observe(node);
   }
   function nearestMapNode(point){const{positions=[],safeRect}=state.transform||{};if(safeRect&&(point.x<safeRect.left||point.x>safeRect.right||point.y<safeRect.top||point.y>safeRect.bottom))return null;let found=null,distance=Infinity;for(const item of positions){if(safeRect&&(item.x<safeRect.left||item.x>safeRect.right||item.y<safeRect.top||item.y>safeRect.bottom))continue;const d=Math.hypot(item.x-point.x,item.y-point.y);if(d<distance){found=item;distance=d;}}return distance<26?found:null;}
@@ -747,7 +927,7 @@
 
   function zoomMap(mult){state.zoom=Math.max(1,Math.min(5,state.zoom*mult));if(state.zoom===1)state.panX=state.panY=0;text($('#zoom-reset'),`${Math.round(state.zoom*100)}%`);drawMap();}
   function installNavIcons(){const colors=['var(--apple-system-blue)','var(--apple-system-mint)','var(--apple-system-teal)','var(--apple-system-indigo)'];document.querySelectorAll('.nav-item').forEach((button,index)=>{const view=button.dataset.view;button.title=titleCase(view);button.setAttribute('aria-label',`Open ${titleCase(view)} report`);if(button.querySelector('.nav-icon'))return;const icon=el('span','nav-icon');icon.setAttribute('aria-hidden','true');const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');svg.setAttribute('viewBox','0 0 16 16');svg.setAttribute('aria-hidden','true');const base=colors[index%colors.length];const shapes=[[[2,2],[3,2],[2,3],[3,3]],[[1,1],[2,1],[3,1],[1,2],[3,2],[1,3],[2,3],[3,3]],[[1,3],[2,2],[3,1],[3,2],[3,3]],[[1,1],[2,1],[3,1],[1,2],[2,2],[3,2],[2,3],[2,4]]][index%4];for(const [x,y]of shapes){const rect=document.createElementNS(svg.namespaceURI,'rect');rect.setAttribute('x',String(x*2));rect.setAttribute('y',String(y*2));rect.setAttribute('width','2');rect.setAttribute('height','2');rect.setAttribute('fill',base);svg.append(rect);}const frame=document.createElementNS(svg.namespaceURI,'rect');frame.setAttribute('x','1');frame.setAttribute('y','1');frame.setAttribute('width','14');frame.setAttribute('height','14');frame.setAttribute('fill','none');frame.setAttribute('stroke','#283743');frame.setAttribute('stroke-width','1');svg.append(frame);icon.append(svg);button.insertBefore(icon,button.firstChild);});}
-  function clearCampaignContext(){state.contextEpoch++;state.campaignLoadSeq++;state.campaignListSeq++;state.historyLoadSeq++;state.mapLoadSeq++;state.snapshotLoadSeq++;for(const [view,seq]of state.managementRequests)state.managementRequests.set(view,seq+1);state.campaign=null;state.snapshot=null;state.history=[];state.historyLoading=false;state.historyTotal=0;state.historyOffset=0;state.selectedProvince=null;state.selectedEntity=null;state.mapRecord=null;state.mapNodeId=null;state.mapLevel='galactic';state.panX=state.panY=0;state.zoom=1;state.previewText=null;state.previewProposal=null;state.managementContexts.clear();state.managementLoading.clear();state.economyLoading=null;state.historyMetric='population';state.historyCompare=null;for(const panel of state.managementPanels.values())panel.replaceChildren();for(const id of ['economy-panel','history-panel','orders-panel'])$( `#${id}`).replaceChildren();$('#orders-panel').dataset.ready='';$('#campaign-kind').textContent='NO CAMPAIGN';$('#turn-badge').textContent='TURN —';$('#historical-badge').hidden=true;render();}
+  function clearCampaignContext(){movementRequests.splice(0);movementIntent=null;forceMap?.cancelTarget();state.contextEpoch++;state.campaignLoadSeq++;state.campaignListSeq++;state.historyLoadSeq++;state.mapLoadSeq++;state.snapshotLoadSeq++;for(const [view,seq]of state.managementRequests)state.managementRequests.set(view,seq+1);state.campaign=null;state.snapshot=null;state.history=[];state.historyLoading=false;state.historyTotal=0;state.historyOffset=0;state.selectedProvince=null;state.selectedEntity=null;state.mapRecord=null;state.mapNodeId=null;state.mapLevel='galactic';state.panX=state.panY=0;state.zoom=1;state.previewText=null;state.previewProposal=null;state.managementContexts.clear();state.managementLoading.clear();state.economyLoading=null;state.historyMetric='population';state.historyCompare=null;for(const panel of state.managementPanels.values())panel.replaceChildren();for(const id of ['economy-panel','history-panel','orders-panel'])$( `#${id}`).replaceChildren();$('#orders-panel').dataset.ready='';$('#campaign-kind').textContent='NO CAMPAIGN';$('#turn-badge').textContent='TURN —';$('#historical-badge').hidden=true;render();}
   function createManagementWindow(view){let panel=managementPanel(view);const labels={industry:'Industry',fleet:'Fleet',politics:'Politics',trade:'Trade',factions:'Factions',budget:'Budget',logistics:'Logistics',construction:'Construction',research:'Research',military:'Military',diplomacy:'Diplomacy',intelligence:'Intelligence',exploration:'Exploration',colonies:'Colonies',characters:'Characters'};const i=[...document.querySelectorAll('.sidebar .nav-item')].find(button=>button.dataset.view===view);const index=i?[...document.querySelectorAll('.sidebar .nav-item')].indexOf(i):4;return window.HWDesktop.createWindow(view,labels[view]||titleCase(view),panel,{x:Math.max(12,90+(index%6)*30),y:Math.max(12,55+(index%5)*28),w:520,h:460});}
   function onWindowOpen(view){if(view==='campaign')updateCampaignSummary();state.view=view;window.HWDesktop?.setScope(selectedScope(view));if(view==='planet'){if(state.campaign&&liveState()&&!state.mapRecord)loadMap().catch(showError);}else if(view==='economy')renderEconomy().catch(showError);else if(view==='history'){if(!state.history.length&&!state.historyLoading)loadHistory(0).catch(showError);else renderHistory();}else if(view==='orders'){if(!$('#orders-panel').dataset.ready){renderOrders();$('#orders-panel').dataset.ready='true';}}else if(isManagementView(view))loadManagement(view).catch(showError);}
   function wire(){

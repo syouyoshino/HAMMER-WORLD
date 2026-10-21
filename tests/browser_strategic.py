@@ -33,7 +33,7 @@ def click_map_marker(page, name, touch=False):
     points = page.locator("#planet-map").evaluate("""canvas=>{
         const ctx=canvas.getContext('2d'),w=canvas.width,h=canvas.height;
         const data=ctx.getImageData(0,0,w,h).data,r=canvas.getBoundingClientRect();
-        const colors=new Set(['98,106,108','133,141,141','92,100,102','168,174,172']);
+        const colors=new Set(['98,106,108','133,141,141','92,100,102','168,174,172','181,187,186']);
         const color=(x,y)=>{const i=(y*w+x)*4;return `${data[i]},${data[i+1]},${data[i+2]}`;};
         const points=[];
         for(let y=1;y<h;y++)for(let x=1;x<w;x++){
