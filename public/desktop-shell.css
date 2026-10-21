@@ -88,13 +88,18 @@ body { display: block; min-height: 100%; overflow: hidden; }
 #command-dialog { position: absolute; z-index: 40; top: 50%; left: 50%; width: min(520px, calc(100vw - 24px)); max-height: calc(100vh - 24px); transform: translate(-50%, -50%); overflow: auto; background: var(--paper); border: 1px solid var(--line-strong); }
 .dialog-title { position: sticky; z-index: 1; top: 0; display: flex; align-items: center; justify-content: space-between; padding: 9px 12px; background: var(--paper); border-bottom: 1px solid var(--line); font-size: 11px; letter-spacing: .08em; }
 .dialog-content { padding: 12px; }
+.campaign-current-summary { padding: 0 0 9px; border-bottom: 1px solid var(--line); }
+.campaign-current-summary dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px 16px; margin: 8px 0 0; }
+.campaign-current-summary dl > div { min-width: 0; }
+.campaign-current-summary dt { color: var(--muted); font-size: 10px; }
+.campaign-current-summary dd { margin: 2px 0 0; color: var(--ink); font-size: 12px; overflow-wrap: anywhere; }
 .dialog-content .campaign-ribbon { display: flex; flex-wrap: wrap; gap: 8px; height: auto; padding: 5px 0; background: transparent; border: 0; }
 .dialog-content .campaign-select-wrap { display: grid; gap: 4px; }
 .dialog-content .campaign-select-wrap select { min-width: min(250px, 100%); }
 .dialog-content .campaign-flags { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
 .dialog-content .campaign-ribbon > .button { margin-left: 0; }
 .dialog-content .access-box { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin: 10px 0 0; padding: 10px 0; background: transparent; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
-.dialog-content .access-box label { color: var(--muted); font-size: 10px; }
+.dialog-content .access-box label { color: var(--muted); font-size: 11px; }
 .dialog-content .access-box input { flex: 1; min-width: 160px; padding: 7px; background: var(--paper); border: 1px solid var(--line-strong); }
 .dialog-content .access-box > div { display: flex; gap: 6px; }
 

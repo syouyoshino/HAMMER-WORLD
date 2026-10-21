@@ -151,6 +151,7 @@ def check_placeholder_review(browser, base, player, out):
         page.locator("#hw-command").click()
         page.locator("[data-open=economy]").click()
         page.wait_for_selector("#command-workspace:not([hidden])")
+        page.locator("#economy-panel .economy-turn-details > summary").first.click()
         flow = page.locator("#economy-panel .local-scope .resource-flow-chart svg").first
         flow.wait_for(state="visible")
         produced = public_state["latest_outcome"]["production"][settlement["id"]]["food"]
@@ -172,6 +173,7 @@ def check_placeholder_review(browser, base, player, out):
         page.locator("[data-return-map]").click()
         assert page.evaluate("window.reviewCanvas===document.querySelector('#planet-map')")
         assert "Reach" in page.locator("#map-breadcrumbs").inner_text()
+        assert province["name"] in page.locator(".map-footer").inner_text()
         assert page.locator("#command-workspace").is_hidden()
         page.screenshot(path=str(out / "placeholder-map.png"))
         pixels = page.locator("#planet-map").evaluate("el=>el.toDataURL()")
@@ -344,6 +346,127 @@ def check_stock_history_retry(browser, base, player):
         page.close()
 
 
+def check_decision_readability(browser, base, player, out):
+    """Readouts retain public facts, explicit unknowns and current access context."""
+    page = browser.new_page(viewport={"width": 1280, "height": 900})
+    errors = []
+    page.on("pageerror", lambda error: errors.append(str(error)))
+    headers = {"Authorization": "Bearer " + player}
+    try:
+        page.goto(base)
+        page.wait_for_function("document.querySelector('[data-summary=access]')?.textContent==='Sign in required'")
+        assert page.locator("[data-summary=view]").inner_text() == "No snapshot"
+        assert page.locator("#dialog-campaign-select").is_disabled()
+        page.fill("#access-token", player)
+        page.locator("#login-button").click()
+        page.wait_for_function("!document.querySelector('#dialog-campaign-select').disabled")
+        page.locator("#dialog-campaign-select").click()
+        page.keyboard.press("Escape")
+        page.select_option("#dialog-campaign-select", "demo-v2")
+        page.wait_for_function("document.querySelector('#map-placeholder').hidden")
+        page.evaluate("document.querySelector('#status-text').textContent='Unrelated report error'; HWDesktop.open('campaign')")
+        assert "demo-v2" in page.locator("[data-summary=campaign]").inner_text()
+        assert page.locator("[data-summary=access]").inner_text() == "Private access verified"
+        assert player not in page.locator(".campaign-current-summary").inner_text()
+        page.locator("[data-dialog-close]").click()
+        page.evaluate("HWDesktop.open('economy')")
+        page.wait_for_function("document.querySelector('#economy-panel').dataset.ready==='true'")
+        history = httpx.get(base + "/api/player/campaigns/demo-v2/history?limit=100&offset=0", headers=headers).json()["items"]
+        for metric in ("food", "energy", "ore"):
+            page.select_option("#economy-panel .economy-metric", metric)
+            page.wait_for_function("m=>document.querySelector('#economy-panel .economy-history-plot svg')?.dataset.metric===m", arg=metric)
+            summary = page.locator("#economy-panel .history-range-summary").inner_text()
+            values = [item["metrics"][metric] for item in history if isinstance(item["metrics"].get(metric), (int, float))]
+            delta = values[-1] - values[0]
+            assert f"{values[0]:,}" in summary and f"{values[-1]:,}" in summary
+            assert f"Net change {'+' if delta > 0 else ''}{delta:,} stock units" in summary
+        page.evaluate("HWDesktop.open('fleet')")
+        page.wait_for_selector("#management-fleet .force-record")
+        foreign = page.locator("#management-fleet .force-record").filter(has=page.locator(".force-owner-tag", has_text="FOREIGN")).first
+        assert foreign.locator(".fact-strength dd").inner_text() == "10"
+        assert foreign.locator(".fact-crew dd").inner_text() == "Unknown"
+        assert "Observed turn 0" in foreign.inner_text()
+        # Response-only fixtures exercise recorded problems and unavailable fields;
+        # stored campaign records are never changed for these UI cases.
+        def constraint_response(route):
+            response = route.fetch()
+            data = response.json()
+            s = data["state"]
+            sid = s["settlements"][0]["id"]
+            s["latest_budget"] = {"unmet_upkeep": {sid: {"energy": 7, "credits": 5, "welfare": 2}}}
+            s["latest_outcome"] = {"production": {sid: {"food": 1}}, "consumption": {sid: {"food": 9}}, "deaths": [{"settlement_id": sid, "count": 3}]}
+            route.fulfill(response=response, json=data)
+        pattern = "**/api/player/campaigns/demo-v2"
+        page.route(pattern, constraint_response)
+        page.select_option("#campaign-select", "demo-v2")
+        page.wait_for_function("document.querySelector('#map-placeholder').hidden")
+        page.evaluate("HWDesktop.returnMap()")
+        page.select_option("#map-level", "planet")
+        page.wait_for_load_state("networkidle")
+        current = httpx.get(base + "/api/player/campaigns/demo-v2", headers=headers).json()["state"]
+        settlement = current["settlements"][0]
+        record = httpx.get(base + "/api/player/campaigns/demo-v2/map", params={"level": "planet", "node_id": settlement["planet_id"]}, headers=headers).json()
+        province = next(x for x in record["geometry"]["provinces"] if x["id"] == settlement["province_id"])
+        frame = page.locator(".map-frame").bounding_box()
+        tile = min(frame["width"] / 64, frame["height"] / 40)
+        page.mouse.click(frame["x"] + (province["x"] + province["width"] / 2) * tile, frame["y"] + (frame["height"] - 40 * tile) / 2 + (province["y"] + province["height"] / 2) * tile)
+        page.wait_for_selector("#command-inspector:not([hidden])")
+        page.locator("#inspector-content").get_by_role("button", name="Economy", exact=True).click()
+        constraints = page.locator(".local-scope .economy-recorded-condition").first
+        constraints.wait_for()
+        for fact in ("7 energy", "5 credits", "2 credits", "3 people", "-8 units"):
+            assert fact in constraints.inner_text()
+        assert page.locator(".economy-turn-details").first.get_attribute("open") is None
+        page.screenshot(path=str(out / "response-fixture-constraints.png"))
+        page.unroute(pattern)
+        page.evaluate("HWDesktop.open('campaign')")
+        page.locator("#logout-button").click()
+        assert page.locator("[data-summary=access]").inner_text() == "Sign in required"
+        assert page.locator("[data-summary=view]").inner_text() == "No snapshot"
+        assert "demo-v2" not in page.locator("[data-summary=campaign]").inner_text()
+        assert page.locator("#dialog-campaign-select").is_disabled()
+        held = []
+        page.route("**/api/player/campaigns", lambda route: held.append(route))
+        page.fill("#access-token", player)
+        page.locator("#login-button").click()
+        page.wait_for_function("document.querySelector('[data-summary=access]').textContent==='Checking access'")
+        assert page.locator("#refresh-button").is_disabled()
+        assert page.locator("#dialog-refresh-campaigns").is_disabled()
+        page.evaluate("document.querySelector('#refresh-button').onclick()")
+        assert len(held) == 1
+        held[0].fulfill(status=401, content_type="application/json", body='{"detail":"Response-only rejected login fixture"}')
+        page.wait_for_function("document.querySelector('[data-summary=access]').textContent==='Sign in required'")
+        assert page.locator("#refresh-button").is_enabled()
+        page.unroute("**/api/player/campaigns")
+        page.fill("#access-token", player)
+        page.locator("#login-button").click()
+        page.wait_for_function("document.querySelector('[data-summary=access]').textContent==='Private access verified'")
+        assert not errors, errors
+        # A transient list failure at startup must recover through Refresh.
+        recovery = browser.new_page()
+        authorized_list = httpx.get(base + "/api/player/campaigns", headers=headers).json()
+        attempts = []
+        recovery.route("**/api/access", lambda route: route.fulfill(json={"login_required": False}))
+        def list_retry(route):
+            attempts.append(True)
+            if len(attempts) == 1:
+                route.fulfill(status=503, json={"detail": "Response-only startup failure"})
+            else:
+                route.fulfill(json=authorized_list)
+        recovery.route("**/api/player/campaigns", list_retry)
+        try:
+            recovery.goto(base)
+            recovery.wait_for_function("document.querySelector('[data-summary=access]').textContent==='Access unavailable'")
+            recovery.locator("#dialog-refresh-campaigns").click()
+            recovery.wait_for_function("!document.querySelector('#dialog-campaign-select').disabled")
+            assert recovery.locator("[data-summary=access]").inner_text() == "Local access"
+        finally:
+            recovery.close()
+        return {"modal_selection": "operable", "access_summary": "current and cleared on logout", "login_refresh": "pending refresh blocked; rejection/retry honest", "startup_retry": "modal recovered", "history_summary": "API-matched", "force_strength": "retained with observation context", "constraints": "response-only positive fixture", "page_errors": errors}
+    finally:
+        page.close()
+
+
 def main():
     dsn = os.environ["WOLD_TEST_DATABASE_URL"]
     schema = "browser_strategic_" + uuid.uuid4().hex
@@ -467,13 +590,16 @@ def main():
                 assert settlement["name"] in economy and "CAMPAIGN-WIDE TOTALS" not in economy
                 assert settlement["id"] not in economy
                 assert "Housing" in economy and "Unrest" in economy
-                assert "Main economic issue and forecast are unrecorded" in economy
+                assert "Economic diagnosis and forecasts are unrecorded" in economy
                 assert page.locator("#economy-panel .resource-flow-chart").count() == 0, "Baseline must not fabricate food flow"
-                page.locator("#economy-panel details summary").click()
+                page.locator("#economy-panel .economy-settlement > details:not(.economy-turn-details) > summary").click()
                 assert settlement["id"] in page.locator("#economy-panel").inner_text()
-                page.locator("#economy-panel details summary").click()
+                page.locator("#economy-panel .economy-settlement > details:not(.economy-turn-details) > summary").click()
                 page.locator("#economy-panel [data-scope=campaign]").click()
                 assert "CAMPAIGN-WIDE TOTALS" in page.locator("#economy-panel").inner_text()
+                page.wait_for_selector("#economy-panel .history-range-summary")
+                assert "Net change" not in page.locator("#economy-panel .economy-history-plot").inner_text()
+                assert page.locator("#economy-panel .economy-history-plot svg").count() == 0
                 page.locator("#economy-panel [data-scope=local]").click()
                 page.screenshot(path=str(out / "economy.png"))
                 assert page.locator("#command-workspace .workspace-title").inner_text() == "Economy"
@@ -783,6 +909,7 @@ def main():
                 metrics["placeholder_review"] = check_placeholder_review(browser, base, player, out)
                 metrics["stock_history_retry"] = check_stock_history_retry(browser, base, player)
                 metrics["theme_preferences"] = check_theme_preferences(browser, base, player, out)
+                metrics["decision_readability"] = check_decision_readability(browser, base, player, out)
                 browser.close()
                 metrics["browser_zoom"] = check_browser_zoom(playwright, executable, base, player, out)
                 (out/"metrics.json").write_text(json.dumps(metrics,indent=2)+"\n")

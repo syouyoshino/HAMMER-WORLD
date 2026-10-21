@@ -135,7 +135,7 @@ button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-
   border: 1px solid var(--line-strong);
 }
 .command-indicators { display: flex; align-items: center; gap: 12px; white-space: nowrap; }
-.command-indicators > span { padding: 2px 0; color: var(--muted); font-size: 10px; letter-spacing: .05em; }
+.command-indicators > span { padding: 2px 0; color: var(--muted); font-size: 11px; letter-spacing: .025em; }
 .command-indicators #command-turn { color: var(--ink); font-weight: 700; }
 .command-indicators #command-history, .command-indicators #command-pending, .command-indicators #command-preview {
   color: var(--ink); font-weight: 700; border-bottom: 2px solid var(--ink);
@@ -267,7 +267,7 @@ button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-
 .workspace-head small, .workspace-head strong, .workspace-scope { display: block; }
 .workspace-head small { color: var(--muted); font-size: 9px; letter-spacing: .1em; }
 .workspace-title { margin: 1px 0; color: var(--ink); font-size: 16px; line-height: 1.3; }
-.workspace-scope { color: var(--muted); font-size: 10px; }
+.workspace-scope { color: var(--muted); font-size: 11px; letter-spacing: 0; }
 .workspace-head .button { min-height: 30px; color: var(--ink); background: transparent; border: 1px solid var(--line-strong); box-shadow: none; }
 .workspace-head .button:hover { color: var(--selection-ink); background: var(--selection); }
 .workspace-head [data-workspace-close] { min-width: 32px; }
@@ -334,17 +334,21 @@ button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-
 .condition-grid .inspector-row { display: block; padding: 7px 0; border: 0; }
 .condition-grid .inspector-row b { display: block; max-width: none; margin-top: 4px; text-align: left; }
 .condition-note { margin: 4px 0 8px; font-size: 12px; }
+.economy-recorded-condition { margin: 4px 0 12px; padding: 7px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.recorded-constraint { margin: 3px 0; color: var(--ink); font-size: 13px; font-weight: 600; }
+.economy-turn-details { margin: 5px 0 10px; }
+.condition-limit { margin: 7px 0 0; color: var(--muted); font-size: 11px; line-height: 1.45; }
+.food-flow-balance { padding: 3px 0; color: var(--recorded); font-size: 12px; font-weight: 700; }
 .record-summary { margin: 0; padding: 9px 0; border-top: 1px solid var(--line); }
 .record-summary-title { margin: 0 0 5px; color: var(--ink); font-size: 16px; font-weight: 700; }
-.force-owner-tag { display: inline-block; margin-left: 7px; padding: 2px 5px; color: var(--ink); border: 1px solid var(--line-strong); font-size: 9px; font-weight: 700; letter-spacing: .06em; vertical-align: 2px; }
+.force-owner-tag { display: inline-block; margin-left: 7px; padding: 2px 5px; color: var(--ink); border: 1px solid var(--line-strong); font-size: 11px; font-weight: 700; letter-spacing: .06em; vertical-align: 2px; }
 .force-owner-tag.is-player { color: var(--apple-system-blue-contrast); border-color: var(--apple-system-blue-contrast); }
 .record-facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 3px 14px; margin: 0 0 5px; }
 .record-fact { min-width: 0; }
 .record-fact dt { color: var(--muted); font-size: 11px; }
 .record-fact dd { margin: 1px 0 0; color: var(--ink); font-size: 14px; overflow-wrap: anywhere; }
 .record-fact.fact-strength, .record-fact.fact-crew { padding-bottom: 3px; border-bottom: 1px solid var(--line-strong); }
-.record-fact.fact-strength dd, .record-fact.fact-crew dd { font-size: 20px; font-weight: 700; }
-.record-fact.fact-strength dd, .record-fact.fact-crew dd { color: var(--recorded); }
+.record-fact.fact-strength dd, .record-fact.fact-crew dd { color: var(--recorded); font-size: 20px; font-weight: 700; }
 .record-fact.fact-readiness dd { color: var(--readiness); }
 .force-record .record-fact.force-primary.fact-strength dd,
 .force-record .record-fact.force-primary.fact-crew dd { color: var(--recorded); }
@@ -353,7 +357,7 @@ button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-
 .force-record { padding: 11px 0 13px; }
 .force-record-head { display: flex; align-items: baseline; justify-content: space-between; gap: 14px; }
 .force-record .record-summary-title { margin: 0; }
-.force-identity { color: var(--muted); font-size: 10px; text-align: right; }
+.force-identity { color: var(--muted); font-size: 11px; text-align: right; }
 .management-intro { margin: 2px 0 12px; padding-bottom: 8px; border-bottom: 1px solid var(--line); }
 .settlement-breakdown { padding: 7px 0; border-top: 1px solid var(--line); }
 .settlement-breakdown-title { margin: 0 0 4px; font-size: 12px; }
@@ -365,6 +369,7 @@ button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-
 .force-record .record-fact.force-primary dd { color: var(--ink); font-size: 19px; font-weight: 700; }
 .force-record .record-fact.force-primary dt { font-size: 11px; }
 .force-record .record-fact.force-secondary dd { font-size: 12px; }
+.force-record .record-fact.force-primary.is-unknown dd { color: var(--muted); font-size: 14px; font-weight: 400; }
 .project-progress { display: grid; grid-template-columns: auto minmax(90px,1fr) auto; align-items: center; gap: 9px; margin: 7px 0; font-size: 10px; }
 .project-progress progress { width: 100%; height: 8px; accent-color: #394244; }
 .local-project-progress progress, .project-progress progress { accent-color: var(--in-progress); }
@@ -405,6 +410,7 @@ button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-
 .chart-box .history-plot-grid svg { height: 144px; overflow: visible; }
 .history-turn-axis { display: flex; grid-column: 2; justify-content: space-between; gap: 8px; color: var(--muted); font-size: 12px; }
 .history-comparison { margin-bottom: 14px; color: var(--ink); font-size: 12px; }
+.history-range-summary { padding: 5px 0 8px; color: var(--ink); font-size: 12px; line-height: 1.5; font-variant-numeric: tabular-nums; }
 .local-vital dt, .stock-reading dt, .record-fact dt, .force-record .record-fact.force-primary dt { font-size: 12px; }
 .record-identifiers, .record-identifiers summary, .local-record-row .record-identifiers .inspector-row,
 .project-progress, .force-identity, .inspector-sub, .metadata-field small, .chart-note { font-size: 11px; }
@@ -609,17 +615,13 @@ select, input, textarea, .economy-metric { color: var(--ink); background-color: 
 }
 
 @media (max-width: 430px) {
-  .commandbar { gap: 6px; min-height: 44px; }
   #hw-command { min-height: 30px; padding: 3px 7px; font-size: 10px; }
-  .campaign-indicator select { width: 112px; min-width: 0; max-width: 112px; padding-right: 17px; font-size: 9px; }
-  .command-indicators { gap: 5px; }
-  .command-indicators > span { font-size: 8px; }
   #refresh-button { min-height: 28px; padding: 2px 5px; }
   .commandbar { gap: 5px; min-height: 44px; padding: 5px 6px; }
   .campaign-indicator { flex: 0 0 auto; min-width: 0; }
   .campaign-indicator select { width: 142px; min-width: 142px; max-width: 142px; padding-right: 16px; font-size: 9px; }
   .command-indicators { gap: 5px; }
-  .command-indicators > span { font-size: 8px; }
+  .command-indicators > span { font-size: 9px; }
   .command-indicators #command-snapshot { display: none !important; }
   #command-menu { max-height: calc(100vh - 58px); overflow-y: auto; }
   .menu-grid { grid-template-columns: 1fr 1fr; max-height: none; overflow: visible; gap: 10px 14px; }
@@ -648,3 +650,9 @@ select, input, textarea, .economy-metric { color: var(--ink); background-color: 
   .local-record-row { grid-template-columns: minmax(0, 1fr) auto auto; }
   .local-record-row .record-identifiers { grid-column: auto; }
 }
+
+.campaign-dialog-select-label { display: block; margin: 8px 0 4px; color: var(--muted); font-size: 12px; }
+#dialog-campaign-select { width: 100%; min-height: 32px; font-size: 13px; }
+
+#command-dialog .campaign-current-summary dt,
+#command-dialog .inspector-section, .economy-recorded-condition .inspector-section { font-size: 11px; }
