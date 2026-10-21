@@ -23,7 +23,7 @@ Root also corrected the first candidate's unknown-heavy six-value Economy block,
 
 A bounded Sol high review identified two state-summary problems: startup list failure left access unavailable after successful Refresh, and Refresh could supersede a pending login yet let the old completion claim success. Its localized correction uses explicit current-request success and disables/guards Refresh during checks. Actual browser regression verifies both recovery paths. A pointer test also established that the global Refresh button was blocked by the dialog backdrop; the in-modal button fixes that workflow using the original handler.
 
-The same visual critic accepted the revised scope with no remaining major finding. Its last minor retained-selection footer finding was corrected and checked separately. Dense technical identifiers remain behind disclosure; no whole-game/commercial parity or accessibility certification follows from this review.
+The same visual critic accepted the revised scope with no remaining major finding. Its last minor retained-selection footer finding was corrected and checked separately: the critic confirmed both delivery return-to-map frames show “Selected · Province03,” with no remaining finding from that focused check. Dense technical identifiers remain behind disclosure; no whole-game/commercial parity or accessibility certification follows from this review.
 
 ## Evidence and checks
 
