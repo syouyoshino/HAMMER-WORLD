@@ -36,7 +36,8 @@ def click_map_marker(page, name, touch=False):
             const ctx=canvas.getContext('2d'),w=canvas.width,h=canvas.height;
             const data=ctx.getImageData(0,0,w,h).data,r=canvas.getBoundingClientRect();
             const colors=new Set(['98,106,108','133,141,141','92,100,102','168,174,172','181,187,186',
-                '79,128,144','135,146,138','183,123,51','119,126,116','98,119,124']);
+                '79,128,144','135,146,138','183,123,51','119,126,116','98,119,124',
+                '164,134,80','119,115,110','208,208,201','113,128,138']);
             const color=i=>`${data[i*4]},${data[i*4+1]},${data[i*4+2]}`;
             const points=[],seen=new Uint8Array(w*h);
             // Connected painted regions work for circular bodies and legacy squares.

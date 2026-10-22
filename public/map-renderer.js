@@ -5,6 +5,21 @@
     orbital: {ocean:"#143142",coast:"#677f67",plains:"#899164",rock:"#958e76",forest:"#395c42",marsh:"#4f7058"},
     survey: {ocean:"#97b5b9",coast:"#bbc09e",plains:"#bab489",rock:"#a59b83",forest:"#738b68",marsh:"#8b9f82"},
   };
+  const dryPalettes = {
+    orbital: {
+      arid:{ocean:"#604b30",coast:"#90704b",plains:"#ae8950",rock:"#82705b",forest:"#70614b",marsh:"#8b7350"},
+      barren:{ocean:"#484644",coast:"#7c756c",plains:"#898278",rock:"#6d6861",forest:"#6d6861",marsh:"#79746c"},
+      frozen:{ocean:"#676966",coast:"#afb0aa",plains:"#cacbc5",rock:"#9b9d98",forest:"#969791",marsh:"#b6b7b0"},
+    },
+    survey: {
+      arid:{ocean:"#d4c39d",coast:"#c3a779",plains:"#d0b57a",rock:"#aa9571",forest:"#998461",marsh:"#bba174"},
+      barren:{ocean:"#d0cec8",coast:"#b9b5ad",plains:"#c8c4bc",rock:"#99958e",forest:"#99958e",marsh:"#aaa69f"},
+      frozen:{ocean:"#e2e1db",coast:"#dad9d3",plains:"#eeede7",rock:"#c7c7c1",forest:"#c5c5bf",marsh:"#d8d8d2"},
+    },
+  };
+  function terrainPalette(style, preset) {
+    return dryPalettes[style]?.[preset] || palettes[style] || palettes.orbital;
+  }
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
   function hash(x, y, salt = 0) {
     let n =
@@ -15,7 +30,7 @@
   }
   function surfaceFor(geometry) {
     const s = geometry?.surface;
-    if (!s || !["planet-v2", "planet-v3"].includes(s.version) || !Array.isArray(s.elevation))
+    if (!s || !["planet-v2", "planet-v3", "planet-v4"].includes(s.version) || !Array.isArray(s.elevation))
       return null;
     return s;
   }
@@ -27,7 +42,7 @@
       scale = 24, w = cols * scale, h = rows * scale,
       surface = surfaceFor(geometry), tiles = geometry.tiles,
       survey = style === "survey",
-      colors = survey ? {
+      colors = surface?.hydrology === "none" ? Object.fromEntries(Object.entries(terrainPalette(style,surface.preset)).map(([key,value])=>[key,[parseInt(value.slice(1,3),16),parseInt(value.slice(3,5),16),parseInt(value.slice(5,7),16)]])) : survey ? {
         ocean: [151,181,185], coast: [187,192,158], plains: [186,180,137],
         rock: [165,155,131], forest: [115,139,104], marsh: [139,159,130],
       } : {
@@ -61,8 +76,8 @@
       temperature = surface?.temperature ? interpolateRows(surface.temperature) : null,
       shoreColor = survey ? [183,204,197] : [60,102,111],
       deepColor = survey ? [126,161,172] : [12,33,51],
-      highColor = survey ? [204,195,163] : [178,164,132],
-      wetColor = [54,87,61],coldColor=[204,207,192];
+      highColor = surface?.preset==="frozen"?[224,224,219]:survey ? [204,195,163] : [178,164,132],
+      wetColor = [54,87,61],coldColor=surface?.preset==="frozen"?[218,218,212]:[204,207,192];
     const vertical = (y) => {
       const fy=clamp(y-.5,0,rows-1),iy=Math.floor(fy);
       return [iy*w,Math.min(rows-1,iy+1)*w,fy-iy];
@@ -84,7 +99,7 @@
             dy=(elevation[down0+px]*(1-downT)+elevation[down1+px]*downT)-(elevation[up0+px]*(1-upT)+elevation[up1+px]*upT);
           shade=1+clamp((-dx*.65-dy*.75)/110,-.32,.3)*(survey?.6:1);
           high=clamp((elev-620)/350,0,1)*.44;
-          wetMix=clamp((wet-450)/700,0,.24);
+          wetMix=surface?.hydrology==="none"?0:clamp((wet-450)/700,0,.24);
           coldMix=clamp((320-temp)/600,0,.3);
         }
         const grain=(hash(px,py,3)-.5)*(survey?2.2:7),off=(py*w+px)*4;
@@ -110,7 +125,7 @@
     if (surface) {
       // Contours interpolate the persisted elevation field, without decorative
       // hatching or a synthetic relief field.
-      if (survey) {
+      if (survey && surface.hydrology !== "none") {
         ctx.strokeStyle="rgba(64,76,52,.24)"; ctx.lineWidth=.7;
         for(const level of [sea+100,sea+200,sea+300,sea+400,sea+500])
           for(let y=0;y<rows-1;y++) for(let x=0;x<cols-1;x++) {
@@ -173,7 +188,8 @@
       gridH = tile * rows,
       ox = (bounds.left + bounds.right - gridW) / 2 + panX,
       oy = (bounds.top + bounds.bottom - gridH) / 2 + panY;
-    ctx.fillStyle = style === "survey" ? "#a6bfc1" : "#142f40";
+    const surface=surfaceFor(geometry), preset=surface?.hydrology==="none"?surface.preset:null;
+    ctx.fillStyle = preset?terrainPalette(style,preset).ocean:style === "survey" ? "#a6bfc1" : "#142f40";
     ctx.fillRect(0, 0, w, h);
     ctx.imageSmoothingEnabled = true;
     ctx.drawImage(baseRaster(geometry, style, theme), ox, oy, gridW, gridH);
@@ -181,7 +197,9 @@
     const tiles = geometry.tiles,
       provinces = geometry.provinces;
     if (overlay === "provinces") {
-      const colors = [
+      const colors = preset === "arid" ? ["#c0a06c","#ab8b59","#d0b783","#987b53","#c6aa75","#a88e64","#d5c091","#b69b6a"] :
+        preset === "barren" ? ["#aaa69f","#8e8a83","#c1bdb5","#9b9790","#b4b0a8","#88847d","#c9c5bd","#a29e97"] :
+        preset === "frozen" ? ["#e1e1dc","#c9c9c3","#f0f0eb","#d6d6d0","#bcbcb7","#e7e7e2","#cecec8","#f5f5f0"] : [
           "#91a39a",
           "#b1aa88",
           "#82999a",
@@ -430,7 +448,7 @@
   }
   function drawHierarchy(
     ctx,
-    { w, h, record, safe, zoom, panX, panY, theme = "light" },
+    { w, h, record, safe, zoom, panX, panY, theme = "light", forceControlRect = null },
   ) {
     const dark = theme === "dark";
     ctx.fillStyle = dark ? "#111c27" : "#e5e8e2";
@@ -476,11 +494,14 @@
     );
     const padX = Math.min(110, Math.max(40, safe.width * 0.12)),
       padY = Math.min(90, Math.max(52, safe.height * 0.16)),
+      unlocatedCardTop = Math.max(safe.top + 7,
+        Number.isFinite(forceControlRect?.bottom) ? forceControlRect.bottom + 8 : safe.top + 42),
+      unlocatedCardHeight = 27 + unlocated.length * 22,
+      unlocatedCardBottom = unlocatedCardTop + unlocatedCardHeight,
       inner = {
         left: safe.left + padX,
         right: safe.right - padX,
-        top:
-          safe.top + padY + (unlocated.length ? 42 + unlocated.length * 22 : 0),
+        top: unlocated.length ? Math.max(safe.top + padY, unlocatedCardBottom + 8) : safe.top + padY,
         bottom: safe.bottom - padY,
       };
     const xs = located.map((n) => n.x),
@@ -526,7 +547,7 @@
     // Layout symbols separately from their recorded chart anchors. This is
     // presentation displacement only; links and fleet endpoints use positions.
     const symbolRadius = n => n.kind === "star" ? 25 : n.kind === "planet" ? 18 : n.kind === "belt" ? 23 : n.kind === "sector" ? 20 : 14;
-    const symbolBoxes = unlocated.length ? [{left:safe.right-238,right:safe.right-8,top:safe.top+7,bottom:safe.top+34+unlocated.length*22}] : [];
+    const symbolBoxes = unlocated.length ? [{left:safe.right-238,right:safe.right-8,top:unlocatedCardTop,bottom:unlocatedCardBottom}] : [];
     ctx.font = '600 12px "Noto Instrument Mono",monospace';
     const displayPositions = positions.map(point => {
       const radius=symbolRadius(point.n),half=Math.max(radius+5,ctx.measureText(String(point.n.name||"")).width/2+6);
@@ -544,6 +565,8 @@
       return chosen||{...point};
     });
     const forceObstacles = [];
+    if (forceControlRect && [forceControlRect.left,forceControlRect.top,forceControlRect.right,forceControlRect.bottom].every(Number.isFinite))
+      forceObstacles.push({...forceControlRect});
     for (const { n, x, y, anchorX = x, anchorY = y } of displayPositions) {
       if(Math.hypot(x-anchorX,y-anchorY)>1) {
         ctx.strokeStyle="rgba(174,193,190,.65)";ctx.lineWidth=1;ctx.beginPath();
@@ -567,11 +590,12 @@
         ctx.arc(0, 0, 17, 0, Math.PI * 2);
         ctx.fill();
       } else if (planet) {
-        ctx.fillStyle = n.knowledge === "surveyed" ? "#4f8090" : "#87928a";
+        const bodyColors={arid:"#a48650",barren:"#77736e",ice:"#d0d0c9",oceanic:"#71808a",terrestrial:"#4f8090"};
+        ctx.fillStyle = n.knowledge === "surveyed" ? (bodyColors[n.class]||"#87928a") : "#87928a";
         ctx.beginPath();
         ctx.arc(0, 0, 15, 0, Math.PI * 2);
         ctx.fill();
-        ctx.fillStyle = "rgba(224,221,185,.55)";
+        ctx.fillStyle = n.class==="arid"?"rgba(216,177,98,.5)":n.class==="barren"?"rgba(132,126,117,.5)":n.class==="ice"?"rgba(235,235,229,.75)":"rgba(224,221,185,.55)";
         ctx.beginPath();
         ctx.ellipse(-4, -2, 5, 9, -0.45, 0, Math.PI * 2);
         ctx.fill();
@@ -624,9 +648,9 @@
     const unlocatedTargets = [];
     if (unlocated.length) {
       const left = safe.right - 238,
-        top = safe.top + 7,
+        top = unlocatedCardTop,
         width = 230,
-        height = 27 + unlocated.length * 22;
+        height = unlocatedCardHeight;
       ctx.fillStyle = "rgba(13,25,35,.94)";
       ctx.fillRect(left, top, width, height);
       ctx.strokeStyle = "rgba(167,192,198,.42)";
@@ -676,7 +700,7 @@
   window.HWMapRenderer = {
     drawPlanet,
     drawHierarchy,
-    terrainColor(style, key) { return (palettes[style] || palettes.orbital)[key]; },
+    terrainColor(style, key, preset = null) { return terrainPalette(style,preset)[key]; },
     hasSurface(geometry) {
       return Boolean(surfaceFor(geometry));
     },
