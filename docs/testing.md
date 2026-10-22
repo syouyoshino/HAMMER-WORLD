@@ -82,3 +82,22 @@ The tactical overlay extension of `tests/browser_strategic.py` also commits supp
 
 
 The Apple-colour graph extension verifies local food flow against authorized recorded outcomes, no fabricated baseline graph, cached food/energy/ore switching, consecutive history failures plus recovery, and fixed12px HTML axes after phone/desktop resize. Palette values are centralized in CSS; browser capture evidence checks actual panel alpha and chart-label dimensions.
+
+## Versioned cartography candidate
+
+`map-generation` preserves default V1 generation and stored geography. Create a **new fictional demo ID** with `python -m app.cli init-v2 --campaign-id NEW_ID --planet-generator planet-v3`; this explicitly uses the configured database and refuses existing IDs. Do not use it to replace a campaign. No new generation is enabled on startup or ordinary reads.
+
+Run the candidate checks against an explicitly isolated PostgreSQL QA database:
+
+```sh
+WOLD_TEST_DATABASE_URL=postgresql://USER@HOST/ISOLATED_TEST_DATABASE \
+python -m unittest tests.test_planet_generation -q
+WOLD_TEST_DATABASE_URL=postgresql://USER@HOST/ISOLATED_TEST_DATABASE \
+python tests/browser_cartography.py
+WOLD_TEST_DATABASE_URL=postgresql://USER@HOST/ISOLATED_TEST_DATABASE \
+python tests/browser_movement.py
+WOLD_TEST_DATABASE_URL=postgresql://USER@HOST/ISOLATED_TEST_DATABASE \
+WOLD_TEST_PLANET_GENERATOR=planet-v3 python tests/stress_v2.py 10000
+```
+
+The cartography browser script creates generated and legacy fictional fixtures in its own disposable schema. It tests real four-level marker navigation, Orbital/Survey, Light/Dark/System with no terrain-pixel/data change, bounded handler counts, retained canvas, touch controls/force stacks, unknown campaign clearing and unchanged snapshot hashes. It uses installed system Chromium and writes captures/metrics beneath ignored `data/map-release/`; it does not claim WebKit or native Safari coverage. Use `browser_strategic.py` for broad management/auth/history/browser-zoom checks and `browser_movement.py` for protected GM preview/commit and movement authority checks. Keep generated runtime evidence out of Git. See `docs/branches/map-generation.md` for the actual results and remaining resolution limits.

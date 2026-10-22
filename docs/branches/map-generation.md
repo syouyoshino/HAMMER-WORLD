@@ -1,10 +1,10 @@
-# Map generation — research and visual direction plan
+# Map generation — interface release candidate
 
 Date: 22 October 2026 UTC. Branch: `map-generation`, created from `edf243e` on `feature/map-desktop-shell`. The preceding military interface implementation is `2379356`; owned movement projection milestone is `3e97811`. The source branch was clean and its push reported up to date before this branch was created.
 
 ## Authorized scope of this milestone
 
-Research the generation/presentation approach, propose three visual directions and generate independent concept images. No chosen direction is implemented yet. No campaign geography, database, history, rules, IDs or authentication are changed. No unavailable cloud cartography/database is claimed recovered. Generated images are fictional design studies, not output from the game's generator and not implementation or performance evidence. Nothing is merged or deployed.
+Initial milestone `4cad437` researched the generation/presentation approach and produced three concept images. The user subsequently approved implementation of the richer Orbital direction with Light/Dark/System interface modes and all four map levels, through independent critique and testing. Existing saved geography/history/rules/IDs/authentication must remain unchanged; new generation is opt-in for new fictional demo records. No unavailable cloud cartography/database is claimed recovered. Generated images remain design studies, not generator output or implementation/performance evidence. No merge or deployment is authorized.
 
 ## Research actually examined
 
@@ -31,7 +31,7 @@ The common interaction stays map-first: compact command access, hierarchy breadc
 
 All three independent images were generated and displayed once in the chat, in this order: Survey Atlas, Orbital Reconnaissance, Vector Operations. Files in ignored `data/map-generation-concepts/` are `survey-atlas.png`, `orbital-reconnaissance.png`, `vector-operations.png`. Original outputs remain in `/workspace/generated_images/`. Generated details such as illustrative force counts, turn labels and terrain names are mock content, not approved records. The third result retains more illustrated relief than the requested flat vector treatment; a truly flat treatment would require refinement. No concept establishes algorithmic feasibility, physical geography accuracy, legibility across devices or final interaction quality.
 
-Visual selection is pending. The preferred implementation must be chosen from the images actually displayed in the chat; a mixed direction should first be shown as a revised concept. Do not start map implementation merely because a concept image looks finished.
+Selected direction: Orbital Reconnaissance's terrain, restrained military command composition, and toggleable Light/Dark/System interface. The user explicitly authorized building through critique and checks. The existing application remains the functional target; concepts do not authorize fabricated map facts or economic values.
 
 ## Actual current generator and compatibility limits
 
@@ -63,7 +63,7 @@ This means smoothing existing presentation cannot legitimately create recorded m
 - Province adjacency for inspection is distinct from changing deployment rules. New terrain visuals do not automatically change production, combat, movement costs or colonization rules.
 - Keep changes small and modular enough to integrate unrecovered cartography later. Character-relationships branch stays untouched.
 
-## Acceptance gates for future implementation
+## Acceptance gates
 
 Presentation: unchanged saved geography/IDs/checksums; same canvas/camera/selection/overlay through management changes; readable labels/counters at desktop, phone and browser zoom; no map input through panels; all destinations remain reachable.
 
@@ -75,4 +75,88 @@ Performance: measure generation time, serialized size, map load, redraw and reso
 
 ## Delivery evidence and continuation
 
-Current milestone changes documentation only. Generated concept files are retained outside tracked source, under `/workspace/generated_images/` and ignored `data/map-generation-concepts/`. The chat's displayed image order is the authoritative selection order. No UI code, generator or database has been changed or tested in this planning milestone. Next step is a visual selection, then the presentation-only slice before any new-fixture generation work.
+Planning milestone `4cad437` changed documentation only. Generated concept files remain outside tracked source, under `/workspace/generated_images/` and ignored `data/map-generation-concepts/`. Implementation evidence follows separately below; the concepts alone establish no functional or visual acceptance.
+
+## Implementation contract
+
+`planet-v1` remains the default and its golden output hashes remain unchanged. A new demo can explicitly select `planet-v3` through `python -m app.cli init-v2 --campaign-id NEW_ID --planet-generator planet-v3`. The CLI refuses an existing campaign ID. No server startup regeneration, automatic conversion or data reset is introduced. The earlier `planet-v2` candidate remains readable and deterministic; its output is preserved rather than silently replaced.
+
+New geography retains64×40 cells, six existing terrain codes and rectangular province IDs, and persists a versioned `surface` object with integer elevation/temperature/moisture, cardinal drainage, accumulation and recorded river-point networks. Warped continental influences, class-dependent land coverage and narrow ridge fields precede priority-flood drainage filling. Rivers terminate in ocean; there are no lakes, plate simulation or physical climate claims. Existing planet classes influence fictional climate without new game rules. Seeds and generator configuration remain private; nested public allowlists expose only surveyed geometry.
+
+The renderer is a separate dependency-free Canvas module. It consumes saved geometry and returns the same transforms used for input, labels and military anchors. Natural terrain styling and a Survey presentation are separate from the Light/Dark/System chrome preference. Unlocated bodies are explicitly nonspatial; charts do not claim orbital positions. A planar regional grid cannot honestly become a full spherical surface by wrapping a texture. Full global planetary coverage and a canonical Milky Way/Imperium map remain unavailable data, not fabricated visuals.
+
+Baseline:9 fresh1440×1024/390×844 captures across all four levels and both themes, no page errors, at ignored `data/map-baseline/`. Initial candidate critique identified enlarged terrain blur, stepped rivers/coasts, equal-weight province/holding labels, tiny edge-clipped hierarchy markers, phone toolbar clipping and a displaced label without a matching hit target. Localized Sol medium correction follows the unsuccessful Luna visual candidate; the same independent critic rechecks the improved candidate. Protected preview/commit and broad regressions are root evidence, separate from critic read-only workflows.
+
+## Critique and correction record
+
+The first independent comparison used anonymous full frames at preserved aspect ratios: the previously generated Orbital concept, actual planet, system and galactic screens. The critic then exercised the actual application separately; the concept was never treated as interaction evidence or a commercial screenshot. Subsequent reviews use the same critic, preserving unresolved findings.
+
+| Finding | Correction / status |
+| --- | --- |
+| Equal-weight province labels hid relevant holdings. | Holdings have priority, recognizable anchors and ownership labels. Bare province names appear on selection, at higher zoom or in the Provinces overlay. |
+| Displaced holding labels lacked matching selection targets. | Labels and markers share explicit44px province targets with hover, selection and military targeting. |
+| Tiny hierarchy bodies clipped against chrome; missing coordinates were visually assigned positions. | Kind-specific markers fit measured safe bounds. Unlocated records use an explicitly nonspatial list, while coordinates remain Unknown. System charts explicitly describe topology rather than orbits. |
+| Orbital and Survey were barely distinguishable. | Separate ocean/land treatments and recorded-elevation contours in Survey; UI appearance stays independent of terrain style. |
+| Phone Style controls stranded zoom controls. | Three-column selectors and a separate44px zoom row; breadcrumbs and force panels follow beneath. |
+| Inspecting an unlocated body then descending left stale selected identity. | Explicit hierarchy navigation clears entity selection; management/theme/style changes preserve selection. |
+| Force picker remained underneath Orders after Move/Inspect. | Choosing an action closes the picker before entering its destination workflow. |
+| V2 clipped elevation at850 and used an edge cap, producing rectangular coastlines and plateaus. | Bounded Sol high diagnosis led to opt-in V3, preserving V1/V2. Across six tested seeds, oceanic land coverage is25–30% versus44–49% terrestrial, longest straight coasts7–18cells versus33–58, and no clipped850 plateau. Earlier snapshots remain intact. |
+| Actual200% browser zoom collapsed map safe bounds and compressed system icons overlapped. | Short-height layout reserves usable chart space; deterministic symbol/label offsets use leaders to unchanged true anchors. Actual100–200% zoom regression and same-critic short-height clicks pass. |
+| Military overlay inherited4px dark squares that disappeared over dark water. | 12px owned Apple-blue squares, neutral observed diamonds and unknown circles have light outlines, matching legend and recorded province-land anchors. Same critic confirms the readability defect resolved. |
+
+A final protected-flow check found that skipping an unlocated endpoint also discarded its transit text. Recorded route readouts now render independently of finite positions, explicitly say Position unavailable, preserve departure/arrival and omit invented connectors. The corrected protected movement suite and final critic capture check pass.
+
+The first V2 long-run check was deliberately interrupted after the structural geography defect was established; it is not a passing10,000-turn result. The final gate runs against frozen V3 source. Coarse coast/ridge resolution and cardinal river topology remain explicit limits of this compatibility-preserving release, not illustrated-geology parity.
+
+## Integration notes
+
+- New backend surface handling is localized to `app/planet_generation.py`, explicit demo creation, snapshot validation and the two public projection paths. Existing numeric rules, schema migrations, node/geography IDs and V1/V2 golden outputs are unchanged.
+- Rendering is localized to `public/map-renderer.js` and thin existing draw/pick hooks. Unrecovered cartography can provide its own recorded geometry without rewriting authentication, campaign state or management navigation. Unsupported surface versions must receive a deliberate adapter/validation decision, not be interpreted as V3.
+- Natural province membership, larger grids, new terrain codes, additional classes, global spherical coordinates and travel-cost effects require separately versioned contracts and checks. No generated detail can silently become an economic or movement rule.
+- `HWDesktop` registration remains the character-screen integration boundary. The separate character-relationships branch was not changed; this release cannot fabricate a CK3-style relationship graph from absent records.
+- Management transitions retain the current camera/selection/overlay. Explicit hierarchy changes fit the selected chart; independent per-level camera memory and continuous cross-level zoom are not implemented.
+
+## Representative comparison record
+
+| Workflow / material examined | Relevant strength | Gap and implemented response | Evidence / verdict limits |
+| --- | --- | --- | --- |
+| Settlement → Economy → Construction → Map; prior Victoria3 official UX material documented in `docs/reviews/strategic-workflow-comparison.md` | Local identity and related reports with understandable causes | New terrain obscured holdings; priority labels, matching hit targets and retained local report scope restore the journey. No new economic diagnosis is inferred. | Same critic exercised desktop/phone V3 journey (`/tmp/map-review/v3-*-construction.png`). Readability/context accepted; authoritative main-economic-problem comparison remains partial where recorded diagnosis is absent. |
+| Select character → understand relationships; prior CK3 material in the same comparison record | Relationship hierarchy and explicit character context | No relationship records exist in this branch. Existing character information stays reachable; integration boundary is retained. | No new CK3 comparison or relationship parity is claimed. Separate branch remains untouched. |
+| Return to strategic navigation; prior Stellaris main-interface documentation in the same record | Consistent return and hierarchy controls | Same permanent canvas, clear Return to map, four-level controls and actual painted-marker descent; management retains current camera/selection/overlay. | Critic desktop/phone journey plus root regression. Explicit hierarchy navigation fits the new chart; per-level camera memory is not implemented. |
+| Orbital concept A, NASA preview and USGS relief example | Recognizable landforms with operational labels above relief | V1 had no elevation/drainage data. Opt-in V3 saves real fields; Orbital/Survey interpolate them, prioritize holdings and disclose legacy/unknown context. | Anonymous initial image review followed by same-critic actual-browser rechecks. Stylized strategic finish accepted at normal sizes; concept A is substantially richer in geology, and physical/commercial equivalence is not claimed. |
+
+## Functional and browser verification
+
+The frozen backend passed **79 Python tests in297.623s**, using only disposable schemas on the explicit QA PostgreSQL17 instance. This includes default-generator golden compatibility, V3 shape/class/determinism checks, corrupt-surface rejection, nested privacy filtering, persistence/history/exact restore, numeric rules and existing authentication/archive checks. The earlier31 focused generator/persistence tests also passed. No live campaign baseline or archive destination was modified.
+
+Fresh system **Chromium154.0.8037.57**, Linux headless, three logical CPUs:
+
+- Full `browser_strategic.py` passes at1280×900,656×518 and390×844, including every retained management destination, settlement/report return, panel input, historical read-only behavior, auth clearing/stale responses, theme persistence/OS changes/storage failure, no theme API calls and retained canvas/camera/selection/overlay. Actual Chrome tab zoom100/125/150/200% passes direct Hearth→Cinder→Reach navigation, with full physical viewport captures. At200%, CSS viewport640×436 and DPR2; controls are not stranded. No uncaught page errors. Evidence: ignored `data/map-legacy-regression/metrics.json` and full screenshots.
+- `browser_cartography.py` passes on a newly created isolated V3 fixture plus a separately retained legacy fixture: four levels in Light/Dark, actual marker descent, distinct deterministic Orbital/Survey, Light/Dark/System with unchanged terrain pixels and zero requests, same canvas,24 style changes with stable DOM/listeners, touch controls/force stacks, unknown-campaign clearing and unchanged snapshot hashes. Evidence: ignored `data/map-release/`.
+- Full protected `browser_movement.py` passes on its disposable legacy fixture after the unlocated-endpoint integration correction. Player denial, exact GM packet/preview/commit, JSON preservation, pending-preview invalidation, actual ground transit, owned fleet departure3/arrival5, refresh/arrival/history/campaign clearing and phone targeting/counter separation pass. An unlocated destination produces recorded timing/from/to plus **Position unavailable**, without a fabricated SVG connector.24 redraws retain canvas and122 listeners before/after; DOM nodes1557→1563 are bounded. Evidence: ignored `data/map-release/movement/movement-results.json` and full captures. These protected mutations are test evidence, not actions on the read-only critic preview.
+
+The first full strategic run found the real200% defect; the initial movement run found the missing unlocated transit readout. Neither failed run is counted as acceptance. Their successful reruns and preserved corrective tests establish the final behavior. WebKit's Playwright executable is absent in this environment; bundled Chromium is also absent, so system Chromium was used explicitly. WebKit, native macOS Safari and physical touch devices remain unverified. Older branch WebKit results do not establish new coverage.
+
+## Independent final verdict
+
+The same GPT-6.1 Sol medium critic accepts the scoped cartography/interface after resolving every identified critical/major finding. Its own actual interactions covered normal desktop/phone settlement reports, actual hierarchy mouse/touch descent, unlocated inspection, appearance/OS changes, styles and military overlay reading. It separately clicked through the short-height640×436 CSS viewport; root/builder supplied actual Chrome200% tab-zoom coverage. Its last unlocated-transit check used a full fresh committed-flow capture and passing protected-test report, not independent GM authentication/commit. Evidence boundaries are intentional.
+
+Final full captures include `/tmp/map-review/final-1440-orbital.png`, `final-390-orbital.png`, `final-short-system.png`, `final-military.png`, and ignored `data/map-release/movement/fleet-transit.png`. The critic preserves minor blurred/stylized relief bands, cardinal/orthogonal river runs, small metadata, limited overlay stacking room (the Forces control can cover part of the unlocated-card heading at short heights while its row remains reachable) and unused phone space at default overview scale. These do not block the exercised journeys; they are not erased by an average score. Concept A remains substantially richer in geological detail. No whole-game, Victoria3/CK3/Stellaris or illustrated-concept parity is claimed.
+
+## Performance observations
+
+Environment: shared Linux QA, three logical CPUs, Python3.12, PostgreSQL17, system headless Chromium154,1440×1024 renderer viewport; other tests ran concurrently. Frozen V3 measurement: four planets generate in327ms; validation averages13ms over20 calls; initial state271,940 JSON bytes and public projection247,861 bytes. This is a compact fictional fixture, not a production-scale world or network benchmark.
+
+The first measured cold raster build took about1.75s. Reusing horizontal interpolation scanlines and eliminating per-pixel allocations preserves the rendered values (only1 Orbital /23 Survey channels differed by a rounding unit across5.9million channels in the builder comparison). Subsequent measurements were217–411ms per cold style raster; root's final contended sample was396ms Orbital/411ms Survey.20 warm synchronous draws per style averaged6.0ms/4.5ms in that sample, with maxima34.3/35.8ms. These direct calls exclude compositing, input, network and force DOM work; they are not FPS or worst-case latency claims. Temporary scanlines are released; at most two style rasters are cached per weakly referenced live geometry.
+
+Broad legacy management test: first Economy action-ready213ms, Construction190ms;24 warm cycles median24ms /p9569.6ms, one de-duplicated cold history request, stable DOM5302nodes/189listeners before/after. Final V3 style-switch actions average16.8ms with1174DOMnodes/114listeners before/after; military-redraw actions average50.5ms with122listeners before/after, separately recorded in their JSON evidence; Playwright action-to-completion timings include automation overhead. No handler accumulation, unnecessary canvas remount or exercised JavaScript error was observed. Full snapshots retain saved geography each turn; the new persisted fields increase storage/validation cost, so this opt-in candidate does not imply production-scale persistence performance.
+
+## Final long-run gate and delivery
+
+Implementation milestone: **`c5e9516` — Add versioned terrain and map-first orbital charts**; verified context clarification: **`049c6a2` — Clarify planetary surface-style availability**. Planning remains `4cad437`; original `feature/map-desktop-shell` work is not merged or rewritten.
+
+Frozen-source V3 connected gate: **10,000 turns PASS in1,263.39s**,10,001 immutable source snapshots, population1,199, largest serialized state275,778 bytes, summed serialized source-state bytes2,192,674,403. Exact checkpoint hashes and restore into a new branch pass; source timeline remains at10,000. Current-state read25.5ms;50-entry history page1,305.3ms. This is JSON payload accounting, not measured physical PostgreSQL disk use. Source hashes in ignored `data/verification/stress-v2.json` match the committed generator, universe, store and unchanged numeric engine. Compared with earlier compact V1 evidence, the full-snapshot surface fields materially increase history/storage cost. Separately referencing immutable geography would require a deliberate persistence migration and is outside this compatibility-preserving release.
+
+Final `browser_cartography.py` recheck after integration fixes passes:24 style changes average16.83ms action-to-completion,1174DOMnodes/114listeners before and after, no page errors. Protected movement and broad strategic results are recorded above. Syntax/compile and final diff-whitespace checks pass. Final cleanup removed two unreferenced declarations, with syntax verification. A final context clarification disables the surface-style control outside Planet view rather than presenting an inert action; the cartography regression explicitly checks enabled/disabled states across all four levels.
+
+This is an **interface release candidate**, not a deployment or operational-security/backups/recovery certification. No merge, deployment, data reset, live archive write or fabricated campaign recovery occurred. Credentials, databases, QA snapshots, screenshots and generated concept/runtime files are excluded from Git. Remaining future work: real source/data recovery and explicit import, larger/global geography contracts if required, independent native/browser/device coverage, production-scale persistence profiling and separate character-relationship integration. Retain the documented minor visual limitations rather than treating them as commercial parity.

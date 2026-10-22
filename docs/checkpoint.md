@@ -2,6 +2,10 @@
 
 Read `AGENTS.md`, `plan.md` and `docs/decisions.md`, then inspect actual source/tests and Git state. The existing repository is accessible and the scheduled continuation resumed the same work. Preserve the existing implementation. Do not duplicate completed acceptance runs without a relevant change.
 
+## Latest interface continuation — 22 October 2026
+
+On separate `map-generation`, implementation `c5e9516` adds opt-in V3 saved terrain, Orbital/Survey planetary styles and semantic charts across the existing four map levels; Light/Dark/System remains toggleable. Existing V1/V2 generation/history/IDs/rules stay intact. Same-critic scoped acceptance,79 Python tests, three Chromium browser regressions and the final10,000-turn V3 gate pass. Read `docs/branches/map-generation.md` for current decisions, exact evidence, minor limits and integration notes; the older results below are historical, not fresh coverage. No production deployment, original cloud recovery or character-relationships merge occurred.
+
 ## Accepted scope and completed local delivery
 
 - PostgreSQL is primary; Google Drive is a retryable player-visible archive. SQLite is only an explicit read-only legacy migration source.
