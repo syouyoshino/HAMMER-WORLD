@@ -8,10 +8,40 @@ import hashlib
 import heapq
 
 VERSION = "planet-v2"
-SURFACE_VERSIONS = (VERSION, "planet-v3")
+SURFACE_VERSIONS = (VERSION, "planet-v3", "planet-v4")
 WIDTH, HEIGHT, SEA_LEVEL = 64, 40, 400
 FIELDS = ("elevation", "temperature", "moisture", "drainage", "accumulation")
 SURFACE_KEYS = {"version", "sea_level", *FIELDS, "rivers"}
+PRESETS = ("continental", "archipelago", "oceanic", "arid", "barren", "frozen")
+PLANET_CLASSES = {"continental":"terrestrial", "archipelago":"oceanic", "oceanic":"oceanic",
+                  "arid":"arid", "barren":"barren", "frozen":"ice"}
+
+
+def _planet_v4_value(seed, domain, x=0, y=0):
+    return int.from_bytes(hashlib.sha256(f"{seed}:planet-v4:{domain}:{x}:{y}".encode()).digest()[:4], "big") % 1001
+
+
+def resolve_planet_presets(seed, planet_ids, preset="auto", overrides=None):
+    """Resolve explicit or stable per-node choices before any persistence begins."""
+    if preset not in ("auto", *PRESETS):
+        raise ValueError("unsupported planet preset")
+    overrides = {} if overrides is None else overrides
+    if not isinstance(overrides, dict):
+        raise ValueError("planet preset overrides must be a mapping")
+    if any(not isinstance(key, str) or key not in planet_ids for key in overrides):
+        raise ValueError("planet preset override must reference a known planet node")
+    if any(value not in PRESETS for value in overrides.values()):
+        raise ValueError("unsupported planet preset override")
+    choices = {}
+    for planet_id in planet_ids:
+        if planet_id in overrides:
+            choices[planet_id] = overrides[planet_id]
+        elif preset != "auto":
+            choices[planet_id] = preset
+        else:
+            value = _planet_v4_value(seed, f"planet-preset:{planet_id}")
+            choices[planet_id] = PRESETS[value * len(PRESETS) // 1001]
+    return choices
 
 
 def _value(seed, domain, x, y):
@@ -111,6 +141,108 @@ def generate_planet_v3(namespace, seed, planet_class="terrestrial"):
     return _finish_planet(namespace, seed, planet_class, elevation, "planet-v3")
 
 
+def generate_planet_v4(namespace, seed, preset):
+    """Generate an explicit fictional surface preset, separate from V1–V3."""
+    if preset not in PRESETS:
+        raise ValueError("unsupported planet preset")
+    size = WIDTH * HEIGHT
+    if preset in ("arid", "barren", "frozen"):
+        elevation, temperature, moisture, terrain = [], [], [], []
+        for y in range(HEIGHT):
+            for x in range(WIDTH):
+                noise = _noise(seed, f"v4-{preset}-relief", x, y, 11)
+                elevation.append(520 + noise // 3)
+                temperature.append((40 + noise // 10) if preset == "frozen" else
+                                   330 + _noise(seed, "v4-arid-temperature", x, y, 19) // 2)
+                moisture.append(0 if preset in ("arid", "barren") else 500 + noise // 4)
+                if preset == "barren":
+                    terrain.append("r")
+                elif preset == "arid":
+                    terrain.append("r" if noise > 590 else "p")
+                else:
+                    terrain.append("r" if noise > 680 else "p")
+        geo = _geometry(namespace, "planet-v4", preset, None, elevation, temperature, moisture,
+                        [-1] * size, [1] * size, [], "".join(terrain))
+        validate_surface(geo)
+        return geo
+
+    domain = f"{seed}:planet-v4:{preset}"
+    centers = []
+    if preset == "continental":
+        side = _planet_v4_value(domain, "continent-edge") % 4
+        if side == 0:
+            centers.append((7, 17 + _planet_v4_value(domain,"continent-offset") % 6, 18, 13))
+        elif side == 1:
+            centers.append((56, 17 + _planet_v4_value(domain,"continent-offset") % 6, 18, 13))
+        elif side == 2:
+            centers.append((28 + _planet_v4_value(domain,"continent-offset") % 8, 5, 20, 15))
+        else:
+            centers.append((28 + _planet_v4_value(domain,"continent-offset") % 8, 34, 20, 15))
+        for n in range(3):
+            centers.append((7 + _planet_v4_value(domain,"offshore-x",n) % 50,
+                            6 + _planet_v4_value(domain,"offshore-y",n) % 28, 3, 2))
+    else:
+        count = 9 if preset == "archipelago" else 7
+        margin_x,margin_y=(9,7) if preset=="archipelago" else (7,6)
+        candidates={(margin_x + _planet_v4_value(domain,"candidate-x",n) * (WIDTH-2*margin_x-1)//1001,
+                     margin_y + _planet_v4_value(domain,"candidate-y",n) * (HEIGHT-2*margin_y-1)//1001)
+                    for n in range(256)}
+        ordered=sorted(candidates,key=lambda point:(_planet_v4_value(domain,"candidate-order",*point),point))
+        minimum=(14,12,10,8) if preset=="archipelago" else (12,10,8)
+        centers_xy=[]
+        for separation in minimum:
+            centers_xy=[]
+            for point in ordered:
+                if all((point[0]-x)**2+(point[1]-y)**2>=separation**2 for x,y in centers_xy):
+                    centers_xy.append(point)
+                    if len(centers_xy)==count: break
+            if len(centers_xy)==count: break
+        for n,(x,y) in enumerate(centers_xy):
+            if preset == "archipelago":
+                rx = 4 + _planet_v4_value(domain,"island-rx",n) % 4
+                ry = 3 + _planet_v4_value(domain,"island-ry",n) % 2
+            else:
+                rx = 3 + _planet_v4_value(domain,"island-rx",n) % 4
+                ry = 2 + _planet_v4_value(domain,"island-ry",n) % 3
+            centers.append((x,y,rx,ry))
+
+    elevation = []
+    for y in range(HEIGHT):
+        for x in range(WIDTH):
+            # Shared smooth warping bends coastlines without imposing a grid
+            # of identical oval islands or adding disconnected noise specks.
+            wx = x * 1000 + (_noise(domain, "coast-warp-x", x, y, 9) - 500) * 3
+            wy = y * 1000 + (_noise(domain, "coast-warp-y", x, y, 7) - 500) * 3
+            influence = max(1000 - (((wx-cx*1000)**2 // (rx*rx*1000)) +
+                                    ((wy-cy*1000)**2 // (ry*ry*1000)))
+                            for cx,cy,rx,ry in centers)
+            edge_noise = _noise(domain, "island-coast", x, y, 7)
+            land = influence + (edge_noise - 500) // 3 > 0
+            if land:
+                relief = _noise(domain, "land-relief", x, y, 9)
+                elevation.append(425 + max(0, influence) // 6 + relief // 5)
+            else:
+                depth = _noise(domain, "ocean-depth", x, y, 13)
+                # Bathymetry stays below sea level throughout its noise range;
+                # deeper water must never become an unrelated land patch.
+                elevation.append(SEA_LEVEL - 20 - depth * 300 // 1000)
+    geo = _finish_planet(namespace, seed, PLANET_CLASSES[preset], elevation, "planet-v2")
+    geo["surface"].update({"version":"planet-v4", "preset":preset, "hydrology":"ocean-draining"})
+    validate_surface(geo)
+    return geo
+
+
+def _geometry(namespace, version, preset, sea_level, elevation, temperature, moisture,
+              drainage, accumulation, rivers, terrain):
+    provinces = [{"id":f"{namespace}-p-{py:02d}-{px:02d}","name":f"Province {py*8+px+1:02d}",
+                  "x":px*8,"y":py*8,"width":8,"height":8} for py in range(5) for px in range(8)]
+    return {"planet":{"id":f"{namespace}-planet-001","name":"Kestrel's Reach","width":WIDTH,"height":HEIGHT},
+            "provinces":provinces,"terrain_grid":terrain,
+            "surface":{"version":version,"preset":preset,"hydrology":"none","sea_level":sea_level,
+                       "elevation":elevation,"temperature":temperature,"moisture":moisture,
+                       "drainage":drainage,"accumulation":accumulation,"rivers":rivers}}
+
+
 def _finish_planet(namespace, seed, planet_class, elevation, version):
     width, height = WIDTH, HEIGHT
     ocean = {i for i, value in enumerate(elevation) if value <= SEA_LEVEL}
@@ -197,9 +329,12 @@ def project_surface(geometry):
     surface = geometry.get("surface")
     if not isinstance(surface, dict) or surface.get("version") not in SURFACE_VERSIONS:
         return {}
-    return {"surface":{"version":surface["version"],"sea_level":surface["sea_level"],
-                       **{key:list(surface[key]) for key in FIELDS},
-                       "rivers":[{"id":r["id"],"points":[[p[0],p[1]] for p in r["points"]]} for r in surface["rivers"]]}}
+    projected={"version":surface["version"],"sea_level":surface["sea_level"],
+               **{key:list(surface[key]) for key in FIELDS},
+               "rivers":[{"id":r["id"],"points":[[p[0],p[1]] for p in r["points"]]} for r in surface["rivers"]]}
+    if surface["version"] == "planet-v4":
+        projected.update({"preset":surface["preset"],"hydrology":surface["hydrology"]})
+    return {"surface":projected}
 
 
 def validate_surface(geometry):
@@ -207,7 +342,18 @@ def validate_surface(geometry):
     if "surface" not in geometry:
         return
     surface = geometry["surface"]
-    if not isinstance(surface, dict) or set(surface) != SURFACE_KEYS or surface.get("version") not in SURFACE_VERSIONS or type(surface.get("sea_level")) is not int or surface["sea_level"] != SEA_LEVEL:
+    version = surface.get("version") if isinstance(surface,dict) else None
+    expected_keys = SURFACE_KEYS | {"preset","hydrology"} if version == "planet-v4" else SURFACE_KEYS
+    if not isinstance(surface, dict) or set(surface) != expected_keys or version not in SURFACE_VERSIONS:
+        raise ValueError("unsupported planet surface contract")
+    if version == "planet-v4":
+        preset, hydrology = surface.get("preset"), surface.get("hydrology")
+        if preset not in PRESETS or hydrology != ("none" if preset in ("arid","barren","frozen") else "ocean-draining"):
+            raise ValueError("invalid planet preset surface contract")
+        if (hydrology == "none" and surface.get("sea_level") is not None) or (hydrology != "none" and
+                (type(surface.get("sea_level")) is not int or surface["sea_level"] != SEA_LEVEL)):
+            raise ValueError("invalid planet preset sea level")
+    elif type(surface.get("sea_level")) is not int or surface["sea_level"] != SEA_LEVEL:
         raise ValueError("unsupported planet surface contract")
     planet = geometry.get("planet")
     if not isinstance(planet,dict):
@@ -224,6 +370,16 @@ def validate_surface(geometry):
     codes, elevation, drainage = geometry["terrain_grid"], surface["elevation"], surface["drainage"]
     if not isinstance(codes,str) or len(codes) != size or any(c not in "ocprfm" for c in codes):
         raise ValueError("invalid planet surface terrain")
+    if version == "planet-v4" and surface["hydrology"] == "none":
+        preset = surface["preset"]
+        allowed = {"arid":"pr", "barren":"r", "frozen":"pr"}[preset]
+        if (any(c not in allowed for c in codes) or any(v <= SEA_LEVEL for v in elevation) or
+                (preset in ("arid","barren") and any(m != 0 for m in surface["moisture"])) or
+                (preset == "frozen" and any(t > 220 for t in surface["temperature"])) or
+                any(j != -1 for j in drainage) or any(v != 1 for v in surface["accumulation"]) or
+                not isinstance(surface["rivers"],list) or surface["rivers"] != []):
+            raise ValueError("invalid dry planet preset fields")
+        return
     for i, j in enumerate(drainage):
         ocean = codes[i] == "o"
         if ocean != (elevation[i] <= SEA_LEVEL) or (ocean and j != -1) or (not ocean and (j not in _neighbors(i,width,height) or elevation[j] > elevation[i])):

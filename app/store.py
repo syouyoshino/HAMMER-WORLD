@@ -17,7 +17,7 @@ from .engine import (RULES_VERSION, SCHEMA_VERSION, advance, canonical_json, dig
 from . import engine_v2
 from .universe import V2_RULES, V2_SCHEMA, RESOURCES, owned_humans, public_state_v2
 from .universe import build_universe
-from .planet_generation import validate_surface
+from .planet_generation import PLANET_CLASSES, PRESETS, resolve_planet_presets, validate_surface
 
 
 def now():
@@ -142,12 +142,26 @@ class Store:
                 if not isinstance(planet.get("id"),str) or not planet["id"] or type(width)is not int or type(height)is not int or width<1 or height<1 or not isinstance(geo.get("terrain_grid"),str) or len(geo["terrain_grid"])!=width*height or any(code not in "ocprfm" for code in geo["terrain_grid"]):
                     raise ValueError("snapshot v2 geography shape invariant failed")
                 validate_surface(geo)
+                surface=geo.get("surface",{})
+                if surface.get("version")=="planet-v4":
+                    node=nodes.get(planet_id,{})
+                    if surface.get("preset") not in PRESETS or node.get("class")!=PLANET_CLASSES.get(surface.get("preset")):
+                        raise ValueError("planet-v4 preset and body class invariant failed")
                 for province in geo.get("provinces",[]):
                     if any(type(province.get(k)) is not int for k in ("x","y","width","height")) or province["x"]<0 or province["y"]<0 or province["width"]<1 or province["height"]<1 or province["x"]+province["width"]>width or province["y"]+province["height"]>height or province.get("id") in province_planet:
                         raise ValueError("snapshot v2 province geometry invariant failed")
                     province_planet[province["id"]]=planet_id
             for geo in geography.values():
                 if len(geo.get("provinces",[]))==0: raise ValueError("snapshot v2 province geometry invariant failed")
+            config=state.get("_private",{}).get("generator_config",{})
+            v4_planets={pid:geo["surface"]["preset"] for pid,geo in geography.items()
+                        if geo.get("surface",{}).get("version")=="planet-v4"}
+            if config.get("planet")=="planet-v4":
+                recorded=config.get("planet_presets")
+                if not isinstance(recorded,dict) or set(recorded)!=planet_ids or recorded!=v4_planets:
+                    raise ValueError("planet-v4 private preset configuration invariant failed")
+            elif v4_planets or "planet_presets" in config:
+                raise ValueError("planet-v4 geography requires its matching generator configuration")
             settlements={s["id"]:s for s in state["settlements"]}
             for settlement in state["settlements"]:
                 if any(type(settlement.get(k)) is not int or settlement[k]<0 for k in ("civilians",)) or any(k in settlement for k in ("soldiers","crew","settlers")):
@@ -245,12 +259,17 @@ class Store:
             c.execute("INSERT INTO outbox(snapshot_id,status) VALUES(%s,'pending')", (sid,))
             return sid
 
-    def create_demo_v2(self, campaign_id="demo-v2", seed=741903, *, planet_generator="planet-v1"):
+    def create_demo_v2(self, campaign_id="demo-v2", seed=741903, *, planet_generator="planet-v1", preset=None, planet_presets=None):
+        if planet_generator != "planet-v4" and (preset is not None or planet_presets is not None):
+            raise ValueError("planet presets require planet-v4")
+        if planet_generator == "planet-v4":
+            ids={f"{campaign_id}-planet-{suffix}" for suffix in ("reach","ash","haven","veil")}
+            resolve_planet_presets(seed, ids, "auto" if preset is None else preset, planet_presets)
         with self.connect() as c:
             c.execute("BEGIN")
             if c.execute("SELECT 1 FROM campaigns WHERE id=%s", (campaign_id,)).fetchone():
                 raise ValueError("campaign already exists")
-            state=build_universe(campaign_id,seed,planet_generator=planet_generator)
+            state=build_universe(campaign_id,seed,planet_generator=planet_generator,preset=preset,planet_presets=planet_presets)
             self.validate_state(V2_SCHEMA,V2_RULES,0,state)
             sid=str(uuid.uuid4()); h=self.snapshot_hash(campaign_id,0,state,V2_SCHEMA,V2_RULES)
             c.execute("INSERT INTO campaigns(id,kind) VALUES(%s,'demo')",(campaign_id,))
