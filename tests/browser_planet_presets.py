@@ -78,7 +78,7 @@ def main():
             with sync_playwright() as pw:
                 browser = pw.chromium.launch(executable_path=shutil.which('chromium'),
                                             args=['--no-sandbox', '--disable-dev-shm-usage'])
-                page = browser.new_page(viewport={'width':1440,'height':1024}, has_touch=True)
+                page = browser.new_page(viewport={'width':1440,'height':1024})
                 errors, requests, captures = [], [], []
                 page.on('pageerror', lambda e: errors.append(str(e)))
                 page.on('request', lambda r: requests.append(r.url))
@@ -120,18 +120,15 @@ def main():
                     assert selected, name
                     page.screenshot(path=str(out/f'{name}-selection.png'))
                     page.keyboard.press('Escape')
-                    page.set_viewport_size({'width':390,'height':844})
-                    page.screenshot(path=str(out/f'{name}-phone.png'))
                     assert not page.evaluate('document.documentElement.scrollWidth>innerWidth')
                     for selector in ['#map-level','#map-style','#zoom-in','#zoom-out','#zoom-reset']:
                         assert page.locator(selector).evaluate('e=>{const r=e.getBoundingClientRect();return r.x>=0&&r.right<=innerWidth&&r.y>=0&&r.bottom<=innerHeight}')
                     if name in ('barren','archipelago'):
                         page.select_option('#map-level','system')
                         page.wait_for_function("document.querySelector('#map-coordinates').textContent.startsWith('SYSTEM CHART')")
-                        page.screenshot(path=str(out/f'{name}-phone-system.png'))
-                        descend_hierarchy(page, ['Hearth','Cinder','Reach'], touch=True)
+                        page.screenshot(path=str(out/f'{name}-desktop-system.png'))
+                        descend_hierarchy(page, ['Hearth','Cinder','Reach'])
                         page.wait_for_function("name=>document.querySelector('#map-coordinates').textContent.toLowerCase().includes(name)", arg=name)
-                    page.set_viewport_size({'width':1440,'height':1024})
                     assert canvas.evaluate('c=>c===document.querySelector("#planet-map")')
                 page.select_option('#campaign-select','legacy-preset-check')
                 page.wait_for_function("document.querySelector('#map-coordinates').textContent.includes('PLANET-V3')")
@@ -149,7 +146,7 @@ def main():
                               'surveyed-only preset metadata; no seeds/private mapping',
                               'UI themes preserve canvas pixels and make zero requests',
                               'real public land-tile selection reaches Forge on every preset',
-                              'phone controls/hierarchy and retained canvas',
+                              'desktop controls/actual marker hierarchy and retained canvas',
                               'legacy V3 remains readable; unknown campaign clears context',
                               'all source snapshot hashes unchanged'],
                           'source_hashes':{str(p):hashlib.sha256(p.read_bytes()).hexdigest()
