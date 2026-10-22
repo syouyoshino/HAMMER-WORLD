@@ -84,6 +84,7 @@ def main():
                     for level in ['galactic','sector','system','planet']:
                         page.select_option('#map-level',level)
                         page.wait_for_function("x=>document.querySelector('#map-coordinates').textContent.startsWith(x.toUpperCase()+' ')",arg=level)
+                        assert page.locator('#map-style').is_enabled() == (level == 'planet')
                         page.screenshot(path=str(out/f'{mode}-{level}.png'))
                 descend_hierarchy(page,['Hearth','Cinder','Reach'])
                 page.select_option('#map-style','orbital')
