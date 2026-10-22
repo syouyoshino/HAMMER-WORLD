@@ -10,6 +10,8 @@ def main():
     sub=p.add_subparsers(dest="command",required=True)
     sub.add_parser("init")
     q=sub.add_parser("init-v2"); q.add_argument("--campaign-id",default="demo-v2"); q.add_argument("--seed",type=int,default=741903)
+    q.add_argument("--planet-generator",choices=("planet-v1","planet-v2","planet-v3"),default="planet-v1",
+                   help="generator for a new isolated demo; existing campaigns are never regenerated")
     q=sub.add_parser("packet"); q.add_argument("campaign_id")
     q=sub.add_parser("preview"); q.add_argument("campaign_id"); q.add_argument("proposal")
     q=sub.add_parser("import-turn"); q.add_argument("campaign_id"); q.add_argument("proposal")
@@ -25,7 +27,7 @@ def main():
             db.create_pregame()
         out={"demo_snapshot_id":sid,"campaigns":db.campaigns()}
     elif args.command=="init-v2":
-        sid=db.create_demo_v2(args.campaign_id,args.seed)
+        sid=db.create_demo_v2(args.campaign_id,args.seed,planet_generator=args.planet_generator)
         out={"campaign_id":args.campaign_id,"snapshot_id":sid,"campaigns":db.campaigns()}
     elif args.command=="packet": out=db.packet(args.campaign_id)
     elif args.command in ("preview","import-turn"):

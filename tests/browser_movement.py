@@ -229,7 +229,12 @@ def main():
                 page.select_option('#map-level', 'galactic')
                 page.wait_for_function("document.querySelector('#map-coordinates').textContent.startsWith('GALACTIC')")
                 click_map_marker(page, 'Hearth')
-                page.wait_for_selector('.force-route:not(.draft):not(.preview)')
+                transit = page.locator('.force-route-readout-item').filter(has_text='Unsurveyed System')
+                transit.wait_for(state='visible')
+                text = transit.inner_text()
+                assert 'Cinder → Unsurveyed System' in text, text
+                assert 'dep 3' in text and 'arr 5' in text and 'Position unavailable' in text, text
+                assert page.locator('.force-route:not(.draft):not(.preview)').count() == 0
                 page.screenshot(path=str(out/'fleet-transit.png'))
                 page.click('#hw-command')
                 page.select_option('#appearance-select', 'dark')
@@ -283,6 +288,7 @@ def main():
                               'pending preview edit rejected',
                               'unsigned moves never inherit unrelated preview',
                               'fleet GM packet/null-source preview/commit',
+                              'unlocated fleet transit readout preserves timing without fabricated connector',
                               'map targeting touch and visible cancel',
                               'phone owned/observed counter separation and center taps',
                               'historical forces have no move controls','dark/phone layout',

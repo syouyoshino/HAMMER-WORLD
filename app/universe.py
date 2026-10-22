@@ -3,6 +3,7 @@ import hashlib
 import random
 
 from .engine import generate_planet
+from .planet_generation import generate_planet_v2, generate_planet_v3, project_surface
 
 V2_SCHEMA = "world-v2"
 V2_RULES = "demo-v2"
@@ -14,8 +15,10 @@ def _seed(seed, parent, domain, ordinal=0):
     return int.from_bytes(hashlib.sha256(raw).digest()[:8], "big")
 
 
-def build_universe(campaign_id, seed):
+def build_universe(campaign_id, seed, *, planet_generator="planet-v1"):
     """Build the approved compact node hierarchy, settlements and fixture accounts."""
+    if planet_generator not in ("planet-v1", "planet-v2", "planet-v3"):
+        raise ValueError("unsupported planet generator")
     rng = random.Random(_seed(seed, campaign_id, "universe"))
     root = f"{campaign_id}-galaxy"
     nodes = [{"id": root, "parent_id": None, "kind": "galaxy", "name": "The Reach", "knowledge": "surveyed", "x": 0, "y": 0}]
@@ -58,7 +61,12 @@ def build_universe(campaign_id, seed):
             moon_rng.uniform(.3,.7),moon_rng.uniform(.3,.7))
         nodes[-1].update({"class":moon_rng.choice(("rocky","icy")),"radius":round(moon_rng.uniform(.12,.48),3)})
     planet_ids=[n["id"] for n in nodes if n["kind"]=="planet"]
-    geography={pid:generate_planet(f"{campaign_id}-{pid.rsplit('-',1)[-1]}",_seed(seed,pid,"geography")) for pid in planet_ids}
+    if planet_generator in ("planet-v2", "planet-v3"):
+        generator = generate_planet_v3 if planet_generator == "planet-v3" else generate_planet_v2
+        geography={pid:generator(f"{campaign_id}-{pid.rsplit('-',1)[-1]}",_seed(seed,pid,"geography"),
+                    next(n["class"] for n in nodes if n["id"] == pid)) for pid in planet_ids}
+    else:
+        geography={pid:generate_planet(f"{campaign_id}-{pid.rsplit('-',1)[-1]}",_seed(seed,pid,"geography")) for pid in planet_ids}
     geometry = geography[reach]
     land_provinces = [p["id"] for p in geometry["provinces"]]
     # Choose stable valid land locations with separate domain streams.
@@ -70,6 +78,8 @@ def build_universe(campaign_id, seed):
                for y in range(py, py + province["height"]) for x in range(px, px + province["width"])):
             land_ids.append(province["id"])
     land_ids = land_ids or land_provinces
+    if planet_generator in ("planet-v2", "planet-v3") and len(land_ids) < 3:
+        raise ValueError("new demo geography requires three land provinces")
     # Fixture assignments are explicit; the adversary is its own private account.
     def settlement(sid, name, province, civilians, owned, stock, unrest=0):
         return {"id": f"{campaign_id}-{sid}", "name": name, "planet_id": reach,
@@ -109,7 +119,7 @@ def build_universe(campaign_id, seed):
                   for role in ("engineer","steward","general","scout")]
     private = {"seed": seed, "campaign_id": campaign_id, "seeded_marker": f"secret:{seed}", "enemy_population":20,
                "generator_version":"hierarchical-v1",
-               "generator_config":{"hierarchy":"hierarchical-v1","planet":"planet-v1","grid":"grid64x40",
+               "generator_config":{"hierarchy":"hierarchical-v1","planet":planet_generator,"grid":"grid64x40",
                                    "domain_seed_derivation":"sha256-parent-domain-v1"},
                "enemy_allocations":{"farmers":14,"technicians":2}, "adjacency":[[hsys,gsys],[gsys,dsys]],
                "generation_nonce":rng.randrange(1, 2**31)}
@@ -289,7 +299,7 @@ def public_state_v2(state):
             x,y=index%width,index//width
             province=provinces[(y//8)*8+(x//8)]["id"] if code!="o" else None
             tiles.append({"x":x,"y":y,"terrain":codes[code],"province_id":province})
-        return {"planet":planet,"provinces":provinces,"tiles":tiles}
+        return {"planet":planet,"provinces":provinces,"tiles":tiles,**project_surface(geo)}
     return {"turn":state["turn"],"owned_totals":{"population":owned_humans(state),"resources":owned_resources(state)},"nodes":nodes,"links":links,"settlements":settlements,"facilities":facilities,
         "projects":projects,"units":units,"fleets":fleets,"shipments":shipments,"factions":factions,
         "expeditions":expeditions,"characters":characters,"technologies":list(state["technologies"]),"discoveries":discoveries,

@@ -185,7 +185,7 @@ button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-
   gap: 7px;
   pointer-events: auto;
 }
-.map-level-label, .overlay-select { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 9px; letter-spacing: .06em; white-space: nowrap; }
+.map-level-label, .overlay-select, .map-style-select { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 9px; letter-spacing: .06em; white-space: nowrap; }
 .map-tools select { min-height: 29px; font-size: 11px; }
 #map-breadcrumbs {
   position: absolute;
@@ -620,10 +620,11 @@ select, input, textarea, .economy-metric { color: var(--ink); background-color: 
   #view-title h1 { font-size: 13px; }
   #view-title .eyebrow { display: none; }
   #view-title .map-tools { display: flex; flex-wrap: nowrap; width: 100%; gap: 3px; overflow-x: auto; }
-  .map-level-label, .overlay-select { flex: 0 0 auto; gap: 3px; font-size: 8px; }
+  .map-level-label, .overlay-select, .map-style-select { flex: 0 0 auto; gap: 3px; font-size: 8px; }
   .map-tools select { min-height: 28px; max-width: none; padding: 3px 16px 3px 5px; font-size: 10px; }
   #map-level { width: 82px; }
   #overlay-select { width: 95px; }
+  #map-style { width: 86px; }
   #zoom-out, #zoom-in { flex: 0 0 28px; width: 28px; min-height: 28px; }
   #zoom-reset { flex: 0 0 43px; min-height: 28px; padding: 3px; }
   #map-breadcrumbs { top: 164px; left: 8px; right: 8px; max-width: calc(100vw - 16px); overflow: auto; white-space: nowrap; font-size: 9px; }
@@ -712,3 +713,32 @@ select, input, textarea, .economy-metric { color: var(--ink); background-color: 
 .force-map-panels .force-map-list:empty { display:none; }
 .force-map-panels .force-route-readout[hidden] { display:none; }
 @media (max-width:780px) { .force-map-panels { top:238px; right:8px; width:calc(100% - 16px); } }
+
+/* Keep every map control visible on narrow command screens. */
+@media (max-width: 780px) {
+  #view-title .map-tools { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:4px 6px; overflow:visible; }
+  .map-level-label, .overlay-select, .map-style-select { display:flex; flex-direction:column; align-items:stretch; gap:2px; min-width:0; }
+  #map-level, #overlay-select, #map-style { width:100%; min-width:0; }
+  #zoom-out, #zoom-in, #zoom-reset { width:100%; min-height:44px; }
+  #map-breadcrumbs { top:238px; }
+  .force-map-controls { top:266px; }
+  .force-map-panels { top:302px; }
+  #live-banner { top:264px; }
+}
+
+/* Browser zoom and landscape screens retain a usable chart below controls. */
+@media (max-height: 550px) {
+  #resource-shell { display:none; }
+  #view-title { top:56px; }
+  #map-breadcrumbs { top:104px; }
+  #map-panel .map-caption, #map-panel .map-legend { display:none; }
+  .force-map-controls { top:142px; }
+  .force-map-panels { top:180px; }
+  #live-banner { top:136px; }
+}
+@media (max-height: 550px) and (max-width: 780px) {
+  #map-breadcrumbs { top:182px; }
+  .force-map-controls { top:212px; }
+  .force-map-panels { top:250px; }
+  #live-banner { top:208px; }
+}

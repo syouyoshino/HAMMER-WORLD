@@ -25,34 +25,64 @@ from app.engine_v2 import ALLOCATIONS
 
 
 def click_map_marker(page, name, touch=False):
-    """Find actual painted markers, identify their normal hover labels, then click.
+    """Find actual painted markers/cards, identify their normal hover labels, then click.
 
     Do not reproduce the projection math or expose private application state.
     """
+    page.wait_for_load_state("networkidle")
     page.evaluate("()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))")
-    points = page.locator("#planet-map").evaluate("""canvas=>{
-        const ctx=canvas.getContext('2d'),w=canvas.width,h=canvas.height;
-        const data=ctx.getImageData(0,0,w,h).data,r=canvas.getBoundingClientRect();
-        const colors=new Set(['98,106,108','133,141,141','92,100,102','168,174,172','181,187,186']);
-        const color=(x,y)=>{const i=(y*w+x)*4;return `${data[i]},${data[i+1]},${data[i+2]}`;};
-        const points=[];
-        for(let y=1;y<h;y++)for(let x=1;x<w;x++){
-            const c=color(x,y);if(!colors.has(c)||color(x-1,y)===c||color(x,y-1)===c)continue;
-            let dx=1,dy=1;while(x+dx<w&&color(x+dx,y)===c)dx++;
-            while(y+dy<h&&color(x,y+dy)===c)dy++;
-            if(dx>=6&&dy>=6)points.push({x:r.left+(x+dx/2)*r.width/w,y:r.top+(y+dy/2)*r.height/h});
-        }return points;
-    }""")
-    for point in points:
-        page.mouse.move(point["x"], point["y"])
-        tooltip = page.locator("#map-tooltip")
-        if tooltip.is_visible() and tooltip.inner_text().startswith(name + " ·"):
-            assert page.evaluate("p=>document.elementFromPoint(p.x,p.y)?.id==='planet-map'", point), name
-            if touch:
-                page.touchscreen.tap(point["x"], point["y"])
-            else:
-                page.mouse.click(point["x"], point["y"])
-            return
+    for attempt in range(5):
+        points = page.locator("#planet-map").evaluate("""canvas=>{
+            const ctx=canvas.getContext('2d'),w=canvas.width,h=canvas.height;
+            const data=ctx.getImageData(0,0,w,h).data,r=canvas.getBoundingClientRect();
+            const colors=new Set(['98,106,108','133,141,141','92,100,102','168,174,172','181,187,186',
+                '79,128,144','135,146,138','183,123,51','119,126,116','98,119,124']);
+            const color=i=>`${data[i*4]},${data[i*4+1]},${data[i*4+2]}`;
+            const points=[],seen=new Uint8Array(w*h);
+            // Connected painted regions work for circular bodies and legacy squares.
+            for(let i=0;i<w*h;i++){
+                if(seen[i])continue;seen[i]=1;const c=color(i);if(!colors.has(c))continue;
+                const stack=[i];let minX=w,minY=h,maxX=0,maxY=0,count=0;
+                while(stack.length){const at=stack.pop(),x=at%w,y=Math.floor(at/w);count++;
+                    minX=Math.min(minX,x);maxX=Math.max(maxX,x);minY=Math.min(minY,y);maxY=Math.max(maxY,y);
+                    for(const n of [x?at-1:-1,x<w-1?at+1:-1,y?at-w:-1,y<h-1?at+w:-1])
+                        if(n>=0&&!seen[n]&&color(n)===c){seen[n]=1;stack.push(n);}
+                }
+                if(count>=8&&maxX-minX>=2&&maxY-minY>=2)points.push({
+                    x:r.left+(minX+maxX+1)/2*r.width/w,y:r.top+(minY+maxY+1)/2*r.height/h});
+            }
+            // Nonspatial destination cards have painted text rather than a body
+            // marker. Group the actual bright glyph pixels into rendered rows.
+            const rows=[];
+            for(let y=0;y<h;y++){
+                let left=w,right=-1;
+                for(let x=0;x<w;x++)if(color(y*w+x)==='227,229,221'){
+                    left=Math.min(left,x);right=Math.max(right,x);
+                }
+                if(right>=left){const previous=rows[rows.length-1];
+                    if(previous&&y-previous.bottom<=2){previous.bottom=y;previous.left=Math.min(previous.left,left);previous.right=Math.max(previous.right,right);}
+                    else rows.push({left,right,top:y,bottom:y});
+                }
+            }
+            for(const row of rows)if(row.right-row.left>=8)points.push({
+                x:r.left+(row.left+row.right+1)/2*r.width/w,
+                y:r.top+(row.top+row.bottom+1)/2*r.height/h});
+            return points;
+        }""")
+        for point in points:
+            # A context redraw can hide the tooltip while the pointer remains at
+            # this same position. Force an actual pointer entry before identifying.
+            page.mouse.move(0, 0)
+            page.mouse.move(point["x"], point["y"])
+            tooltip = page.locator("#map-tooltip")
+            if tooltip.is_visible() and tooltip.inner_text().startswith(name + " ·"):
+                assert page.evaluate("p=>document.elementFromPoint(p.x,p.y)?.id==='planet-map'", point), name
+                if touch:
+                    page.touchscreen.tap(point["x"], point["y"])
+                else:
+                    page.mouse.click(point["x"], point["y"])
+                return
+        page.wait_for_timeout(80)
     raise AssertionError(f"No visible, pointer-reachable map marker for {name}: {points}")
 
 
@@ -61,7 +91,21 @@ def descend_hierarchy(page, names, touch=False):
     page.wait_for_function("document.querySelector('#map-coordinates').textContent.startsWith('GALACTIC CARTOGRAPHY')")
     for name, level in zip(names, ["sector", "system", "planet"]):
         click_map_marker(page, name, touch)
-        page.wait_for_function("level=>document.querySelector('#map-coordinates').textContent.startsWith(level.toUpperCase()+' CARTOGRAPHY')", arg=level)
+        page.wait_for_function("level=>document.querySelector('#map-coordinates').textContent.startsWith(level.toUpperCase()+' ')", arg=level)
+
+
+def province_point(page, province):
+    """Project a public province into the measured, unobstructed map area."""
+    return page.locator('.map-frame').evaluate("""(frame,p)=>{
+        const f=frame.getBoundingClientRect();
+        const visible=selector=>{const e=document.querySelector(selector);if(!e||e.hidden)return null;
+            const s=getComputedStyle(e),r=e.getBoundingClientRect();return s.display!=='none'&&s.visibility!=='hidden'&&r.width&&r.height?r:null;};
+        const top=Math.max(0,...['.commandbar','#resource-shell','#view-title','#map-breadcrumbs','#live-banner'].map(visible).filter(Boolean).map(r=>r.bottom-f.top+16));
+        const bottom=Math.min(f.height,...['.map-caption','#map-legend','.map-footer'].map(visible).filter(Boolean).map(r=>r.top-f.top-16));
+        const tile=Math.min(f.width/64,Math.max(0,bottom-top)/40);
+        return {x:f.left+(f.width-64*tile)/2+(p.x+p.width/2)*tile,
+                y:f.top+(top+bottom-40*tile)/2+(p.y+p.height/2)*tile};
+    }""", province)
 
 
 def check_browser_zoom(playwright, executable, base, player, out):
@@ -143,10 +187,8 @@ def check_placeholder_review(browser, base, player, out):
         settlement = public_state["settlements"][0]
         recorded_map = httpx.get(base + "/api/player/campaigns/demo-v2/map", params={"level": "planet", "node_id": settlement["planet_id"]}, headers={"Authorization": "Bearer " + player}).json()
         province = next(item for item in recorded_map["geometry"]["provinces"] if item["id"] == settlement["province_id"])
-        frame = page.locator(".map-frame").bounding_box()
-        tile = min(frame["width"] / 64, frame["height"] / 40)
-        page.mouse.click(frame["x"] + (province["x"] + province["width"] / 2) * tile,
-                         frame["y"] + (frame["height"] - 40 * tile) / 2 + (province["y"] + province["height"] / 2) * tile)
+        point = province_point(page, province)
+        page.mouse.click(point["x"], point["y"])
         page.wait_for_selector("#command-inspector:not([hidden])")
         page.locator("#hw-command").click()
         page.locator("[data-open=economy]").click()
@@ -407,9 +449,8 @@ def check_decision_readability(browser, base, player, out):
         settlement = current["settlements"][0]
         record = httpx.get(base + "/api/player/campaigns/demo-v2/map", params={"level": "planet", "node_id": settlement["planet_id"]}, headers=headers).json()
         province = next(x for x in record["geometry"]["provinces"] if x["id"] == settlement["province_id"])
-        frame = page.locator(".map-frame").bounding_box()
-        tile = min(frame["width"] / 64, frame["height"] / 40)
-        page.mouse.click(frame["x"] + (province["x"] + province["width"] / 2) * tile, frame["y"] + (frame["height"] - 40 * tile) / 2 + (province["y"] + province["height"] / 2) * tile)
+        point = province_point(page, province)
+        page.mouse.click(point["x"], point["y"])
         page.wait_for_selector("#command-inspector:not([hidden])")
         page.locator("#inspector-content").get_by_role("button", name="Economy", exact=True).click()
         constraints = page.locator(".local-scope .economy-recorded-condition").first
@@ -532,7 +573,7 @@ def main():
                     with page.expect_response(lambda response: "/map?" in response.url and f"level={level}" in response.url) as response:
                         page.select_option("#map-level", level)
                     assert response.value.ok and response.value.json()["level"] == level
-                    page.wait_for_function("level=>document.querySelector('#map-coordinates').textContent.startsWith(level.toUpperCase()+' CARTOGRAPHY')", arg=level)
+                    page.wait_for_function("level=>document.querySelector('#map-coordinates').textContent.startsWith(level.toUpperCase()+' ')", arg=level)
                     assert map_canvas.evaluate("el=>el===document.querySelector('#planet-map')")
                     page.screenshot(path=str(out / f"map-{level}.png"))
                 page.wait_for_function("document.querySelector('#map-scale').textContent.includes('GRID')")
@@ -542,7 +583,7 @@ def main():
                 page.locator("#map-breadcrumbs").get_by_role("button", name="Hearth", exact=True).click()
                 page.wait_for_function("document.querySelector('#map-level').value==='sector' && document.querySelector('#map-coordinates').textContent.startsWith('SECTOR CARTOGRAPHY')")
                 click_map_marker(page, "Cinder")
-                page.wait_for_function("document.querySelector('#map-coordinates').textContent.startsWith('SYSTEM CARTOGRAPHY')")
+                page.wait_for_function("document.querySelector('#map-coordinates').textContent.startsWith('SYSTEM CHART')")
                 page.locator("#zoom-in").click()
                 page.mouse.move(650, 500);page.mouse.down();page.mouse.move(675, 520, steps=3);page.mouse.up()
                 hierarchy_context = page.evaluate("({pixels:document.querySelector('#planet-map').toDataURL(),level:document.querySelector('#map-level').value,zoom:document.querySelector('#zoom-reset').textContent,path:document.querySelector('#map-breadcrumbs').textContent})")
@@ -557,11 +598,8 @@ def main():
                 planet = next(x for x in state["nodes"] if x["id"] == settlement["planet_id"])
                 province = next(x for x in db.map_view("demo-v2", "planet", planet["id"])["geometry"]["provinces"]
                                 if x["id"] == settlement["province_id"])
-                frame = map_frame.bounding_box()
-                tile = min(frame["width"] / 64, frame["height"] / 40)
-                click_x = frame["x"] + (province["x"] + province["width"] / 2) * tile
-                click_y = frame["y"] + (frame["height"] - 40 * tile) / 2 + (province["y"] + province["height"] / 2) * tile
-                page.mouse.click(click_x, click_y)
+                point = province_point(page, province)
+                page.mouse.click(point["x"], point["y"])
                 page.wait_for_selector("#command-inspector:not([hidden])")
                 page.wait_for_function("document.querySelector('#inspector-content').innerText.includes('LOCAL SETTLEMENTS')", timeout=2000)
                 inspector_text = page.locator("#inspector-content").inner_text()

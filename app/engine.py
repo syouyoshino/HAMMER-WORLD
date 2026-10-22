@@ -3,6 +3,7 @@ import hashlib
 import json
 import random
 import re
+from .planet_generation import project_surface
 
 SCHEMA_VERSION = "world-v1"
 RULES_VERSION = "economy-v1"
@@ -76,7 +77,7 @@ def public_state(state):
     outcome_fields = ("turn", "assigned_workers", "food_produced", "food_consumed", "food_shortage",
                       "population_lost", "ore_produced", "energy_produced", "energy_consumed")
     outcomes = [{key: item[key] for key in outcome_fields} for item in state["outcomes"]]
-    return {"planet": planet, "provinces": provinces, "tiles": tiles,
+    return {"planet": planet, "provinces": provinces, "tiles": tiles, **project_surface(state),
             "turn": state["turn"], "population": state["population"], "food": state["food"],
             "ore": state["ore"], "energy": state["energy"], "outcomes": outcomes,
             "narrative": state["narrative"]}

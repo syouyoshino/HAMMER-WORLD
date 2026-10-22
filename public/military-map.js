@@ -98,7 +98,12 @@
       for (const route of [...routes, ...drafts]) {
         const from = positions[route.from];
         const to = positions[route.to];
-        if (!from || !to) continue;
+        const positioned = from && to && [from.x,from.y,to.x,to.y].every(Number.isFinite);
+        const readout = document.createElement('div');
+        readout.className = 'force-route-readout-item';
+        readout.textContent = `${route.label} · ${route.fromLabel || 'Recorded origin'} → ${route.toLabel || 'Recorded destination'}${positioned ? '' : ' · Position unavailable'}`;
+        routeReadout.append(readout);
+        if (!positioned) continue;
         const line = document.createElementNS(NS, 'line');
         line.setAttribute('x1', from.x);
         line.setAttribute('y1', from.y);
@@ -107,10 +112,6 @@
         line.setAttribute('class', route.preview ? 'force-route preview' : route.draft ? 'force-route draft' : 'force-route');
         line.setAttribute('marker-end', 'url(#force-route-arrow)');
         svg.append(line);
-        const readout = document.createElement('div');
-        readout.className = 'force-route-readout-item';
-        readout.textContent = `${route.label} · ${route.fromLabel || 'Recorded origin'} → ${route.toLabel || 'Recorded destination'}`;
-        routeReadout.append(readout);
       }
 
       const groups = new Map();
@@ -230,14 +231,14 @@
         inspect.className = 'force-stack-item';
         inspect.textContent = `${forceType(item)} · ${item.label} · ${item.owner === 'player' ? 'Owned' : item.owner === 'foreign' ? 'Observed' : 'Owner unknown'}`;
         inspect.title = `Recorded ID: ${item.id}`;
-        inspect.onclick = () => onSelectForce(item);
+        inspect.onclick = () => { root.replaceChildren(); onSelectForce(item); };
         row.append(inspect);
         if (item.canMove) {
           const move = document.createElement('button');
           move.type = 'button';
           move.className = 'button small';
           move.textContent = 'Move';
-          move.onclick = () => onMove(item);
+          move.onclick = () => { root.replaceChildren(); onMove(item); };
           row.append(move);
         }
         card.append(row);

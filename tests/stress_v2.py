@@ -92,7 +92,8 @@ def run(turns=10000):
     started = time.monotonic()
     try:
         db = Store(dsn, schema=schema)
-        initial_id = db.create_demo_v2("long-run", seed=4242)
+        planet_generator = os.environ.get("WOLD_TEST_PLANET_GENERATOR", "planet-v1")
+        initial_id = db.create_demo_v2("long-run", seed=4242, planet_generator=planet_generator)
         current = db.current("long-run")["snapshot"]
         checkpoints = {0: (initial_id, current["state_hash"])}
         largest = len(json.dumps(current["state"]))
@@ -151,7 +152,7 @@ def run(turns=10000):
         page, total = db.history("long-run", limit=50, offset=max(0, turns - 49))
         history_ms = (time.monotonic() - query_start) * 1000
         assert total == turns + 1 and page[-1]["turn"] == turns
-        return {"connected_stress": "PASS", "turns": turns, "seconds": round(time.monotonic() - started, 2),
+        return {"connected_stress": "PASS", "planet_generator": planet_generator, "turns": turns, "seconds": round(time.monotonic() - started, 2),
                 "population": owned_humans(state), "largest_state_bytes": largest,
                 "current_read_ms": round(current_ms, 1), "history_50_ms": round(history_ms, 1), **metrics}
     finally:
@@ -163,7 +164,7 @@ if __name__ == "__main__":
     report = run(int(sys.argv[1]) if len(sys.argv) > 1 else 10000)
     repo = Path(__file__).resolve().parents[1]
     report["source_hashes"] = {name: hashlib.sha256((repo / name).read_bytes()).hexdigest()
-                               for name in ("app/engine_v2.py", "app/universe.py", "app/store.py")}
+                               for name in ("app/engine_v2.py", "app/universe.py", "app/store.py", "app/planet_generation.py")}
     destination = repo / "data/verification/stress-v2.json"
     destination.parent.mkdir(parents=True, exist_ok=True)
     destination.write_text(json.dumps(report, indent=2) + "\n")

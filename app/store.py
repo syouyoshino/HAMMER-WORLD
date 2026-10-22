@@ -16,6 +16,8 @@ from .engine import (RULES_VERSION, SCHEMA_VERSION, advance, canonical_json, dig
                      initial_state, public_state, validate_submission)
 from . import engine_v2
 from .universe import V2_RULES, V2_SCHEMA, RESOURCES, owned_humans, public_state_v2
+from .universe import build_universe
+from .planet_generation import validate_surface
 
 
 def now():
@@ -109,6 +111,7 @@ class Store:
         if not isinstance(state,dict) or type(turn) is not int or type(state.get("turn")) is not int or state.get("turn")!=turn:
             raise ValueError("snapshot turn invariant failed")
         if (schema_version,rules_version)==(SCHEMA_VERSION,RULES_VERSION):
+            validate_surface(state)
             if any(type(state.get(key)) is not int or state[key]<0 for key in ("population","food","ore","energy")):
                 raise ValueError("snapshot resource invariant failed")
         elif (schema_version,rules_version)==(V2_SCHEMA,V2_RULES):
@@ -138,6 +141,7 @@ class Store:
                 width,height=planet.get("width"),planet.get("height")
                 if not isinstance(planet.get("id"),str) or not planet["id"] or type(width)is not int or type(height)is not int or width<1 or height<1 or not isinstance(geo.get("terrain_grid"),str) or len(geo["terrain_grid"])!=width*height or any(code not in "ocprfm" for code in geo["terrain_grid"]):
                     raise ValueError("snapshot v2 geography shape invariant failed")
+                validate_surface(geo)
                 for province in geo.get("provinces",[]):
                     if any(type(province.get(k)) is not int for k in ("x","y","width","height")) or province["x"]<0 or province["y"]<0 or province["width"]<1 or province["height"]<1 or province["x"]+province["width"]>width or province["y"]+province["height"]>height or province.get("id") in province_planet:
                         raise ValueError("snapshot v2 province geometry invariant failed")
@@ -241,12 +245,13 @@ class Store:
             c.execute("INSERT INTO outbox(snapshot_id,status) VALUES(%s,'pending')", (sid,))
             return sid
 
-    def create_demo_v2(self, campaign_id="demo-v2", seed=741903):
+    def create_demo_v2(self, campaign_id="demo-v2", seed=741903, *, planet_generator="planet-v1"):
         with self.connect() as c:
             c.execute("BEGIN")
             if c.execute("SELECT 1 FROM campaigns WHERE id=%s", (campaign_id,)).fetchone():
                 raise ValueError("campaign already exists")
-            state=engine_v2.initial_state(campaign_id,seed)
+            state=build_universe(campaign_id,seed,planet_generator=planet_generator)
+            self.validate_state(V2_SCHEMA,V2_RULES,0,state)
             sid=str(uuid.uuid4()); h=self.snapshot_hash(campaign_id,0,state,V2_SCHEMA,V2_RULES)
             c.execute("INSERT INTO campaigns(id,kind) VALUES(%s,'demo')",(campaign_id,))
             c.execute("""INSERT INTO snapshots(id,campaign_id,turn,schema_version,rules_version,state_json,state_hash,
