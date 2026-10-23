@@ -468,7 +468,8 @@ button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-
 .map-review-placeholder[hidden] { display: none !important; }
 .force-map-controls { position:absolute; z-index:8; top:198px; right:18px; display:flex; align-items:center; gap:8px; pointer-events:auto; }
 .force-map-controls > button { color:#202529; background:#f3f4f2; border:1px solid #384247; }
-.force-map-controls > button[aria-pressed="true"] { color:#fff; background:var(--selection-blue); border-color:var(--selection-blue); }
+.force-map-controls > button.button[aria-pressed="true"],
+.force-map-controls > button.button[aria-pressed="true"]:is(:hover,:focus-visible) { color:#fff; background:var(--selection-blue); border-color:var(--selection-blue); box-shadow:inset 0 0 0 1px #fff6; }
 .force-map-hint { max-width:260px; padding:5px 8px; color:var(--ink); background:var(--map-glass-strong); font-size:11px; }
 .force-map-layer { position:absolute; inset:0; z-index:7; pointer-events:none; }
 .force-map-layer[hidden] { display:none; }
@@ -499,7 +500,8 @@ button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-
 .force-route-readout { position:absolute; z-index:2; top:236px; right:10px; display:grid; gap:3px; max-width:min(460px,80vw); pointer-events:none; }
 .force-route-readout[hidden] { display:none; }
 .force-route-readout-item { padding:4px 7px; color:#202529; background:#f3f4f2; border-left:2px solid var(--apple-system-blue); font:10px/1.35 monospace; }
-.force-map-legend { position:absolute; right:10px; bottom:104px; max-width:min(420px,80vw); padding:5px 8px; color:var(--ink); background:var(--map-glass-strong); font:10px/1.35 monospace; pointer-events:none; }
+.force-map-legend { position:absolute; left:18px; top:244px; max-width:min(420px,80vw); padding:5px 8px; color:var(--ink); background:var(--map-glass-strong); font:10px/1.35 monospace; pointer-events:none; }
+.force-map-legend[hidden] { display:none; }
 .force-stack-item { min-height:44px; padding:7px 10px; text-align:left; color:var(--ink); background:var(--map-glass-strong); border:1px solid var(--line-strong); font:12px monospace; }
 .force-stack-row { display:flex; align-items:stretch; gap:4px; }
 .force-stack-row .force-stack-item { flex:1; }

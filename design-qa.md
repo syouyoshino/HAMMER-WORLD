@@ -2,13 +2,15 @@
 
 final result: passed
 
-Latest scoped continuation: continuous chart navigation on `map-generation`.
-Independent desktop critique accepted the corrected candidate with no major or
-critical finding; final legacy holding access, normalized zoom, inspector-aware
-overview and the remaining Forces-label collision were verified. Read
-`docs/reviews/continuous-map.md` for the anonymous comparison limits, actual
-browser evidence, minor remaining findings and10,000-turn V5 gate. This adds no
-commercial-game parity, mobile acceptance or deployment claim.
+Latest scoped continuation: opt-in V6 periodic-longitude charts on `map-generation`.
+The same fresh independent critic accepted corrected desktop navigation,
+including seam traversal, management return, overview access and inspector input
+isolation. Forces hover contrast, overview/legend/counter overlap and wrap
+explanation were corrected and rechecked. Read `docs/reviews/planet-wrap.md`
+for exact functional/persisted-turn evidence and limits. Anonymous A/B captures
+had different terrain/scale and do not establish overall art superiority.
+Barren/frozen planetary geology remains unfinished; no new NASA photo study,
+commercial-game parity, mobile acceptance or deployment is claimed.
 
 ## Source and implementation
 

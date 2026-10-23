@@ -52,10 +52,12 @@
   }
   function surfaceFor(geometry) {
     const s = geometry?.surface;
-    if (!s || !["planet-v2", "planet-v3", "planet-v4", "planet-v5"].includes(s.version) || !Array.isArray(s.elevation))
+    if (!s || !["planet-v2", "planet-v3", "planet-v4", "planet-v5", "planet-v6"].includes(s.version) || !Array.isArray(s.elevation))
       return null;
     return s;
   }
+  const wrapsX = geometry => geometry?.surface?.version === "planet-v6" && geometry.surface.topology === "cylinder-x";
+  const nearestX = (x, reference, width) => x + Math.round((reference-x)/width)*width;
   function baseRaster(geometry, style) {
     let map = cache.get(geometry);
     if (!map) { map = new Map(); cache.set(geometry, map); }
@@ -80,11 +82,12 @@
     // Horizontal interpolation is shared by every output row. Keeping these
     // temporary scanlines avoids millions of repeated index/weight calculations
     // and per-pixel colour arrays; the persisted samples and palette are identical.
-    const interpolateRows = (field, shift = 0) => {
+    const cylinder = wrapsX(geometry), interpolateRows = (field, shift = 0) => {
       const result = new Float64Array(w * rows);
       for (let px=0;px<w;px++) {
-        const fx=clamp((px+.5)/scale+shift-.5,0,cols-1),
-          ix=Math.floor(fx),tx=fx-ix,next=Math.min(cols-1,ix+1);
+        const raw=(px+.5)/scale+shift-.5,
+          fx=cylinder?((raw%cols)+cols)%cols:clamp(raw,0,cols-1),
+          ix=Math.floor(fx),tx=fx-ix,next=cylinder?(ix+1)%cols:Math.min(cols-1,ix+1);
         for(let y=0;y<rows;y++) result[y*w+px]=field[y*cols+ix]*(1-tx)+field[y*cols+next]*tx;
       }
       return result;
@@ -150,16 +153,18 @@
       if (survey && surface.hydrology !== "none") {
         ctx.strokeStyle="rgba(64,76,52,.24)"; ctx.lineWidth=.7;
         for(const level of [sea+100,sea+200,sea+300,sea+400,sea+500])
-          for(let y=0;y<rows-1;y++) for(let x=0;x<cols-1;x++) {
+          for(let y=0;y<rows-1;y++) for(let x=0;x<(cylinder?cols:cols-1);x++) {
             const coords=[[x+.5,y+.5],[x+1.5,y+.5],[x+1.5,y+1.5],[x+.5,y+1.5]],
-              values=coords.map(([a,b])=>heights[Math.floor(b)*cols+Math.floor(a)]),points=[];
+              nx=(x+1)%cols,
+              values=[heights[y*cols+x],heights[y*cols+nx],heights[(y+1)*cols+nx],heights[(y+1)*cols+x]],points=[];
             for(const [a,b] of [[0,1],[1,2],[2,3],[3,0]]) if((values[a]<level)!==(values[b]<level)) {
               const t=(level-values[a])/(values[b]-values[a]);
               points.push([coords[a][0]+(coords[b][0]-coords[a][0])*t,coords[a][1]+(coords[b][1]-coords[a][1])*t]);
             }
             for(let i=0;i+1<points.length;i+=2) {
-              ctx.beginPath();ctx.moveTo(points[i][0]*scale,points[i][1]*scale);
-              ctx.lineTo(points[i+1][0]*scale,points[i+1][1]*scale);ctx.stroke();
+              const draw=(shift)=>{ctx.beginPath();ctx.moveTo(points[i][0]*scale+shift,points[i][1]*scale);
+                ctx.lineTo(points[i+1][0]*scale+shift,points[i+1][1]*scale);ctx.stroke();};
+              if(cylinder){draw(-w);draw(0);draw(w);}else draw(0);
             }
           }
       }
@@ -168,8 +173,9 @@
       for(const river of surface.rivers || []) {
         const points=river.points;
         if(!Array.isArray(points)||points.length<2)continue;
-        const xy=points.map(([x,y])=>[(x+.5)*scale,(y+.5)*scale]);
-        ctx.beginPath();ctx.moveTo(...xy[0]);
+        const xy=[];
+        for(const [x,y] of points){const px=xy.length&&cylinder?nearestX(x,xy[xy.length-1][0]/scale-.5,cols):x;xy.push([(px+.5)*scale,(y+.5)*scale]);}
+        const trace=()=>{ctx.beginPath();ctx.moveTo(...xy[0]);
         // Quadratics stay inside the convex corridor of consecutive recorded
         // segments. Endpoints and confluences remain the persisted points.
         for(let i=1;i<xy.length-1;i++) {
@@ -178,12 +184,13 @@
             leave=[at[0]+(after[0]-at[0])*t,at[1]+(after[1]-at[1])*t];
           ctx.lineTo(...enter);ctx.quadraticCurveTo(...at,...leave);
         }
-        ctx.lineTo(...xy[xy.length-1]);ctx.stroke();
+        ctx.lineTo(...xy[xy.length-1]);ctx.stroke();};
+        if(cylinder){trace();ctx.save();ctx.translate(-w,0);trace();ctx.restore();ctx.save();ctx.translate(w,0);trace();ctx.restore();}else trace();
       }
     }
     map.set(style,canvas);return canvas;
   }
-  function drawPlanet(
+  function drawPlanetCopy(
     ctx,
     {
       geometry,
@@ -202,6 +209,9 @@
       safe = null,
       paintOverlay = null,
       labelObstacles = [],
+      copyIndex = 0,
+      clearCanvas = true,
+      renderPhase = "all",
     },
   ) {
     const { width: cols, height: rows } = geometry.planet,
@@ -209,16 +219,16 @@
       tile = Math.min(bounds.width / cols, bounds.height / rows) * zoom,
       gridW = tile * cols,
       gridH = tile * rows,
-      ox = (bounds.left + bounds.right - gridW) / 2 + panX,
+      ox = (bounds.left + bounds.right - gridW) / 2 + panX + copyIndex*gridW,
       oy = (bounds.top + bounds.bottom - gridH) / 2 + panY;
-    const surface=surfaceFor(geometry), preset=surface?.hydrology==="none"?surface.preset:null;
-    ctx.fillStyle = preset?terrainPalette(style,preset).ocean:style === "survey" ? "#a6bfc1" : "#142f40";
-    ctx.fillRect(0, 0, w, h);
+    const surface=surfaceFor(geometry), preset=surface?.hydrology==="none"?surface.preset:null,
+      cylinder=wrapsX(geometry);
+    const tiles = geometry.tiles, provinces = geometry.provinces;
+    if (renderPhase !== "labels") {
+    if(clearCanvas){ctx.fillStyle = preset?terrainPalette(style,preset).ocean:style === "survey" ? "#a6bfc1" : "#142f40";ctx.fillRect(0, 0, w, h);}
     ctx.imageSmoothingEnabled = true;
     ctx.drawImage(baseRaster(geometry, style, theme), ox, oy, gridW, gridH);
     if (paintOverlay) paintOverlay(ctx, { tile, ox, oy });
-    const tiles = geometry.tiles,
-      provinces = geometry.provinces;
     if (overlay === "provinces") {
       const colors = preset === "arid" ? ["#c0a06c","#ab8b59","#d0b783","#987b53","#c6aa75","#a88e64","#d5c091","#b69b6a"] :
         preset === "barren" ? ["#aaa69f","#8e8a83","#c1bdb5","#9b9790","#b4b0a8","#88847d","#c9c5bd","#a29e97"] :
@@ -267,7 +277,7 @@
         [0, 1, "s"],
         [-1, 0, "w"],
       ]) {
-        const nx = t.x + dx,
+        const nx = cylinder && dx ? (t.x + dx + cols) % cols : t.x + dx,
           ny = t.y + dy,
           n =
             nx >= 0 && ny >= 0 && nx < cols && ny < rows
@@ -306,7 +316,7 @@
           [0, 1, "s"],
           [-1, 0, "w"],
         ]) {
-          const nx = t.x + dx,
+          const nx = cylinder && dx ? (t.x + dx + cols) % cols : t.x + dx,
             ny = t.y + dy,
             n =
               nx >= 0 && ny >= 0 && nx < cols && ny < rows
@@ -331,6 +341,8 @@
       }
       ctx.stroke();
     }
+    }
+    if (renderPhase === "base") return null;
     const labelFont = Math.max(10, Math.min(12, tile * 0.43));
     ctx.font = `700 ${labelFont}px "Noto Instrument Mono",monospace`;
     ctx.textAlign = "center";
@@ -436,6 +448,7 @@
         placed.push({left:item.x-8,right:item.x+8,top:item.y-8,bottom:item.y+8});
       }
       if (Math.hypot(item.x - chosen.x, item.y - chosen.y) > 13) {
+        if(cylinder){ctx.save();ctx.beginPath();ctx.rect(safeLeft,safeTop,safeRight-safeLeft,Math.max(0,safeBottom-safeTop));ctx.clip();}
         ctx.strokeStyle =
           "rgba(14,28,29,.88)";
         ctx.lineWidth = 2.7;
@@ -443,6 +456,7 @@
         ctx.moveTo(item.x, item.y);
         ctx.lineTo(chosen.x, chosen.y);
         ctx.stroke();
+        if(cylinder)ctx.restore();
       }
       ctx.fillStyle =
         item.holdings.length ? "rgba(16,31,34,.94)" : "rgba(24,40,39,.76)";
@@ -456,18 +470,47 @@
     }
     return { tile, ox, oy, cols, rows, safeRect:safe||bounds, gridW, gridH, viewportWidth:w, viewportHeight:h, forceObstacles: placed, provinceTargets };
   }
+  function drawPlanet(ctx, options) {
+    const {geometry,w,h,zoom,panX,panY}=options;
+    if(!wrapsX(geometry))return drawPlanetCopy(ctx,options);
+    const cols=geometry.planet.width,rows=geometry.planet.height,
+      tile=Math.min(w/cols,h/rows)*zoom,gridW=tile*cols,
+      baseOx=(w-gridW)/2+panX,
+      first=Math.floor(-baseOx/gridW),last=Math.ceil((w-baseOx)/gridW)-1,
+      copies=[];
+    for(let k=first;k<=last;k++)copies.push(k);
+    // Paint every world strip before annotations, which may extend across a
+    // strip edge. Share annotation reservations across the visible copies.
+    copies.forEach((copyIndex,index)=>drawPlanetCopy(ctx,{...options,copyIndex,clearCanvas:index===0,renderPhase:"base"}));
+    const labelObstacles=[...(options.labelObstacles||[])],
+      results=copies.map(copyIndex=>{
+        const result=drawPlanetCopy(ctx,{...options,copyIndex,clearCanvas:false,renderPhase:"labels",labelObstacles});
+        labelObstacles.splice(0,labelObstacles.length,...result.forceObstacles);
+        return result;
+      }),
+      primaryIndex=Math.round((w/2-(baseOx+gridW/2))/gridW),
+      primary=results[Math.max(0,copies.indexOf(primaryIndex))]||results[0];
+    return {...primary,ox:baseOx,visibleCopies:copies.map(k=>baseOx+k*gridW),
+      provinceTargets:results.flatMap(result=>result.provinceTargets||[]),
+      forceObstacles:results.flatMap(result=>result.forceObstacles||[])};
+  }
   function drawOverview(ctx,{geometry,w,h,transform,style="orbital"}) {
     const {width:cols,height:rows}=geometry.planet,scale=Math.min(w/cols,h/rows),drawW=cols*scale,drawH=rows*scale,
       left=(w-drawW)/2,top=(h-drawH)/2;
     ctx.clearRect(0,0,w,h);ctx.fillStyle="#142f40";ctx.fillRect(0,0,w,h);
     ctx.imageSmoothingEnabled=true;ctx.drawImage(baseRaster(geometry,style),left,top,drawW,drawH);
     if(transform&&transform.tile>0){
-      const rect={left:clamp((0-transform.ox)/transform.tile,0,cols),
+      const rawLeft=(0-transform.ox)/transform.tile,rawRight=(transform.viewportWidth-transform.ox)/transform.tile,
+        rect={left:clamp(rawLeft,0,cols),
         top:clamp((0-transform.oy)/transform.tile,0,rows),
-        right:clamp((transform.viewportWidth-transform.ox)/transform.tile,0,cols),
+        right:clamp(rawRight,0,cols),
         bottom:clamp((transform.viewportHeight-transform.oy)/transform.tile,0,rows)};
-      ctx.fillStyle="rgba(245,244,229,.13)";ctx.fillRect(left+rect.left*scale,top+rect.top*scale,(rect.right-rect.left)*scale,(rect.bottom-rect.top)*scale);
-      ctx.strokeStyle="#f3f1df";ctx.lineWidth=1.5;ctx.strokeRect(left+rect.left*scale,top+rect.top*scale,(rect.right-rect.left)*scale,(rect.bottom-rect.top)*scale);
+      ctx.fillStyle="rgba(245,244,229,.13)";ctx.strokeStyle="#f3f1df";ctx.lineWidth=1.5;
+      const drawRect=(x0,x1)=>{if(x1<=x0)return;ctx.fillRect(left+x0*scale,top+rect.top*scale,(x1-x0)*scale,(rect.bottom-rect.top)*scale);ctx.strokeRect(left+x0*scale,top+rect.top*scale,(x1-x0)*scale,(rect.bottom-rect.top)*scale);};
+      if(wrapsX(geometry)){
+        const span=Math.min(cols,rawRight-rawLeft),start=((rawLeft%cols)+cols)%cols,end=start+span;
+        if(end<=cols)drawRect(start,end);else{drawRect(start,cols);drawRect(0,end-cols);}
+      }else drawRect(rect.left,rect.right);
     }
     return {left,top,width:drawW,height:drawH,cols,rows};
   }
@@ -731,5 +774,7 @@
     hasSurface(geometry) {
       return Boolean(surfaceFor(geometry));
     },
+    wrapsX,
+    nearestX,
   };
 })();

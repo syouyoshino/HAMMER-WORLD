@@ -9,6 +9,19 @@ from tests.pg_fixture import PostgresTestCase
 
 
 class PlanetPresetCommandTests(PostgresTestCase, unittest.TestCase):
+    def test_v6_cli_selects_cylindrical_generator_for_new_worlds(self):
+        command = [sys.executable, '-m', 'app.cli', 'init-v2', '--campaign-id', 'cli-v6',
+                   '--planet-generator', 'planet-v6', '--preset', 'archipelago']
+        result = subprocess.run(command, env=dict(os.environ), capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        state = self.db.current('cli-v6')['snapshot']['state']
+        config = state['_private']['generator_config']
+        self.assertEqual(config['planet'], 'planet-v6')
+        self.assertEqual(config['grid'], 'grid128x80')
+        self.assertEqual(len(config['planet_presets']), 4)
+        self.assertTrue(all(geo['surface']['topology'] == 'cylinder-x'
+                            for geo in state['geography'].values()))
+
     def test_v5_cli_creates_larger_independent_presets_without_replacing_existing_maps(self):
         self.db.create_demo_v2('cli-old', seed=55, planet_generator='planet-v4', preset='arid')
         before = self.db.current('cli-old')['snapshot']['state_hash']

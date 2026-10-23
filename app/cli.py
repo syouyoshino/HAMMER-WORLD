@@ -11,12 +11,12 @@ def main():
     sub=p.add_subparsers(dest="command",required=True)
     sub.add_parser("init")
     q=sub.add_parser("init-v2"); q.add_argument("--campaign-id",default="demo-v2"); q.add_argument("--seed",type=int,default=741903)
-    q.add_argument("--planet-generator",choices=("planet-v1","planet-v2","planet-v3","planet-v4","planet-v5"),default="planet-v1",
+    q.add_argument("--planet-generator",choices=("planet-v1","planet-v2","planet-v3","planet-v4","planet-v5","planet-v6"),default="planet-v1",
                    help="generator for a new isolated demo; existing campaigns are never regenerated")
     q.add_argument("--preset",choices=("auto",*PRESETS),default=None,
-                   help="planet-v4/v5 preset applied to every planet unless overridden")
+                   help="planet-v4/v5/v6 preset applied to every planet unless overridden")
     q.add_argument("--planet-preset",action="append",default=[],metavar="PLANET_ID=PRESET",
-                   help="planet-v4/v5 override; repeat for independent stable planet node IDs")
+                   help="planet-v4/v5/v6 override; repeat for independent stable planet node IDs")
     q=sub.add_parser("packet"); q.add_argument("campaign_id")
     q=sub.add_parser("preview"); q.add_argument("campaign_id"); q.add_argument("proposal")
     q=sub.add_parser("import-turn"); q.add_argument("campaign_id"); q.add_argument("proposal")
@@ -37,8 +37,8 @@ def main():
                 p.error(f"unsupported planet preset: {choice}")
             overrides[planet_id]=choice
         args.planet_presets=overrides or None
-        if args.planet_generator not in ("planet-v4","planet-v5") and (args.preset is not None or args.planet_presets is not None):
-            p.error("--preset and --planet-preset require --planet-generator planet-v4 or planet-v5")
+        if args.planet_generator not in ("planet-v4","planet-v5","planet-v6") and (args.preset is not None or args.planet_presets is not None):
+            p.error("--preset and --planet-preset require --planet-generator planet-v4, planet-v5, or planet-v6")
     db=Store()
     if args.command=="init":
         try: sid=db.create_demo()

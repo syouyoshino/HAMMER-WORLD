@@ -4,7 +4,7 @@ import random
 
 from .engine import generate_planet
 from .planet_generation import (PRESETS, PLANET_CLASSES, generate_planet_v2, generate_planet_v3,
-                                generate_planet_v4, generate_planet_v5, project_surface, resolve_planet_presets)
+                                generate_planet_v4, generate_planet_v5, generate_planet_v6, project_surface, resolve_planet_presets)
 
 V2_SCHEMA = "world-v2"
 V2_RULES = "demo-v2"
@@ -18,11 +18,11 @@ def _seed(seed, parent, domain, ordinal=0):
 
 def build_universe(campaign_id, seed, *, planet_generator="planet-v1", preset=None, planet_presets=None):
     """Build the approved compact node hierarchy, settlements and fixture accounts."""
-    if planet_generator not in ("planet-v1", "planet-v2", "planet-v3", "planet-v4", "planet-v5"):
+    if planet_generator not in ("planet-v1", "planet-v2", "planet-v3", "planet-v4", "planet-v5", "planet-v6"):
         raise ValueError("unsupported planet generator")
-    if planet_generator not in ("planet-v4","planet-v5") and (preset is not None or planet_presets is not None):
-        raise ValueError("planet presets require planet-v4 or planet-v5")
-    if planet_generator in ("planet-v4","planet-v5") and preset is None:
+    if planet_generator not in ("planet-v4","planet-v5","planet-v6") and (preset is not None or planet_presets is not None):
+        raise ValueError("planet presets require planet-v4, planet-v5, or planet-v6")
+    if planet_generator in ("planet-v4","planet-v5","planet-v6") and preset is None:
         preset = "auto"
     rng = random.Random(_seed(seed, campaign_id, "universe"))
     root = f"{campaign_id}-galaxy"
@@ -66,12 +66,12 @@ def build_universe(campaign_id, seed, *, planet_generator="planet-v1", preset=No
             moon_rng.uniform(.3,.7),moon_rng.uniform(.3,.7))
         nodes[-1].update({"class":moon_rng.choice(("rocky","icy")),"radius":round(moon_rng.uniform(.12,.48),3)})
     planet_ids=[n["id"] for n in nodes if n["kind"]=="planet"]
-    resolved_presets = resolve_planet_presets(seed, planet_ids, preset, planet_presets) if planet_generator in ("planet-v4","planet-v5") else {}
-    if planet_generator in ("planet-v4","planet-v5"):
+    resolved_presets = resolve_planet_presets(seed, planet_ids, preset, planet_presets) if planet_generator in ("planet-v4","planet-v5","planet-v6") else {}
+    if planet_generator in ("planet-v4","planet-v5","planet-v6"):
         for node in nodes:
             if node["id"] in resolved_presets:
                 node["class"] = PLANET_CLASSES[resolved_presets[node["id"]]]
-        generator=generate_planet_v5 if planet_generator=="planet-v5" else generate_planet_v4
+        generator={"planet-v4":generate_planet_v4,"planet-v5":generate_planet_v5,"planet-v6":generate_planet_v6}[planet_generator]
         geography={pid:generator(f"{campaign_id}-{pid.rsplit('-',1)[-1]}",
                     _seed(seed,pid,"geography"),resolved_presets[pid]) for pid in planet_ids}
     elif planet_generator in ("planet-v2", "planet-v3"):
@@ -91,7 +91,7 @@ def build_universe(campaign_id, seed, *, planet_generator="planet-v1", preset=No
                for y in range(py, py + province["height"]) for x in range(px, px + province["width"])):
             land_ids.append(province["id"])
     land_ids = land_ids or land_provinces
-    if planet_generator in ("planet-v2", "planet-v3", "planet-v4", "planet-v5") and len(land_ids) < 3:
+    if planet_generator in ("planet-v2", "planet-v3", "planet-v4", "planet-v5", "planet-v6") and len(land_ids) < 3:
         raise ValueError("new demo geography requires three land provinces")
     # Fixture assignments are explicit; the adversary is its own private account.
     def settlement(sid, name, province, civilians, owned, stock, unrest=0):
@@ -132,9 +132,9 @@ def build_universe(campaign_id, seed, *, planet_generator="planet-v1", preset=No
                   for role in ("engineer","steward","general","scout")]
     private = {"seed": seed, "campaign_id": campaign_id, "seeded_marker": f"secret:{seed}", "enemy_population":20,
                "generator_version":"hierarchical-v1",
-               "generator_config":{"hierarchy":"hierarchical-v1","planet":planet_generator,"grid":"grid128x80" if planet_generator=="planet-v5" else "grid64x40",
+               "generator_config":{"hierarchy":"hierarchical-v1","planet":planet_generator,"grid":"grid128x80" if planet_generator in ("planet-v5","planet-v6") else "grid64x40",
                                    "domain_seed_derivation":"sha256-parent-domain-v1",
-                                   **({"planet_presets":dict(resolved_presets)} if planet_generator in ("planet-v4","planet-v5") else {})},
+                                   **({"planet_presets":dict(resolved_presets)} if planet_generator in ("planet-v4","planet-v5","planet-v6") else {})},
                "enemy_allocations":{"farmers":14,"technicians":2}, "adjacency":[[hsys,gsys],[gsys,dsys]],
                "generation_nonce":rng.randrange(1, 2**31)}
     return {"turn":0,"nodes":nodes,"links":[{"a":hsys,"b":gsys},{"a":gsys,"b":dsys}],

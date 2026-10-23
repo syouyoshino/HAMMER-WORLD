@@ -154,3 +154,8 @@ Integration: feed recovered cartography transforms/actual label rectangles into 
 ## Separate map-generation continuation — 22 October 2026
 
 The user authorized richer Orbital cartography and retained Light/Dark/System on the separate `map-generation` branch. Its implementation, same-critic corrections, fresh browser/performance evidence, preserved generation/history contracts and integration limits are recorded in [map-generation.md](map-generation.md). This continuation does not retroactively establish additional browser coverage or commercial parity for earlier releases. The character-relationships branch and unavailable original cloud campaign/cartography remain untouched.
+
+
+The subsequent opt-in V6 periodic-longitude navigation review is recorded in
+[cylindrical charts](../reviews/planet-wrap.md). Navigation acceptance remains
+separate from unfinished planetary geology/art and production readiness.

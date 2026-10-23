@@ -220,3 +220,61 @@ backend hashes in the completed stress report match the implementation. The
 next substantive work is separately versioned seam-aware generation or a
 reviewed immutable-geography persistence design, rather than converting old
 campaigns or adding decorative terrain outside saved geography.
+
+
+## V6 cylindrical-chart continuation — 23 October 2026 (Australia/Melbourne)
+
+New opt-in `planet-v6` supplies genuine east–west periodic terrain and hydrology
+at128×80, with forty16×16 canonical provinces and bounded north/south. V1–V5
+outputs/defaults and existing records are preserved. The client uses the same
+wrapped projection for raster interpolation, rivers/contours, overlays, labels,
+selection, forces, short endpoint connectors and split overview footprints.
+`EAST–WEST WRAPPING` and `EAST ↔ WEST JOIN` disclose the navigation model;
+Recenter, overview navigation, cursor zoom, management context and Light/Dark/
+System remain available. No saved map is converted or regenerated.
+
+One bounded Sol high review accepted the backend contract and independently
+matched45 legacy private/public baseline pairs. Luna implemented the first
+candidate; a real browser runtime failure escalated locally to Sol medium.
+The fresh independent Sol medium critic accepted scoped desktop navigation
+after correcting Forces hover contrast, legend/overview/counter overlap,
+wrapping explanation and clipped label leaders. It directly verified repeated
+seam drags, selection/zoom/overlays, overview keyboard/pointer, inspector input
+isolation, management return, transit connector visibility and desktop resize.
+Remaining minor points: small metadata and a visible polar route close to the
+breadcrumb. The anonymous A/B assessment preferred the older capture's
+landmarks; differing terrain/scale prevent an overall visual winner claim.
+
+Verified Python discovery:98 tests passed. V6 six-preset/both-style navigation,
+canonical seam hits, real DRAFT/PREVIEW/commit and read-only history pass, along
+with legacy V5 navigation, V4 presets, V3 cartography, movement and broad
+strategic/auth/browser-zoom regressions. Final V6 and movement reruns passed
+after the presentation corrections. Exercised workflows had no page errors;
+map canvas/window handlers remained stable. Chromium154 verified; WebKit/native
+Safari unavailable/unverified. Desktop only.
+
+Cold direct-render samples309.5–784.6ms; ten warm draws averaged1.7–18.9ms
+per style/preset under concurrent QA, capped at1536×960 raster. These omit API,
+input, force DOM and compositing and do not establish production performance.
+The mixed V6 **10,000-turn gate passed in2722.03s**, retaining10,001 immutable
+source snapshots and exact checkpoint/history/restore assertions. Largest state
+956,759 bytes; summed source-state JSON7,481,633,246 bytes (not database disk
+use). Current read60.0ms;history50 read3721.7ms. All stress-report source hashes
+equal the initial freeze and final backend. Delivery references follow below.
+
+Read [cylindrical-chart review](../reviews/planet-wrap.md) for exact boundaries,
+critique/evidence and creation command. The user's planet-photo question
+exposed a separate art gap: barren/frozen maps mostly read as recolored relief,
+continental rivers can be too uniform, and lunar craters, ice fractures,
+volcanic terrain and gas-giant atmospheres are not generated. New NASA reference
+fetches returned403; no fresh photo comparison or realism acceptance is claimed.
+Future geological/body families must remain separate from creation-time water/
+vegetation presets. Saturn-like worlds require atmospheric/orbital presentation,
+rather than terrestrial province textures. Do not disguise this with decorative
+statistics or fabricate records.
+
+No schema/numeric-rule change, character-relationships branch edit, recovered
+cloud data, merge or deployment. Integration must preserve old generator versions,
+canonical IDs and surveyed-only public allowlists. Full immutable surface arrays
+still impose known history/storage cost; deduplication requires its own reviewed
+persistence design. This remains an interface release candidate.

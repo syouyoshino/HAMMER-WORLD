@@ -79,7 +79,7 @@
       }
     });
 
-    function render({width, height, forces = [], routes = [], drafts = [], positions = {}, obstacles = [], emptyMessage: emptyStatus = '', onSelectForce, onMove, onCancelTarget}) {
+    function render({width, height, forces = [], routes = [], drafts = [], positions = {}, obstacles = [], emptyMessage: emptyStatus = '', clipToViewport = false, onSelectForce, onMove, onCancelTarget}) {
       cancelTargetCallback = onCancelTarget || (() => {});
       const hasMap = forces.length > 0 || routes.length > 0 || drafts.length > 0;
       emptyMessage = hasMap ? '' : emptyStatus;
@@ -94,6 +94,7 @@
       svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
       svg.setAttribute('width', width);
       svg.setAttribute('height', height);
+      svg.style.overflow = clipToViewport ? 'hidden' : '';
 
       for (const route of [...routes, ...drafts]) {
         const from = positions[route.from];
@@ -104,14 +105,17 @@
         readout.textContent = `${route.label} · ${route.fromLabel || 'Recorded origin'} → ${route.toLabel || 'Recorded destination'}${positioned ? '' : ' · Position unavailable'}`;
         routeReadout.append(readout);
         if (!positioned) continue;
-        const line = document.createElementNS(NS, 'line');
-        line.setAttribute('x1', from.x);
-        line.setAttribute('y1', from.y);
-        line.setAttribute('x2', to.x);
-        line.setAttribute('y2', to.y);
-        line.setAttribute('class', route.preview ? 'force-route preview' : route.draft ? 'force-route draft' : 'force-route');
-        line.setAttribute('marker-end', 'url(#force-route-arrow)');
-        svg.append(line);
+        const segments=Array.isArray(route.segments)?route.segments:[{x1:from.x,y1:from.y,x2:to.x,y2:to.y}];
+        for(const segment of segments){
+          const line = document.createElementNS(NS, 'line');
+          line.setAttribute('x1', segment.x1);
+          line.setAttribute('y1', segment.y1);
+          line.setAttribute('x2', segment.x2);
+          line.setAttribute('y2', segment.y2);
+          line.setAttribute('class', route.preview ? 'force-route preview' : route.draft ? 'force-route draft' : 'force-route');
+          line.setAttribute('marker-end', 'url(#force-route-arrow)');
+          svg.append(line);
+        }
       }
 
       const groups = new Map();
@@ -126,11 +130,12 @@
       // Reserve the visible chrome and map anchors before trying nearby positions.
       const frameRect = frame.getBoundingClientRect();
       const blocked = obstacles.map(box => ({...box}));
-      // Measure the readout even before the Forces layer is first opened.
-      if (!routeReadout.hidden) {
+      // Reserve the visible route explanations even before Forces first opens.
+      for (const explanation of [routeReadout, legend]) {
+        if (explanation.hidden) continue;
         const wasHidden = layer.hidden;
         layer.hidden = false;
-        const box = routeReadout.getBoundingClientRect();
+        const box = explanation.getBoundingClientRect();
         layer.hidden = wasHidden;
         blocked.push({left:box.left-frameRect.left-4,right:box.right-frameRect.left+4,
           top:box.top-frameRect.top-4,bottom:box.bottom-frameRect.top+4});

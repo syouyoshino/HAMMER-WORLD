@@ -2,7 +2,28 @@
 
 Read `AGENTS.md`, `plan.md` and `docs/decisions.md`, then inspect actual source/tests and Git state. The existing repository is accessible and the scheduled continuation resumed the same work. Preserve the existing implementation. Do not duplicate completed acceptance runs without a relevant change.
 
-## Current continuous-map continuation
+## Current cylindrical-chart continuation — 23 October 2026 (Australia/Melbourne)
+
+On `map-generation`, opt-in V6 adds genuine periodic longitude with bounded
+latitude at128×80. Existing V1–V5 output/defaults/records remain unchanged;
+Sol high independently matched45 legacy private/public baseline pairs. A fresh
+Sol medium critic accepted scoped desktop navigation after Forces hover contrast,
+legend/overview/counter overlap, wrapping guidance and label leader corrections.
+Final V6 and legacy movement browser checks pass;98 Python tests plus existing
+V5 navigation/V4 preset/V3 cartography/broad strategic regressions passed.
+The mixed V6 10,000-turn gate passed in2722.03s with10,001 source snapshots;
+all backend hashes match the frozen source. History50 read3721.7ms remains a
+limit. Read `docs/reviews/planet-wrap.md` and the latest branch section for exact
+browser/performance evidence and delivery references.
+
+This is navigation acceptance, not planetary-art or commercial-game parity.
+Actual barren/frozen captures lack recognizable geology; no new NASA photos
+were fetched (403). Geological families/gas giants remain future work independent
+of water/vegetation presets. Minor route/header clearance and small metadata,
+plus inherited history/storage cost, are documented. No cloud-data recovery,
+old-map conversion, character-relationships branch edit, merge or deployment.
+
+## Earlier continuous-map continuation
 
 On `map-generation`, implementation `c488e3f` adds opt-in V5 128×80 saved planetary charts, preserving
 existing V1–V4 output and records. Full-canvas cover/clamped panning, pointer
