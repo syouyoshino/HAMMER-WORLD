@@ -278,3 +278,10 @@ cloud data, merge or deployment. Integration must preserve old generator version
 canonical IDs and surveyed-only public allowlists. Full immutable surface arrays
 still impose known history/storage cost; deduplication requires its own reviewed
 persistence design. This remains an interface release candidate.
+
+
+Delivery implementation: **`d43a4cd` — Add opt-in cylindrical planetary charts
+and seam-aware navigation**. This follow-up documentation commit records that
+reference. Backend hashes in the completed V6 stress report match delivery.
+Continue from this release without converting old maps; address geological
+families or immutable-geography persistence as separate reviewed work.

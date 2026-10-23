@@ -211,8 +211,9 @@ hashes. Its hashes equal both the pre-run frozen manifest and final source.
 All tests used disposable schemas in the explicit isolated QA PostgreSQL;
 no real campaign database or recovered original cloud records were used.
 
-Final source/diff checks pass. Delivery commits are recorded in the branch
-record after creation; no merge, deployment or data reset is part of delivery.
+Final source/diff checks pass. Implementation delivery is `d43a4cd`; the branch
+record carries its continuation reference. No merge, deployment or data reset
+is part of delivery.
 The next substantive art milestone should introduce versioned geological/body
 families, informed by actually accessible reference photos, independently of
 water/vegetation presets. A persistence optimization needs its own bounded

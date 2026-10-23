@@ -4,7 +4,7 @@ Read `AGENTS.md`, `plan.md` and `docs/decisions.md`, then inspect actual source/
 
 ## Current cylindrical-chart continuation — 23 October 2026 (Australia/Melbourne)
 
-On `map-generation`, opt-in V6 adds genuine periodic longitude with bounded
+On `map-generation`, implementation `d43a4cd` adds opt-in V6 periodic longitude with bounded
 latitude at128×80. Existing V1–V5 output/defaults/records remain unchanged;
 Sol high independently matched45 legacy private/public baseline pairs. A fresh
 Sol medium critic accepted scoped desktop navigation after Forces hover contrast,
