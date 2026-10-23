@@ -141,3 +141,27 @@ Create a new fictional ID with `python -m app.cli init-v2 --campaign-id NEW_ID -
 With an explicitly isolated `WOLD_TEST_DATABASE_URL`, run `python -m unittest tests.test_planet_v6 tests.test_planet_preset_cli -q` and `python tests/browser_planet_wrap.py`. The browser regression creates six V6 fixtures, legacy V5 and a real supported seam recruitment/deployment in a disposable PostgreSQL schema. It observes actual renderer transforms and raster blits without injecting campaign/camera state. It exercises seam dragging/hits, styles/overlays, management return, themes/resize, protected preview/commit and historical read-only behavior. Horizontal SVG connectors have zero geometric height; checks use attached lines and a visible force layer rather than Playwright's zero-box visibility predicate.
 
 For the long-run gate, set `WOLD_TEST_PLANET_GENERATOR=planet-v6`, `WOLD_TEST_PLANET_PRESETS` to the full-ID JSON overrides and `WOLD_STRESS_REPORT=data/verification/stress-v6-wrap.json`, then run `python tests/stress_v2.py 10000`. Keep reports/captures ignored. Final observed outcomes and browser limitations belong in `docs/reviews/planet-wrap.md`; these commands alone do not establish acceptance.
+
+
+## V7 cratered geology (desktop)
+
+Use a new fictional demo ID with `--planet-generator planet-v7`, existing preset
+flags, and `--geology none|cratered` or repeatable `--planet-geology PLANET_ID=CHOICE`.
+Cratered requires a dry preset; existing IDs and legacy-generator geology flags
+are rejected. See `docs/reviews/cratered-worlds.md` for the independent contract.
+
+With an explicit isolated `WOLD_TEST_DATABASE_URL`, run
+`python -m unittest tests.test_planet_v7 tests.test_planet_preset_cli -q`,
+`node tests/check_crater_renderer.cjs`, and
+`WOLD_TEST_PLANET_GENERATOR=planet-v7 python tests/browser_planet_wrap.py`.
+The existing periodic browser script defaults to V6; V7 exercises cratered dry
+fixtures and geology-none wet fixtures through the same protected workflows.
+The Node test observes actual private renderer helpers in an isolated VM without
+production test exports; it checks canonical residuals/seams and a dry lowland
+fixture that must never enter ocean rendering.
+
+For the required persisted gate, choose V7 with `WOLD_TEST_PLANET_GENERATOR`,
+set `WOLD_TEST_PLANET_PRESETS` and independent `WOLD_TEST_PLANET_GEOLOGIES` JSON
+maps of full planet IDs, and write `WOLD_STRESS_REPORT=data/verification/stress-v7-geology.json`
+with `python tests/stress_v2.py 10000`. Preserve older reports; all runtime
+screenshots, manifests, schemas and generated records remain outside tracked Git.

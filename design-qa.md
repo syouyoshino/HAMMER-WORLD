@@ -2,15 +2,14 @@
 
 final result: passed
 
-Latest scoped continuation: opt-in V6 periodic-longitude charts on `map-generation`.
-The same fresh independent critic accepted corrected desktop navigation,
-including seam traversal, management return, overview access and inspector input
-isolation. Forces hover contrast, overview/legend/counter overlap and wrap
-explanation were corrected and rechecked. Read `docs/reviews/planet-wrap.md`
-for exact functional/persisted-turn evidence and limits. Anonymous A/B captures
-had different terrain/scale and do not establish overall art superiority.
-Barren/frozen planetary geology remains unfinished; no new NASA photo study,
-commercial-game parity, mobile acceptance or deployment is claimed.
+Latest scoped continuation: opt-in V7 idealized cratered rock/ice on `map-generation`.
+The same fresh independent critic accepted corrected bowl lighting, surface
+readability, Terrain hierarchy and desktop layout after an anonymous baseline
+comparison and bounded live workflows. The earlier usage-limit interruption
+resumed with that same critic. Read `docs/reviews/cratered-worlds.md` for exact
+findings/resolutions,111-test/10,000-turn evidence, browser/performance and limits.
+Idealized circular profiles, nested overlaps and axial rivers remain; no new
+NASA photograph comparison, scientific realism or whole-game parity is claimed.
 
 ## Source and implementation
 

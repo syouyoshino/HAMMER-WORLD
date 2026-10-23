@@ -98,6 +98,10 @@ def run(turns=10000):
             creation["preset"] = os.environ["WOLD_TEST_PLANET_PRESET"]
         if "WOLD_TEST_PLANET_PRESETS" in os.environ:
             creation["planet_presets"] = json.loads(os.environ["WOLD_TEST_PLANET_PRESETS"])
+        if "WOLD_TEST_PLANET_GEOLOGY" in os.environ:
+            creation["geology"] = os.environ["WOLD_TEST_PLANET_GEOLOGY"]
+        if "WOLD_TEST_PLANET_GEOLOGIES" in os.environ:
+            creation["planet_geologies"] = json.loads(os.environ["WOLD_TEST_PLANET_GEOLOGIES"])
         initial_id = db.create_demo_v2("long-run", seed=4242, planet_generator=planet_generator, **creation)
         current = db.current("long-run")["snapshot"]
         checkpoints = {0: (initial_id, current["state_hash"])}

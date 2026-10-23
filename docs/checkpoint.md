@@ -2,7 +2,28 @@
 
 Read `AGENTS.md`, `plan.md` and `docs/decisions.md`, then inspect actual source/tests and Git state. The existing repository is accessible and the scheduled continuation resumed the same work. Preserve the existing implementation. Do not duplicate completed acceptance runs without a relevant change.
 
-## Current cylindrical-chart continuation — 23 October 2026 (Australia/Melbourne)
+## Current cratered-world continuation
+
+On `map-generation`, opt-in V7 saves separately chosen cratered geology for new
+dry rock/ice worlds. All63 V1–V6 private/public baseline pairs remain exact;
+no old maps/history/IDs or numeric rules change. Bounded high backend review and
+the same fresh medium visual critic accept the corrected idealized scope.
+Matching gradients/NW lighting fix crater artifacts; coast/river presentation,
+Terrain annotation density, desktop chrome and caption layout are improved.
+
+111 Python tests, canonical/seam/waterless Node checks, final protected V7
+navigation/orders/history and legacy navigation/cartography/strategic/movement
+browser regressions pass. Mixed10,000-turn V7 gate passed2465.58s; all backend
+hashes match. History50 read4095.5ms remains a material full-snapshot cost.
+Read `docs/reviews/cratered-worlds.md` and latest branch section for evidence,
+creation flags, independent critique, performance/browser limits and delivery.
+
+No photorealism/science claim: circular profiles/overlaps and axial/coarse source
+geography remain stylized. Fractured ice, basalt/maria, volcanic and atmospheric
+families are later work. No original-cloud recovery, character-relationships
+branch edit, old-map conversion, merge or deployment. Interface release candidate.
+
+## Earlier cylindrical-chart continuation — 23 October 2026 (Australia/Melbourne)
 
 On `map-generation`, implementation `d43a4cd` adds opt-in V6 periodic longitude with bounded
 latitude at128×80. Existing V1–V5 output/defaults/records remain unchanged;

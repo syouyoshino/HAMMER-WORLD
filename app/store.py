@@ -17,7 +17,7 @@ from .engine import (RULES_VERSION, SCHEMA_VERSION, advance, canonical_json, dig
 from . import engine_v2
 from .universe import V2_RULES, V2_SCHEMA, RESOURCES, owned_humans, public_state_v2
 from .universe import build_universe
-from .planet_generation import PLANET_CLASSES, PRESETS, resolve_planet_presets, validate_surface
+from .planet_generation import GEOLOGIES, PLANET_CLASSES, PRESETS, resolve_planet_presets, validate_surface
 
 
 def now():
@@ -143,7 +143,7 @@ class Store:
                     raise ValueError("snapshot v2 geography shape invariant failed")
                 validate_surface(geo)
                 surface=geo.get("surface",{})
-                if surface.get("version") in ("planet-v4","planet-v5","planet-v6"):
+                if surface.get("version") in ("planet-v4","planet-v5","planet-v6","planet-v7"):
                     node=nodes.get(planet_id,{})
                     if surface.get("preset") not in PRESETS or node.get("class")!=PLANET_CLASSES.get(surface.get("preset")):
                         raise ValueError("planet-v4 preset and body class invariant failed")
@@ -154,18 +154,27 @@ class Store:
             for geo in geography.values():
                 if len(geo.get("provinces",[]))==0: raise ValueError("snapshot v2 province geometry invariant failed")
             config=state.get("_private",{}).get("generator_config",{})
+            if config.get("planet")!="planet-v7" and "planet_geologies" in config:
+                raise ValueError("V7 geology requires its matching generator configuration")
             preset_planets={pid:geo["surface"]["preset"] for pid,geo in geography.items()
-                        if geo.get("surface",{}).get("version") in ("planet-v4","planet-v5","planet-v6")}
-            if config.get("planet") in ("planet-v4","planet-v5","planet-v6"):
+                        if geo.get("surface",{}).get("version") in ("planet-v4","planet-v5","planet-v6","planet-v7")}
+            if config.get("planet") in ("planet-v4","planet-v5","planet-v6","planet-v7"):
                 recorded=config.get("planet_presets")
                 if not isinstance(recorded,dict) or set(recorded)!=planet_ids or recorded!=preset_planets:
                     raise ValueError("private planet preset configuration invariant failed")
                 expected_version=config["planet"]
                 if any(geo.get("surface",{}).get("version")!=expected_version for geo in geography.values()):
                     raise ValueError("planet preset version and generator configuration differ")
-                expected_grid="grid128x80" if expected_version in ("planet-v5","planet-v6") else "grid64x40"
+                expected_grid="grid128x80" if expected_version in ("planet-v5","planet-v6","planet-v7") else "grid64x40"
                 if config.get("grid")!=expected_grid:
                     raise ValueError("planet generator grid configuration invariant failed")
+                if expected_version=="planet-v7":
+                    geologies=config.get("planet_geologies")
+                    recorded_geologies={pid:geo["surface"].get("geology") for pid,geo in geography.items()}
+                    if not isinstance(geologies,dict) or set(geologies)!=planet_ids or geologies!=recorded_geologies or any(g not in GEOLOGIES for g in geologies.values()):
+                        raise ValueError("private planet geology configuration invariant failed")
+                elif "planet_geologies" in config or any(geo.get("surface",{}).get("version")=="planet-v7" for geo in geography.values()):
+                    raise ValueError("V7 geology requires its matching generator configuration")
             elif preset_planets or "planet_presets" in config:
                 raise ValueError("preset geography requires its matching generator configuration")
             settlements={s["id"]:s for s in state["settlements"]}
@@ -265,17 +274,19 @@ class Store:
             c.execute("INSERT INTO outbox(snapshot_id,status) VALUES(%s,'pending')", (sid,))
             return sid
 
-    def create_demo_v2(self, campaign_id="demo-v2", seed=741903, *, planet_generator="planet-v1", preset=None, planet_presets=None):
-        if planet_generator not in ("planet-v4","planet-v5","planet-v6") and (preset is not None or planet_presets is not None):
+    def create_demo_v2(self, campaign_id="demo-v2", seed=741903, *, planet_generator="planet-v1", preset=None, planet_presets=None, geology="none", planet_geologies=None):
+        if planet_generator not in ("planet-v4","planet-v5","planet-v6","planet-v7") and (preset is not None or planet_presets is not None or planet_geologies is not None):
             raise ValueError("planet presets require planet-v4, planet-v5, or planet-v6")
-        if planet_generator in ("planet-v4","planet-v5","planet-v6"):
+        if planet_generator in ("planet-v4","planet-v5","planet-v6","planet-v7"):
             ids={f"{campaign_id}-planet-{suffix}" for suffix in ("reach","ash","haven","veil")}
             resolve_planet_presets(seed, ids, "auto" if preset is None else preset, planet_presets)
+        if planet_generator!="planet-v7" and (planet_geologies is not None or geology!="none"):
+            raise ValueError("planet geology requires planet-v7")
         with self.connect() as c:
             c.execute("BEGIN")
             if c.execute("SELECT 1 FROM campaigns WHERE id=%s", (campaign_id,)).fetchone():
                 raise ValueError("campaign already exists")
-            state=build_universe(campaign_id,seed,planet_generator=planet_generator,preset=preset,planet_presets=planet_presets)
+            state=build_universe(campaign_id,seed,planet_generator=planet_generator,preset=preset,planet_presets=planet_presets,geology=geology,planet_geologies=planet_geologies)
             self.validate_state(V2_SCHEMA,V2_RULES,0,state)
             sid=str(uuid.uuid4()); h=self.snapshot_hash(campaign_id,0,state,V2_SCHEMA,V2_RULES)
             c.execute("INSERT INTO campaigns(id,kind) VALUES(%s,'demo')",(campaign_id,))

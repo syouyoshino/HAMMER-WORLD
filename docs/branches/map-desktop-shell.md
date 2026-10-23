@@ -159,3 +159,8 @@ The user authorized richer Orbital cartography and retained Light/Dark/System on
 The subsequent opt-in V6 periodic-longitude navigation review is recorded in
 [cylindrical charts](../reviews/planet-wrap.md). Navigation acceptance remains
 separate from unfinished planetary geology/art and production readiness.
+
+
+The separate [V7 cratered-world follow-up](../reviews/cratered-worlds.md) records
+saved opt-in geology and the latest terrain/chrome corrections. Its scoped
+review does not establish photographic accuracy or change existing campaigns.

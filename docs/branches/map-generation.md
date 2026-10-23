@@ -285,3 +285,64 @@ and seam-aware navigation**. This follow-up documentation commit records that
 reference. Backend hashes in the completed V6 stress report match delivery.
 Continue from this release without converting old maps; address geological
 families or immutable-geography persistence as separate reviewed work.
+
+
+## V7 cratered-world and presentation continuation
+
+User authorized implementation after the actual V6 captures showed weak barren/
+frozen identity, angular rivers/coasts, heavy grid labels and excess chrome.
+New opt-in `planet-v7` saves40–64 varied crater descriptors for explicit
+`cratered` geology on dry Arid/Barren/Frozen worlds; `none` remains the V7 default.
+Water/vegetation presets and per-planet geology choices are separate creation
+inputs. Wet+cratered is explicitly unsupported by the current depression-fill
+hydrology. Existing V1–V6 generation/private/public outputs match63 committed
+baseline pairs; old campaign geography/history is never regenerated or converted.
+
+The renderer reconstructs only saved subcell crater geometry, preserving canonical
+elevation samples and seams. Matching gradient stencils removed bowl crosshatching;
+soft normalized northwest lighting now makes concave depth clear. Ocean contours
+require recorded ocean drainage/non-null sea level, preserving waterless worlds.
+Muted tapered river strokes and sea-contour coast treatment improve readability;
+Terrain hides generic province grids/names below250% while holdings/selected names
+and the explicit Provinces overlay remain available. Desktop header spacing is
+more compact, the empty Forces mark is gone, and1024px captions/legend no longer
+overlap. Light/Dark/System, Apple functional accents, selection/camera/overlays,
+management context, authority and recorded numeric rules are preserved.
+
+The bounded Sol high review accepted corrected backend contract/privacy checks.
+Luna built the first candidate; localized Sol medium corrections closed strict
+validation/allowlist gaps and presentation artifacts. The same fresh independent
+Sol medium critic accepted the corrected idealized cratered rock/ice scope after
+anonymous matched full-frame comparison and bounded live navigation/inspection/
+Economy/map-level/style/resize checks. Its external usage-limit interruption was
+resolved by resuming that same critic; no approval-shopping substitute was used.
+
+111 Python tests and the canonical/seam/dry-renderer Node check pass. Final private
+V7 six-preset/both-style seam navigation, overlays, management return, real movement
+DRAFT/PREVIEW/commit and historical read-only return pass. Legacy V5 navigation,
+V3 cartography, broad strategic/auth/browser-zoom and protected movement regressions
+pass. No exercised page errors; canvas identity and map/window handlers remain
+stable. Browser evidence is Chromium154; WebKit binary absent/native Safari
+unverified. Desktop-only acceptance; older responsive tests are supplementary.
+
+Mixed V7 **10,000-turn gate passed in2465.58s**, retaining10,001 source snapshots
+and exact conservation/checkpoint/history/restore assertions. Largest state
+968,119 bytes; summed source JSON7,582,653,347 bytes (not physical disk use).
+Current read64.9ms;history50 read4095.5ms. Final backend hashes match the stress
+report and initial freeze. Rendering samples and exact critique/evidence are in
+[cratered-world review](../reviews/cratered-worlds.md).
+
+Remaining limits: idealized circular profiles and nested overlaps, coarse landform
+boundaries/axial four-neighbour rivers, full-snapshot history/storage cost, and no
+new NASA photo comparison (network policy excludes those hosts). Fractured ice,
+basalt composition/maria, volcanic resurfacing and gas atmospheres remain separate
+future families. No physical/scientific realism, commercial-game parity, original
+cloud recovery, character-relationships merge, schema/rule migration or deployment
+is claimed. This remains an interface release candidate. Delivery references are recorded below. Integrate recovered cartography through explicit versions
+and surveyed-only allowlists, not old-map conversion.
+
+
+V7 delivery rendering observations: shared Linux2 CPU quota, Chromium154,
+1440×1024 viewport and1536×960 rasters; cold direct draws143.6–472.2ms,
+ten-draw warm averages0.36–5.02ms, campaign-to-first-draw697.8–1243.7ms.
+Direct renderer samples exclude API/input/compositing; no production FPS claim.

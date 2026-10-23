@@ -6,9 +6,10 @@ The existing six terrain classes and rectangular provinces remain authoritative.
 """
 import hashlib
 import heapq
+import math
 
 VERSION = "planet-v2"
-SURFACE_VERSIONS = (VERSION, "planet-v3", "planet-v4", "planet-v5", "planet-v6")
+SURFACE_VERSIONS = (VERSION, "planet-v3", "planet-v4", "planet-v5", "planet-v6", "planet-v7")
 WIDTH, HEIGHT, SEA_LEVEL = 64, 40, 400
 V5_WIDTH, V5_HEIGHT = 128, 80
 V6_WIDTH, V6_HEIGHT = 128, 80
@@ -17,6 +18,100 @@ SURFACE_KEYS = {"version", "sea_level", *FIELDS, "rivers"}
 PRESETS = ("continental", "archipelago", "oceanic", "arid", "barren", "frozen")
 PLANET_CLASSES = {"continental":"terrestrial", "archipelago":"oceanic", "oceanic":"oceanic",
                   "arid":"arid", "barren":"barren", "frozen":"ice"}
+
+GEOLOGIES = ("none", "cratered")
+
+
+def crater_profile_q(distance_q, radius_q, depth, rim_height):
+    """Integer V7 crater relief, in elevation units, for 1/16-cell distances.
+
+    Radius is the rim crest. The bowl falls quadratically to zero at 3/4
+    radius, then the rim rises linearly to radius and falls to zero at 5/4.
+    Outside 5/4 radius the sample has no effect. Integer floor division
+    is used throughout, including at the antimeridian via caller distance.
+    """
+    if distance_q < 0 or radius_q <= 0:
+        raise ValueError("invalid crater profile distance")
+    scaled = distance_q * 4
+    limit = radius_q * 5
+    if scaled > limit:
+        return 0
+    if scaled <= radius_q * 3:
+        return -(depth * ((radius_q * 3) ** 2 - scaled * scaled) // ((radius_q * 3) ** 2))
+    if scaled <= radius_q * 4:
+        return rim_height * (scaled - radius_q * 3) // radius_q
+    return rim_height * (limit - scaled) // radius_q
+
+
+def _validate_craters(craters):
+    if not isinstance(craters, list) or len(craters) > 64:
+        raise ValueError("invalid planet crater descriptors")
+    ids = set()
+    for crater in craters:
+        if not isinstance(crater, dict) or set(crater) != {"id", "x_q", "y_q", "radius_q", "depth", "rim_height"}:
+            raise ValueError("invalid planet crater descriptor")
+        if not isinstance(crater["id"], str) or not crater["id"] or crater["id"] in ids:
+            raise ValueError("invalid planet crater identity")
+        ids.add(crater["id"])
+        for key, low, high in (("x_q",0,2047),("y_q",0,1279),("radius_q",24,160),
+                               ("depth",12,120),("rim_height",4,60)):
+            if type(crater[key]) is not int or not low <= crater[key] <= high:
+                raise ValueError("invalid planet crater dimensions")
+        support = (5 * crater["radius_q"] + 3) // 4
+        if crater["y_q"] < support or crater["y_q"] > 1279-support:
+            raise ValueError("planet crater support exceeds latitude bounds")
+
+
+def generate_planet_v7(namespace, seed, preset, geology="none"):
+    """Create V7 using V6 climate/hydrology unchanged plus saved crater relief."""
+    if geology not in GEOLOGIES:
+        raise ValueError("unsupported planet geology")
+    if geology == "cratered" and preset not in ("arid", "barren", "frozen"):
+        raise ValueError("cratered geology requires arid, barren, or frozen preset")
+    geo = generate_planet_v6(namespace, seed, preset)
+    surface = geo["surface"]
+    surface["version"] = "planet-v7"
+    surface["geology"] = geology
+    craters = []
+    if geology == "cratered":
+        # Each descriptor has an independent domain stream; changing one
+        # planet's geology cannot perturb any other planet's choices.
+        count = 40 + int.from_bytes(hashlib.sha256(f"{seed}:planet-v7:crater-count".encode()).digest()[:4], "big") % 25
+        for ordinal in range(count):
+            vals = [int.from_bytes(hashlib.sha256(f"{seed}:planet-v7:crater:{ordinal}:{field}".encode()).digest()[:4], "big")
+                    for field in ("x", "y", "radius", "depth", "rim")]
+            # Most impacts are small; a smaller medium band and occasional
+            # large basins overlap at their edges and break repeated scales.
+            band=vals[2]%100
+            radius=(24+vals[2]//100 % 49 if band<72 else
+                    73+vals[2]//100 % 48 if band<91 else
+                    121+vals[2]//100 % 40)
+            margin=(5*radius+3)//4
+            y_min,y_max=margin,1279-margin
+            craters.append({"id":f"{namespace}-crater-{ordinal+1:02d}","x_q":vals[0]%2048,"y_q":y_min+vals[1]%(y_max-y_min+1),
+                "radius_q":radius,"depth":12+vals[3]%109,"rim_height":4+vals[4]%53})
+    surface["craters"] = craters
+    if craters:
+        width, height = V6_WIDTH, V6_HEIGHT
+        for y in range(height):
+            for x in range(width):
+                relief = 0
+                sample_x, sample_y = x*16+8, y*16+8
+                for crater in craters:
+                    dx = abs(sample_x-crater["x_q"])
+                    dx = min(dx, width*16-dx)
+                    dy = abs(sample_y-crater["y_q"])
+                    d2 = dx*dx+dy*dy
+                    if d2*16 > (crater["radius_q"]*5)**2:
+                        continue
+                    # integer square root makes the same profile available to
+                    # future renderers without floating point discrepancies.
+                    d = math.isqrt(d2)
+                    relief += crater_profile_q(d, crater["radius_q"], crater["depth"], crater["rim_height"])
+                i=y*width+x
+                surface["elevation"][i]=max(401,min(1000,surface["elevation"][i]+relief))
+    validate_surface(geo)
+    return geo
 
 
 def _planet_v4_value(seed, domain, x=0, y=0):
@@ -513,9 +608,13 @@ def project_surface(geometry):
     projected={"version":surface["version"],"sea_level":surface["sea_level"],
                **{key:list(surface[key]) for key in FIELDS},
                "rivers":[{"id":r["id"],"points":[[p[0],p[1]] for p in r["points"]]} for r in surface["rivers"]]}
-    if surface["version"] in ("planet-v4","planet-v5","planet-v6"):
+    if surface["version"] in ("planet-v4","planet-v5","planet-v6","planet-v7"):
         projected.update({"preset":surface["preset"],"hydrology":surface["hydrology"]})
     if surface["version"]=="planet-v6": projected["topology"]="cylinder-x"
+    if surface["version"]=="planet-v7":
+        projected.update({"topology":"cylinder-x","geology":surface["geology"],
+            "craters":[{key:c[key] for key in ("id","x_q","y_q","radius_q","depth","rim_height")}
+                       for c in surface["craters"]]})
     return {"surface":projected}
 
 
@@ -527,9 +626,10 @@ def validate_surface(geometry):
     version = surface.get("version") if isinstance(surface,dict) else None
     expected_keys = SURFACE_KEYS | {"preset","hydrology"} if version in ("planet-v4","planet-v5") else SURFACE_KEYS
     if version=="planet-v6": expected_keys=SURFACE_KEYS|{"preset","hydrology","topology"}
+    if version=="planet-v7": expected_keys=SURFACE_KEYS|{"preset","hydrology","topology","geology","craters"}
     if not isinstance(surface, dict) or set(surface) != expected_keys or version not in SURFACE_VERSIONS:
         raise ValueError("unsupported planet surface contract")
-    if version in ("planet-v4","planet-v5","planet-v6"):
+    if version in ("planet-v4","planet-v5","planet-v6","planet-v7"):
         preset, hydrology = surface.get("preset"), surface.get("hydrology")
         if preset not in PRESETS or hydrology != ("none" if preset in ("arid","barren","frozen") else "ocean-draining"):
             raise ValueError("invalid planet preset surface contract")
@@ -542,11 +642,17 @@ def validate_surface(geometry):
     if not isinstance(planet,dict):
         raise ValueError("invalid planet surface dimensions")
     width, height = planet.get("width"), planet.get("height")
-    expected_dimensions = (V5_WIDTH,V5_HEIGHT) if version in ("planet-v5","planet-v6") else (WIDTH,HEIGHT)
+    expected_dimensions = (V5_WIDTH,V5_HEIGHT) if version in ("planet-v5","planet-v6","planet-v7") else (WIDTH,HEIGHT)
     if type(width) is not int or type(height) is not int or (width,height) != expected_dimensions:
         raise ValueError("versioned planet surface has unsupported dimensions")
-    if version=="planet-v6" and surface.get("topology")!="cylinder-x":
+    if version in ("planet-v6","planet-v7") and surface.get("topology")!="cylinder-x":
         raise ValueError("invalid cylindrical planet topology")
+    if version=="planet-v7":
+        if surface.get("geology") not in GEOLOGIES or (surface["geology"]=="cratered" and surface["preset"] not in ("arid","barren","frozen")):
+            raise ValueError("invalid planet geology contract")
+        _validate_craters(surface.get("craters"))
+        if (surface["geology"]=="none") != (surface["craters"]==[]):
+            raise ValueError("planet geology and crater descriptors differ")
     size = width*height
     for key in FIELDS:
         low, high = (-1,size-1) if key == "drainage" else (1,size) if key == "accumulation" else (0,1000)
@@ -556,7 +662,7 @@ def validate_surface(geometry):
     codes, elevation, drainage = geometry["terrain_grid"], surface["elevation"], surface["drainage"]
     if not isinstance(codes,str) or len(codes) != size or any(c not in "ocprfm" for c in codes):
         raise ValueError("invalid planet surface terrain")
-    if version in ("planet-v5","planet-v6"):
+    if version in ("planet-v5","planet-v6","planet-v7"):
         provinces=geometry.get("provinces")
         cell=16
         if not isinstance(provinces,list) or len(provinces)!=40:
@@ -571,7 +677,7 @@ def validate_surface(geometry):
             for row in range(y,y+h):
                 for column in range(x,x+w): coverage[row*width+column]+=1
         if any(value!=1 for value in coverage): raise ValueError("invalid planet province coverage")
-    if version in ("planet-v4","planet-v5","planet-v6") and surface["hydrology"] == "none":
+    if version in ("planet-v4","planet-v5","planet-v6","planet-v7") and surface["hydrology"] == "none":
         preset = surface["preset"]
         allowed = {"arid":"pr", "barren":"r", "frozen":"pr"}[preset]
         if (any(c not in allowed for c in codes) or any(v <= SEA_LEVEL for v in elevation) or
@@ -581,7 +687,7 @@ def validate_surface(geometry):
                 not isinstance(surface["rivers"],list) or surface["rivers"] != []):
             raise ValueError("invalid dry planet preset fields")
         return
-    wrap_x=version=="planet-v6"
+    wrap_x=version in ("planet-v6","planet-v7")
     for i, j in enumerate(drainage):
         ocean = codes[i] == "o"
         if ocean != (elevation[i] <= SEA_LEVEL) or (ocean and j != -1) or (not ocean and (j not in _neighbors(i,width,height,wrap_x) or elevation[j] > elevation[i])):

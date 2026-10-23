@@ -52,12 +52,74 @@
   }
   function surfaceFor(geometry) {
     const s = geometry?.surface;
-    if (!s || !["planet-v2", "planet-v3", "planet-v4", "planet-v5", "planet-v6"].includes(s.version) || !Array.isArray(s.elevation))
+    if (!s || !["planet-v2", "planet-v3", "planet-v4", "planet-v5", "planet-v6", "planet-v7"].includes(s.version) || !Array.isArray(s.elevation))
       return null;
     return s;
   }
-  const wrapsX = geometry => geometry?.surface?.version === "planet-v6" && geometry.surface.topology === "cylinder-x";
+  const wrapsX = geometry => ["planet-v6", "planet-v7"].includes(geometry?.surface?.version) && geometry.surface.topology === "cylinder-x";
   const nearestX = (x, reference, width) => x + Math.round((reference-x)/width)*width;
+  function craterProfile(distanceQ, radiusQ, depth, rimHeight) {
+    const scaled = distanceQ * 4;
+    if (scaled > radiusQ * 5) return 0;
+    if (scaled <= radiusQ * 3) {
+      const t = scaled / (radiusQ * 3);
+      return -depth * (1 - t * t);
+    }
+    if (scaled <= radiusQ * 4) return rimHeight * (scaled - radiusQ * 3) / radiusQ;
+    return rimHeight * (radiusQ * 5 - scaled) / radiusQ;
+  }
+  function craterResidualRaster(surface, cols, rows, w, h, scale, interpolateRows, vertical, cylinder) {
+    const samples = new Float64Array(cols * rows), continuous = new Float32Array(w * h);
+    const addAt = (target, x, y, xq, yq, crater) => {
+      const dx = xq - crater.x_q, dy = yq - crater.y_q,
+        radius = crater.radius_q, support = radius * 1.25;
+      if (Math.abs(dx) > support || Math.abs(dy) > support) return;
+      const distance = Math.hypot(dx, dy);
+      if (distance > support) return;
+      target[y * (target === samples ? cols : w) + x] += craterProfile(distance, radius, crater.depth, crater.rim_height);
+    };
+    for (const crater of surface.craters) {
+      const support = crater.radius_q * 1.25,
+        firstY = Math.max(0, Math.floor((crater.y_q - support - 8) / 16)),
+        lastY = Math.min(rows - 1, Math.ceil((crater.y_q + support - 8) / 16));
+      for (let y = firstY; y <= lastY; y++) {
+        const yq = y * 16 + 8;
+        const firstX = Math.floor((crater.x_q - support - 8) / 16),
+          lastX = Math.ceil((crater.x_q + support - 8) / 16);
+        for (let rawX = firstX; rawX <= lastX; rawX++) {
+          const x = cylinder ? ((rawX % cols) + cols) % cols : clamp(rawX, 0, cols - 1);
+          if (!cylinder && (rawX < 0 || rawX >= cols)) continue;
+          // Keep the unwrapped sample coordinate near the crater centre while
+          // writing to its canonical wrapped column.
+          addAt(samples, x, y, rawX * 16 + 8, yq, crater);
+        }
+      }
+      const cx = crater.x_q / 16 * scale - .5, cy = crater.y_q / 16 * scale - .5,
+        radiusPx = support / 16 * scale,
+        firstPy = Math.max(0, Math.floor(cy - radiusPx - 1)), lastPy = Math.min(h - 1, Math.ceil(cy + radiusPx + 1)),
+        firstPx = Math.floor(cx - radiusPx - 1), lastPx = Math.ceil(cx + radiusPx + 1);
+      for (let py = firstPy; py <= lastPy; py++) {
+        const yq = (py + .5) / scale * 16, dy = yq - crater.y_q;
+        if (Math.abs(dy) > support) continue;
+        for (let rawPx = firstPx; rawPx <= lastPx; rawPx++) {
+          const xq = (rawPx + .5) / scale * 16, dx = xq - crater.x_q;
+          if (dx * dx + dy * dy > support * support) continue;
+          const targetX = cylinder ? ((rawPx % w) + w) % w : rawPx;
+          if (targetX < 0 || targetX >= w) continue;
+          addAt(continuous, targetX, py, xq, yq, crater);
+        }
+      }
+    }
+    const interpolated = interpolateRows(samples);
+    for (let py = 0; py < h; py++) {
+      const y = (py + .5) / scale, [row0, row1, ty] = vertical(y);
+      for (let px = 0; px < w; px++) {
+        const index = py * w + px;
+        continuous[index] -= interpolated[row0 + px] * (1 - ty) + interpolated[row1 + px] * ty;
+      }
+    }
+    return continuous;
+  }
   function baseRaster(geometry, style) {
     let map = cache.get(geometry);
     if (!map) { map = new Map(); cache.set(geometry, map); }
@@ -92,11 +154,13 @@
       }
       return result;
     };
+    const cratered = surface?.version === "planet-v7" && surface.geology === "cratered" && surface.craters?.length,
+      gradientStep = cratered ? 1 / scale : .35;
     const land = interpolateRows(tiles.map(t => t.terrain === "ocean" ? 0 : 1)),
       channels = [0,1,2].map(c => interpolateRows(tiles.map(t => (colors[t.terrain] || colors.plains)[c]))),
       elevation = heights ? interpolateRows(heights) : null,
-      heightLeft = heights ? interpolateRows(heights,-.35) : null,
-      heightRight = heights ? interpolateRows(heights,.35) : null,
+      heightLeft = heights ? interpolateRows(heights,-gradientStep) : null,
+      heightRight = heights ? interpolateRows(heights,gradientStep) : null,
       moisture = surface?.moisture ? interpolateRows(surface.moisture) : null,
       temperature = surface?.temperature ? interpolateRows(surface.temperature) : null,
       shoreColor = survey ? [183,204,197] : [60,102,111],
@@ -107,22 +171,44 @@
       const fy=clamp(y-.5,0,rows-1),iy=Math.floor(fy);
       return [iy*w,Math.min(rows-1,iy+1)*w,fy-iy];
     };
+    const craterResidual = cratered
+      ? craterResidualRaster(surface, cols, rows, w, h, scale, interpolateRows, vertical, cylinder)
+      : null;
     for (let py = 0; py < h; py++) {
       const y=(py+.5)/scale,[row0,row1,ty]=vertical(y),
-        [up0,up1,upT]=vertical(y-.35),[down0,down1,downT]=vertical(y+.35), inv=1-ty;
+        [up0,up1,upT]=vertical(y-gradientStep),[down0,down1,downT]=vertical(y+gradientStep), inv=1-ty;
       for (let px = 0; px < w; px++) {
-        const i=row0+px,j=row1+px,cover=land[i]*inv+land[j]*ty,onLand=cover>=.5,
-          elev=elevation?elevation[i]*inv+elevation[j]*ty:sea,
+        const i=row0+px,j=row1+px,
+          sampledElevation=elevation?elevation[i]*inv+elevation[j]*ty:sea,
+          correction=craterResidual?.[py*w+px]||0,
+          elev=sampledElevation+correction,
+          heightContour=surface?.version==="planet-v7"&&surface.hydrology==="ocean-draining"&&surface.sea_level!==null&&heights,
+          cover=heightContour?clamp((elev-sea+18)/36,0,1):land[i]*inv+land[j]*ty,
+          onLand=heightContour?elev>=sea:cover>=.5,
           wet=moisture?moisture[i]*inv+moisture[j]*ty:500,
           temp=temperature?temperature[i]*inv+temperature[j]*ty:500;
         let shade=1,high=0,wetMix=0,coldMix=0,depth=0,shore=0;
         if(!onLand) {
           depth=(heights?clamp((sea-elev)/250,0,1):.45)*.35;
-          shore=clamp(cover*1.6,0,.65);
+          shore=heightContour?clamp((elev-(sea-14))/14,0,1)*.28:clamp(cover*1.6,0,.65);
         } else if(heights) {
-          const dx=(heightRight[i]*inv+heightRight[j]*ty)-(heightLeft[i]*inv+heightLeft[j]*ty),
+          let dx=(heightRight[i]*inv+heightRight[j]*ty)-(heightLeft[i]*inv+heightLeft[j]*ty),
             dy=(elevation[down0+px]*(1-downT)+elevation[down1+px]*downT)-(elevation[up0+px]*(1-upT)+elevation[up1+px]*upT);
-          shade=1+clamp((-dx*.65-dy*.75)/110,-.32,.3)*(survey?.6:1);
+          if(craterResidual){
+            const left=craterResidual[py*w+(cylinder?(px+w-1)%w:Math.max(0,px-1))],
+              right=craterResidual[py*w+(cylinder?(px+1)%w:Math.min(w-1,px+1))],
+              up=craterResidual[Math.max(0,py-1)*w+px],down=craterResidual[Math.min(h-1,py+1)*w+px];
+            // Differentiate the complete corrected height with one matching
+            // stencil, so the subtracted bilinear crater field cancels.
+            dx+=right-left;dy+=down-up;
+          }
+          if(craterResidual){
+            const nx=dx/(2*gradientStep*65),ny=dy/(2*gradientStep*65),
+              // Normal (-gx,-gy,1) under northwest light (-.5,-.6,.75).
+              illumination=(nx*.5+ny*.6+.75)/Math.sqrt(1+nx*nx+ny*ny);
+            shade=.78+.32*illumination;
+            if(survey)shade=1+(shade-1)*.6;
+          }else shade=1+clamp((-dx*.65-dy*.75)/110,-.32,.3)*(survey?.6:1);
           high=clamp((elev-620)/350,0,1)*.44;
           wetMix=surface?.hydrology==="none"?0:clamp((wet-450)/700,0,.24);
           coldMix=clamp((320-temp)/600,0,.3);
@@ -140,6 +226,7 @@
               color=Math.round(color*(1-wetMix)+wetColor[c]*wetMix);
               color=Math.round(color*(1-coldMix)+coldColor[c]*coldMix)*shade;
             }
+            if(heightContour){const landColor=color,coastal=clamp((14-(elev-sea))/14,0,1)*.18;color=shoreColor[c]*coastal+landColor*(1-coastal);}
           }
           img.data[off+c]=clamp(color+grain,0,255);
         }
@@ -168,23 +255,35 @@
             }
           }
       }
-      ctx.strokeStyle=survey?"rgba(52,114,140,.9)":"rgba(94,155,173,.9)";
+      ctx.strokeStyle=survey?"rgba(52,105,123,.82)":"rgba(67,118,131,.86)";
       ctx.lineWidth=survey?1.3:1.65;ctx.lineCap="round";ctx.lineJoin="round";
       for(const river of surface.rivers || []) {
         const points=river.points;
         if(!Array.isArray(points)||points.length<2)continue;
         const xy=[];
         for(const [x,y] of points){const px=xy.length&&cylinder?nearestX(x,xy[xy.length-1][0]/scale-.5,cols):x;xy.push([(px+.5)*scale,(y+.5)*scale]);}
-        const trace=()=>{ctx.beginPath();ctx.moveTo(...xy[0]);
-        // Quadratics stay inside the convex corridor of consecutive recorded
-        // segments. Endpoints and confluences remain the persisted points.
-        for(let i=1;i<xy.length-1;i++) {
-          const before=xy[i-1],at=xy[i],after=xy[i+1],t=.19,
-            enter=[at[0]+(before[0]-at[0])*t,at[1]+(before[1]-at[1])*t],
-            leave=[at[0]+(after[0]-at[0])*t,at[1]+(after[1]-at[1])*t];
-          ctx.lineTo(...enter);ctx.quadraticCurveTo(...at,...leave);
-        }
-        ctx.lineTo(...xy[xy.length-1]);ctx.stroke();};
+        const trace=()=>{
+          const flowAt=index=>{
+            const x=((Math.round(xy[index][0]/scale-.5)%cols)+cols)%cols,
+              y=clamp(Math.round(xy[index][1]/scale-.5),0,rows-1);
+            return surface.accumulation?.[y*cols+x]||1;
+          },
+          widthAt=index=>surface.accumulation?.length
+            ?clamp(.22+Math.sqrt(flowAt(index))*.052,survey?.4:.45,survey?1.1:1.25)
+            :survey?1.3:1.65;
+          // Midpoint quadratics stay inside recorded segments; rounded ends
+          // keep the width change continuous at tributaries and outlets.
+          if(xy.length===2){ctx.beginPath();ctx.moveTo(...xy[0]);ctx.lineTo(...xy[1]);ctx.lineWidth=(widthAt(0)+widthAt(1))/2;ctx.stroke();return;}
+          const midpoint=(a,b)=>[(a[0]+b[0])/2,(a[1]+b[1])/2];
+          ctx.beginPath();ctx.moveTo(...xy[0]);ctx.lineTo(...midpoint(xy[0],xy[1]));ctx.lineWidth=widthAt(0);ctx.stroke();
+          for(let i=1;i<xy.length-1;i++){
+            ctx.beginPath();ctx.moveTo(...midpoint(xy[i-1],xy[i]));
+            ctx.quadraticCurveTo(...xy[i],...midpoint(xy[i],xy[i+1]));
+            ctx.lineWidth=widthAt(i);ctx.stroke();
+          }
+          ctx.beginPath();ctx.moveTo(...midpoint(xy[xy.length-2],xy[xy.length-1]));ctx.lineTo(...xy[xy.length-1]);
+          ctx.lineWidth=widthAt(xy.length-1);ctx.stroke();
+        };
         if(cylinder){trace();ctx.save();ctx.translate(-w,0);trace();ctx.restore();ctx.save();ctx.translate(w,0);trace();ctx.restore();}else trace();
       }
     }
@@ -222,7 +321,8 @@
       ox = (bounds.left + bounds.right - gridW) / 2 + panX + copyIndex*gridW,
       oy = (bounds.top + bounds.bottom - gridH) / 2 + panY;
     const surface=surfaceFor(geometry), preset=surface?.hydrology==="none"?surface.preset:null,
-      cylinder=wrapsX(geometry);
+      cylinder=wrapsX(geometry),v7=surface?.version==="planet-v7",
+      labelZoom=v7?tile/Math.max(w/cols,h/rows):zoom;
     const tiles = geometry.tiles, provinces = geometry.provinces;
     if (renderPhase !== "labels") {
     if(clearCanvas){ctx.fillStyle = preset?terrainPalette(style,preset).ocean:style === "survey" ? "#a6bfc1" : "#142f40";ctx.fillRect(0, 0, w, h);}
@@ -257,13 +357,16 @@
         );
       }
     }
-    ctx.lineWidth = Math.max(0.8, Math.min(1.15, tile * 0.065));
+    ctx.lineWidth = overlay==="provinces"?Math.max(1,Math.min(1.45,tile*.08)):
+      v7?Math.max(.4,Math.min(.65,tile*.035)):Math.max(0.8,Math.min(1.15,tile*0.065));
     ctx.strokeStyle =
       overlay === "provinces"
         ? theme === "dark"
           ? "rgba(226,232,216,.72)"
           : "rgba(48,54,48,.66)"
-        : theme === "dark"
+        : v7
+          ? theme==="dark"?"rgba(224,229,215,.08)":"rgba(48,54,48,.075)"
+          : theme === "dark"
           ? "rgba(224,229,215,.28)"
           : "rgba(232,229,195,.16)";
     ctx.beginPath();
@@ -300,7 +403,7 @@
         }
       }
     }
-    ctx.stroke();
+    if (!(v7 && overlay === "terrain")) ctx.stroke();
     if (selectedProvince) {
       ctx.strokeStyle = "#90c9ef";
       ctx.lineWidth = Math.max(2.2, Math.min(3.2, tile * 0.15));
@@ -348,7 +451,7 @@
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     const safeLeft=safe?.left??0,safeRight=safe?.right??w,
-      safeTop = Math.max(compact ? 202 : 190, (safe?.top ?? 0) + 8),
+      safeTop = (safe?.top ?? 0) + 8,
       safeBottom = Math.min(h - 92, (safe?.bottom ?? h) - 8),
       placed = labelObstacles.map(rect=>({...rect})), provinceTargets = [];
     const annotations = provinces
@@ -362,7 +465,7 @@
             (site) =>
               site.planet_id === planetId && site.province_id === province.id,
           );
-        if ((compact || zoom < 1.65 && overlay !== "provinces") && !holdings.length && province.id !== selectedProvince)
+        if (overlay !== "provinces" && (compact || labelZoom < (v7?2.5:1.65)) && !holdings.length && province.id !== selectedProvince)
           return null;
         const names = holdings.map((site) => site.name || "Settlement"),
           label = names.length
@@ -459,7 +562,7 @@
         if(cylinder)ctx.restore();
       }
       ctx.fillStyle =
-        item.holdings.length ? "rgba(16,31,34,.94)" : "rgba(24,40,39,.76)";
+        item.holdings.length ? "rgba(16,31,34,.94)" : "rgba(24,40,39,.48)";
       ctx.fillRect(chosen.x - bw / 2, chosen.y - bh / 2, bw, bh);
       ctx.strokeStyle =
         item.holdings.length ? "rgba(204,221,198,.58)" : "rgba(231,229,209,.18)";

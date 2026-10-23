@@ -3,8 +3,8 @@ import hashlib
 import random
 
 from .engine import generate_planet
-from .planet_generation import (PRESETS, PLANET_CLASSES, generate_planet_v2, generate_planet_v3,
-                                generate_planet_v4, generate_planet_v5, generate_planet_v6, project_surface, resolve_planet_presets)
+from .planet_generation import (PRESETS, GEOLOGIES, PLANET_CLASSES, generate_planet_v2, generate_planet_v3,
+                                generate_planet_v4, generate_planet_v5, generate_planet_v6, generate_planet_v7, project_surface, resolve_planet_presets)
 
 V2_SCHEMA = "world-v2"
 V2_RULES = "demo-v2"
@@ -16,13 +16,15 @@ def _seed(seed, parent, domain, ordinal=0):
     return int.from_bytes(hashlib.sha256(raw).digest()[:8], "big")
 
 
-def build_universe(campaign_id, seed, *, planet_generator="planet-v1", preset=None, planet_presets=None):
+def build_universe(campaign_id, seed, *, planet_generator="planet-v1", preset=None, planet_presets=None, geology="none", planet_geologies=None):
     """Build the approved compact node hierarchy, settlements and fixture accounts."""
-    if planet_generator not in ("planet-v1", "planet-v2", "planet-v3", "planet-v4", "planet-v5", "planet-v6"):
+    if planet_generator not in ("planet-v1", "planet-v2", "planet-v3", "planet-v4", "planet-v5", "planet-v6", "planet-v7"):
         raise ValueError("unsupported planet generator")
-    if planet_generator not in ("planet-v4","planet-v5","planet-v6") and (preset is not None or planet_presets is not None):
+    if planet_generator != "planet-v7" and (geology != "none" or planet_geologies is not None):
+        raise ValueError("planet geology requires planet-v7")
+    if planet_generator not in ("planet-v4","planet-v5","planet-v6","planet-v7") and (preset is not None or planet_presets is not None or geology!="none" or planet_geologies is not None):
         raise ValueError("planet presets require planet-v4, planet-v5, or planet-v6")
-    if planet_generator in ("planet-v4","planet-v5","planet-v6") and preset is None:
+    if planet_generator in ("planet-v4","planet-v5","planet-v6","planet-v7") and preset is None:
         preset = "auto"
     rng = random.Random(_seed(seed, campaign_id, "universe"))
     root = f"{campaign_id}-galaxy"
@@ -66,14 +68,27 @@ def build_universe(campaign_id, seed, *, planet_generator="planet-v1", preset=No
             moon_rng.uniform(.3,.7),moon_rng.uniform(.3,.7))
         nodes[-1].update({"class":moon_rng.choice(("rocky","icy")),"radius":round(moon_rng.uniform(.12,.48),3)})
     planet_ids=[n["id"] for n in nodes if n["kind"]=="planet"]
-    resolved_presets = resolve_planet_presets(seed, planet_ids, preset, planet_presets) if planet_generator in ("planet-v4","planet-v5","planet-v6") else {}
-    if planet_generator in ("planet-v4","planet-v5","planet-v6"):
+    resolved_presets = resolve_planet_presets(seed, planet_ids, preset, planet_presets) if planet_generator in ("planet-v4","planet-v5","planet-v6","planet-v7") else {}
+    if planet_generator == "planet-v7":
+        if geology not in GEOLOGIES: raise ValueError("unsupported planet geology")
+        if planet_geologies is None: planet_geologies = {}
+        if not isinstance(planet_geologies,dict) or any(not isinstance(k,str) or k not in planet_ids for k in planet_geologies) or any(v not in GEOLOGIES for v in planet_geologies.values()):
+            raise ValueError("invalid planet geology overrides")
+        resolved_geologies={pid:planet_geologies.get(pid,geology) for pid in planet_ids}
+        if any(g=="cratered" and resolved_presets[pid] not in ("arid","barren","frozen") for pid,g in resolved_geologies.items()):
+            raise ValueError("cratered geology requires an arid, barren, or frozen preset")
+    else:
+        resolved_geologies={}
+    if planet_generator in ("planet-v4","planet-v5","planet-v6","planet-v7"):
         for node in nodes:
             if node["id"] in resolved_presets:
                 node["class"] = PLANET_CLASSES[resolved_presets[node["id"]]]
-        generator={"planet-v4":generate_planet_v4,"planet-v5":generate_planet_v5,"planet-v6":generate_planet_v6}[planet_generator]
-        geography={pid:generator(f"{campaign_id}-{pid.rsplit('-',1)[-1]}",
-                    _seed(seed,pid,"geography"),resolved_presets[pid]) for pid in planet_ids}
+        if planet_generator == "planet-v7":
+            geography={pid:generate_planet_v7(f"{campaign_id}-{pid.rsplit('-',1)[-1]}",_seed(seed,pid,"geography"),resolved_presets[pid],resolved_geologies[pid]) for pid in planet_ids}
+        else:
+            generator={"planet-v4":generate_planet_v4,"planet-v5":generate_planet_v5,"planet-v6":generate_planet_v6}[planet_generator]
+            geography={pid:generator(f"{campaign_id}-{pid.rsplit('-',1)[-1]}",
+                        _seed(seed,pid,"geography"),resolved_presets[pid]) for pid in planet_ids}
     elif planet_generator in ("planet-v2", "planet-v3"):
         generator = generate_planet_v3 if planet_generator == "planet-v3" else generate_planet_v2
         geography={pid:generator(f"{campaign_id}-{pid.rsplit('-',1)[-1]}",_seed(seed,pid,"geography"),
@@ -132,9 +147,10 @@ def build_universe(campaign_id, seed, *, planet_generator="planet-v1", preset=No
                   for role in ("engineer","steward","general","scout")]
     private = {"seed": seed, "campaign_id": campaign_id, "seeded_marker": f"secret:{seed}", "enemy_population":20,
                "generator_version":"hierarchical-v1",
-               "generator_config":{"hierarchy":"hierarchical-v1","planet":planet_generator,"grid":"grid128x80" if planet_generator in ("planet-v5","planet-v6") else "grid64x40",
+               "generator_config":{"hierarchy":"hierarchical-v1","planet":planet_generator,"grid":"grid128x80" if planet_generator in ("planet-v5","planet-v6","planet-v7") else "grid64x40",
                                    "domain_seed_derivation":"sha256-parent-domain-v1",
-                                   **({"planet_presets":dict(resolved_presets)} if planet_generator in ("planet-v4","planet-v5","planet-v6") else {})},
+                                   **({"planet_presets":dict(resolved_presets)} if planet_generator in ("planet-v4","planet-v5","planet-v6","planet-v7") else {}),
+                                   **({"planet_geologies":dict(resolved_geologies)} if planet_generator=="planet-v7" else {})},
                "enemy_allocations":{"farmers":14,"technicians":2}, "adjacency":[[hsys,gsys],[gsys,dsys]],
                "generation_nonce":rng.randrange(1, 2**31)}
     return {"turn":0,"nodes":nodes,"links":[{"a":hsys,"b":gsys},{"a":gsys,"b":dsys}],

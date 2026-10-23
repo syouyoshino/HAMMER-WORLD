@@ -61,5 +61,35 @@ class PlanetPresetCommandTests(PostgresTestCase, unittest.TestCase):
         self.assertNotIn('bad-cli-preset', [item['id'] for item in self.db.campaigns()])
         self.assertEqual(self.db.current('cli-presets')['snapshot']['state_hash'], initial['state_hash'])
 
+    def test_v7_cli_persists_per_planet_geology_and_rejects_bad_overrides(self):
+        command = [sys.executable, '-m', 'app.cli', 'init-v2', '--campaign-id', 'cli-v7',
+                   '--planet-generator', 'planet-v7', '--preset', 'barren',
+                   '--planet-geology', 'cli-v7-planet-reach=cratered']
+        result = subprocess.run(command, env=dict(os.environ), capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        state = self.db.current('cli-v7')['snapshot']['state']
+        config = state['_private']['generator_config']
+        self.assertEqual(config['planet'], 'planet-v7')
+        self.assertEqual(config['planet_geologies']['cli-v7-planet-reach'], 'cratered')
+        self.assertEqual(config['planet_geologies']['cli-v7-planet-ash'], 'none')
+        self.assertEqual(state['geography']['cli-v7-planet-ash']['surface']['craters'], [])
+        for args in (
+            ['--planet-geology', 'cli-v7-planet-reach=none', '--planet-geology', 'cli-v7-planet-reach=cratered'],
+            ['--planet-geology', 'unknown-planet=cratered'],
+            ['--planet-geology', 'bad-v7-planet-reach=cratered', '--preset', 'continental'],
+        ):
+            rejected = subprocess.run([sys.executable, '-m', 'app.cli', 'init-v2', '--campaign-id', 'bad-v7',
+                                       '--planet-generator', 'planet-v7', '--preset', 'barren', *args],
+                                      env=dict(os.environ), capture_output=True, text=True)
+            self.assertNotEqual(rejected.returncode, 0)
+            if '--preset' in args:
+                self.assertIn('cratered geology requires an arid, barren, or frozen preset', rejected.stderr)
+            self.assertNotIn('bad-v7', [item['id'] for item in self.db.campaigns()])
+        legacy_geology = subprocess.run([sys.executable, '-m', 'app.cli', 'init-v2', '--campaign-id',
+                                        'bad-legacy-geology', '--geology', 'none'],
+                                       env=dict(os.environ), capture_output=True, text=True)
+        self.assertNotEqual(legacy_geology.returncode, 0)
+        self.assertNotIn('bad-legacy-geology', [item['id'] for item in self.db.campaigns()])
+
 
 if __name__ == '__main__': unittest.main()

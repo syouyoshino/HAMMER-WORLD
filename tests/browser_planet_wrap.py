@@ -73,6 +73,8 @@ def command(page, view):
 
 def force_controls_clear(page, has_route=False):
     toggle = page.get_by_role('button', name='Forces', exact=True)
+    if not page.locator('.force-map-hint').inner_text():
+        assert not page.locator('.force-map-hint').is_visible(), 'Empty Forces status creates an unexplained mark'
     toggle.hover()
     ratio = toggle.evaluate(r'''button=>{
         const style=getComputedStyle(button), luminance=color=>{
@@ -94,6 +96,8 @@ def force_controls_clear(page, has_route=False):
 
 def main():
     dsn = os.environ['WOLD_TEST_DATABASE_URL']
+    version = os.environ.get('WOLD_TEST_PLANET_GENERATOR', 'planet-v6')
+    assert version in ('planet-v6', 'planet-v7')
     schema = 'browser_wrap_' + uuid.uuid4().hex
     out = Path(os.environ.get('WOLD_BROWSER_ARTIFACT_DIR', 'data/planet-wrap'))
     out.mkdir(parents=True, exist_ok=True)
@@ -102,10 +106,13 @@ def main():
         c.execute(sql.SQL('CREATE SCHEMA {}').format(sql.Identifier(schema)))
     try:
         db = Store(dsn, schema=schema)
+        def create(cid, preset):
+            geology = {'geology':'cratered' if preset in ('arid','barren','frozen') else 'none'} if version=='planet-v7' else {}
+            db.create_demo_v2(cid, seed=741903, planet_generator=version, preset=preset, **geology)
         for name in PRESETS:
-            db.create_demo_v2('wrap-'+name, seed=741903, planet_generator='planet-v6', preset=name)
+            create('wrap-'+name, name)
         db.create_demo_v2('wrap-old', seed=741903, planet_generator='planet-v5', preset='arid')
-        db.create_demo_v2('wrap-military', seed=741903, planet_generator='planet-v6', preset='barren')
+        create('wrap-military', 'barren')
         # Real supported recruitment produces two owned forces before the UI
         # drafts/previews/commits one seam deployment. No state rows are patched.
         proposal = db.packet('wrap-military')['example']
@@ -173,8 +180,8 @@ def main():
                 timings={}
                 for name in PRESETS:
                     started=time.monotonic();page.select_option('#campaign-select','wrap-'+name)
-                    page.wait_for_function('''name=>window.__wrapTest?.options.geometry.surface.version==='planet-v6'
-                        &&window.__wrapTest.options.geometry.surface.preset===name''',arg=name)
+                    page.wait_for_function('''({name,version})=>window.__wrapTest?.options.geometry.surface.version===version
+                        &&window.__wrapTest.options.geometry.surface.preset===name''',arg={'name':name,'version':version})
                     timings[name]=round((time.monotonic()-started)*1000,1)
                     covered(page)
                     page.screenshot(path=str(out/f'{name}-regional.png'))
@@ -276,9 +283,9 @@ def main():
                 command(page,'history')
                 page.get_by_role('button',name='Inspect turn 0',exact=True).click()
                 page.wait_for_function("!document.querySelector('#historical-badge').hidden")
-                page.wait_for_function("window.__wrapTest.options.geometry.surface.version==='planet-v6'")
+                page.wait_for_function("version=>window.__wrapTest.options.geometry.surface.version===version",arg=version)
                 page.wait_for_selector('#map-overview')
-                page.wait_for_function("window.__wrapTest.options.geometry.surface.version==='planet-v6'")
+                page.wait_for_function("version=>window.__wrapTest.options.geometry.surface.version===version",arg=version)
                 overview_at(page,.5,40);covered(page)
                 page.screenshot(path=str(out/'seam-historical.png'))
                 command(page,'orders')
@@ -293,14 +300,14 @@ def main():
                     if cid!='wrap-military':assert db.current(cid)['snapshot']['state_hash']==expected
                 assert page.evaluate('window.__mapInputHandlers')==handlers
                 assert not errors,errors
-                result={'result':'PASS','browser':browser.version,'viewport':'desktop only',
+                result={'result':'PASS','generator':version,'browser':browser.version,'viewport':'desktop only',
                     'campaign_to_first_draw_ms':timings,'page_errors':errors,'checks':[
                         'six periodic presets/both styles across repeated east/west crossings',
                         'saved raster covers viewport through seam', 'pointer zoom modulo canonical longitude',
                         'canonical seam-cell and holding selection on every overlay',
                         'management camera/selection return; theme pixels; desktop resize',
                         'real DRAFT/PREVIEW/commit short seam connectors with canonical orders',
-                        'V6 historical wrapped map remains read only and returns to live',
+                        'historical wrapped map remains read only and returns to live',
                         'immutable source fixtures; stable canvas/window handlers']}
                 (out/'wrap-metrics.json').write_text(json.dumps(result,indent=2)+'\n')
                 print(json.dumps(result,indent=2));browser.close()
