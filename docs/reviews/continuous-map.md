@@ -167,5 +167,6 @@ and full-snapshot history cost. Wrapping, spherical coverage, waves, partial
 reconnaissance, canonical data recovery and production persistence redesign
 remain separate work. No merge, deployment or recovered-cloud-data claim.
 
-This is an **interface release candidate**. Delivery commit references are
-recorded in `docs/branches/map-generation.md`.
+This is an **interface release candidate**. Implementation: `c488e3f`.
+Delivery and continuation references are recorded in
+`docs/branches/map-generation.md`.

@@ -214,4 +214,9 @@ are separate future work. Do not regenerate old maps to integrate unrecovered
 cartography. The character-relationships branch remains untouched.
 
 Delivery is an **interface release candidate**, with no merge or deployment.
-Implementation and evidence commit references follow the verified push.
+Implementation: **`c488e3f` — Add larger saved planetary charts and continuous
+map navigation**. The following documentation commit records this reference;
+backend hashes in the completed stress report match the implementation. The
+next substantive work is separately versioned seam-aware generation or a
+reviewed immutable-geography persistence design, rather than converting old
+campaigns or adding decorative terrain outside saved geography.

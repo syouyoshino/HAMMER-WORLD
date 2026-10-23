@@ -4,7 +4,7 @@ Read `AGENTS.md`, `plan.md` and `docs/decisions.md`, then inspect actual source/
 
 ## Current continuous-map continuation
 
-On `map-generation`, opt-in V5 adds128×80 saved planetary charts, preserving
+On `map-generation`, implementation `c488e3f` adds opt-in V5 128×80 saved planetary charts, preserving
 existing V1–V4 output and records. Full-canvas cover/clamped panning, pointer
 zoom, cover-relative100–500% zoom, separate Recenter, inspector-aware overview
 and shared cached recorded land anchors are implemented. Independent scoped
