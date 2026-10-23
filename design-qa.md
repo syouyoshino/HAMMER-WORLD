@@ -2,6 +2,14 @@
 
 final result: passed
 
+Latest scoped continuation: continuous chart navigation on `map-generation`.
+Independent desktop critique accepted the corrected candidate with no major or
+critical finding; final legacy holding access, normalized zoom, inspector-aware
+overview and the remaining Forces-label collision were verified. Read
+`docs/reviews/continuous-map.md` for the anonymous comparison limits, actual
+browser evidence, minor remaining findings and10,000-turn V5 gate. This adds no
+commercial-game parity, mobile acceptance or deployment claim.
+
 ## Source and implementation
 
 Source visual truth: the four user-supplied local attachments `1-Photo-1.jpg` (1179×788), `2-Photo-2.jpg` (1179×784), `3-Photo-3.jpg` (1179×813), `4-Photo-4.jpg` (1179×768), under `/tmp/codex-remote-attachments/01a14c1d-6b47-70cf-9a77-6141184380af/AB1E1F68-BC97-42A6-A0EE-769DE30BDC0F/`. All four were opened and inspected before implementation. They depict portions of an avionics interface, photographed at an angle with blur. They establish a design language, not equivalent strategy-game content or a 1:1 viewport layout.

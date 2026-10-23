@@ -2,7 +2,23 @@
 
 Read `AGENTS.md`, `plan.md` and `docs/decisions.md`, then inspect actual source/tests and Git state. The existing repository is accessible and the scheduled continuation resumed the same work. Preserve the existing implementation. Do not duplicate completed acceptance runs without a relevant change.
 
-## Current planet-preset continuation
+## Current continuous-map continuation
+
+On `map-generation`, opt-in V5 adds128×80 saved planetary charts, preserving
+existing V1–V4 output and records. Full-canvas cover/clamped panning, pointer
+zoom, cover-relative100–500% zoom, separate Recenter, inspector-aware overview
+and shared cached recorded land anchors are implemented. Independent scoped
+desktop critique accepts navigation; legacy holding-label/zoom regressions were
+fixed and rerun.93 distinct Python tests and navigation/preset/V3/broad browser
+regressions are verified, including Chromium browser zoom100–200%. The mixed
+V5 10,000-turn gate passes in2529.31s; final backend hashes match its report.
+History50 reads3980.1ms on the larger full-snapshot fixture, a documented cost.
+Read `docs/reviews/continuous-map.md` and the final section of
+`docs/branches/map-generation.md` before continuing. Desktop only; no wrapping,
+data recovery, merge or deployment is claimed. Delivery references are recorded
+in the branch document.
+
+## Earlier planet-preset continuation
 
 On `map-generation`, `af28097`/`01c4271`/`b629ccb` add opt-in V4 creation-time presets with independent per-planet overrides and stable auto selection. Arid/Barren/Frozen contain no open water or vegetation. Existing maps and V1–V3 generation are preserved. User now requires desktop-only acceptance.88 distinct Python tests, final desktop preset/legacy regressions, independent scoped critique and a mixed-world10,000-turn gate pass. Read `docs/reviews/planet-presets.md` for commands, exact evidence/limits and continuation; no deployment or recovery of original cloud data occurred.
 

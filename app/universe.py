@@ -4,7 +4,7 @@ import random
 
 from .engine import generate_planet
 from .planet_generation import (PRESETS, PLANET_CLASSES, generate_planet_v2, generate_planet_v3,
-                                generate_planet_v4, project_surface, resolve_planet_presets)
+                                generate_planet_v4, generate_planet_v5, project_surface, resolve_planet_presets)
 
 V2_SCHEMA = "world-v2"
 V2_RULES = "demo-v2"
@@ -18,11 +18,11 @@ def _seed(seed, parent, domain, ordinal=0):
 
 def build_universe(campaign_id, seed, *, planet_generator="planet-v1", preset=None, planet_presets=None):
     """Build the approved compact node hierarchy, settlements and fixture accounts."""
-    if planet_generator not in ("planet-v1", "planet-v2", "planet-v3", "planet-v4"):
+    if planet_generator not in ("planet-v1", "planet-v2", "planet-v3", "planet-v4", "planet-v5"):
         raise ValueError("unsupported planet generator")
-    if planet_generator != "planet-v4" and (preset is not None or planet_presets is not None):
-        raise ValueError("planet presets require planet-v4")
-    if planet_generator == "planet-v4" and preset is None:
+    if planet_generator not in ("planet-v4","planet-v5") and (preset is not None or planet_presets is not None):
+        raise ValueError("planet presets require planet-v4 or planet-v5")
+    if planet_generator in ("planet-v4","planet-v5") and preset is None:
         preset = "auto"
     rng = random.Random(_seed(seed, campaign_id, "universe"))
     root = f"{campaign_id}-galaxy"
@@ -66,12 +66,13 @@ def build_universe(campaign_id, seed, *, planet_generator="planet-v1", preset=No
             moon_rng.uniform(.3,.7),moon_rng.uniform(.3,.7))
         nodes[-1].update({"class":moon_rng.choice(("rocky","icy")),"radius":round(moon_rng.uniform(.12,.48),3)})
     planet_ids=[n["id"] for n in nodes if n["kind"]=="planet"]
-    resolved_presets = resolve_planet_presets(seed, planet_ids, preset, planet_presets) if planet_generator == "planet-v4" else {}
-    if planet_generator == "planet-v4":
+    resolved_presets = resolve_planet_presets(seed, planet_ids, preset, planet_presets) if planet_generator in ("planet-v4","planet-v5") else {}
+    if planet_generator in ("planet-v4","planet-v5"):
         for node in nodes:
             if node["id"] in resolved_presets:
                 node["class"] = PLANET_CLASSES[resolved_presets[node["id"]]]
-        geography={pid:generate_planet_v4(f"{campaign_id}-{pid.rsplit('-',1)[-1]}",
+        generator=generate_planet_v5 if planet_generator=="planet-v5" else generate_planet_v4
+        geography={pid:generator(f"{campaign_id}-{pid.rsplit('-',1)[-1]}",
                     _seed(seed,pid,"geography"),resolved_presets[pid]) for pid in planet_ids}
     elif planet_generator in ("planet-v2", "planet-v3"):
         generator = generate_planet_v3 if planet_generator == "planet-v3" else generate_planet_v2
@@ -90,7 +91,7 @@ def build_universe(campaign_id, seed, *, planet_generator="planet-v1", preset=No
                for y in range(py, py + province["height"]) for x in range(px, px + province["width"])):
             land_ids.append(province["id"])
     land_ids = land_ids or land_provinces
-    if planet_generator in ("planet-v2", "planet-v3", "planet-v4") and len(land_ids) < 3:
+    if planet_generator in ("planet-v2", "planet-v3", "planet-v4", "planet-v5") and len(land_ids) < 3:
         raise ValueError("new demo geography requires three land provinces")
     # Fixture assignments are explicit; the adversary is its own private account.
     def settlement(sid, name, province, civilians, owned, stock, unrest=0):
@@ -131,9 +132,9 @@ def build_universe(campaign_id, seed, *, planet_generator="planet-v1", preset=No
                   for role in ("engineer","steward","general","scout")]
     private = {"seed": seed, "campaign_id": campaign_id, "seeded_marker": f"secret:{seed}", "enemy_population":20,
                "generator_version":"hierarchical-v1",
-               "generator_config":{"hierarchy":"hierarchical-v1","planet":planet_generator,"grid":"grid64x40",
+               "generator_config":{"hierarchy":"hierarchical-v1","planet":planet_generator,"grid":"grid128x80" if planet_generator=="planet-v5" else "grid64x40",
                                    "domain_seed_derivation":"sha256-parent-domain-v1",
-                                   **({"planet_presets":dict(resolved_presets)} if planet_generator == "planet-v4" else {})},
+                                   **({"planet_presets":dict(resolved_presets)} if planet_generator in ("planet-v4","planet-v5") else {})},
                "enemy_allocations":{"farmers":14,"technicians":2}, "adjacency":[[hsys,gsys],[gsys,dsys]],
                "generation_nonce":rng.randrange(1, 2**31)}
     return {"turn":0,"nodes":nodes,"links":[{"a":hsys,"b":gsys},{"a":gsys,"b":dsys}],
@@ -307,10 +308,20 @@ def public_state_v2(state):
         planet={key:geo["planet"][key] for key in ("id","name","width","height")}
         provinces=[{key:p[key] for key in ("id","name","x","y","width","height")} for p in geo["provinces"]]
         codes={"o":"ocean","c":"coast","p":"plains","r":"rock","f":"forest","m":"marsh"}
-        tiles=[]; width=planet["width"]
+        tiles=[]; width=planet["width"]; height=planet["height"]
+        province_at=[None]*(width*height)
+        if (width,height)==(64,40):
+            for y in range(height):
+                for x in range(width): province_at[y*width+x]=provinces[(y//8)*8+(x//8)]["id"]
+        else:
+            for province in provinces:
+                for y in range(province["y"],province["y"]+province["height"]):
+                    for x in range(province["x"],province["x"]+province["width"]):
+                        index=y*width+x
+                        if province_at[index] is None: province_at[index]=province["id"]
         for index,code in enumerate(geo["terrain_grid"]):
             x,y=index%width,index//width
-            province=provinces[(y//8)*8+(x//8)]["id"] if code!="o" else None
+            province=province_at[index] if code!="o" else None
             tiles.append({"x":x,"y":y,"terrain":codes[code],"province_id":province})
         return {"planet":planet,"provinces":provinces,"tiles":tiles,**project_surface(geo)}
     return {"turn":state["turn"],"owned_totals":{"population":owned_humans(state),"resources":owned_resources(state)},"nodes":nodes,"links":links,"settlements":settlements,"facilities":facilities,

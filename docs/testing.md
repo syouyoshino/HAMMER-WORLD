@@ -1,5 +1,30 @@
 # Verification
 
+Latest continuous-chart evidence: [review](reviews/continuous-map.md). Opt-in V5
+navigation is desktop-only. Run the additional regression with the same isolated
+QA connection described below:
+
+```sh
+python tests/browser_map_navigation.py
+```
+
+It checks six V5 presets, both styles, full-canvas cover, four pan limits,
+pointer-anchored zoom, overview pointer/keyboard navigation,100% legacy holding
+access, every overlay's Forge selection, resize, panel return, stable canvas and
+map/window handler counts, and unchanged snapshot hashes. The existing preset,
+cartography and broad strategic scripts remain relevant compatibility checks.
+The larger V5 long-run fixture requires substantially more time/storage than V1:
+
+```sh
+WOLD_TEST_PLANET_GENERATOR=planet-v5 WOLD_TEST_PLANET_PRESET=auto \
+  WOLD_STRESS_REPORT=data/verification/stress-v5.json python tests/stress_v2.py 10000
+```
+
+The delivered gate used explicit independent arid/archipelago/oceanic/frozen
+overrides via `WOLD_TEST_PLANET_PRESETS`, completed in2529.31s, and verified
+matching final backend hashes. Never point any of these commands at a campaign
+database. Screenshots, test databases and runtime reports stay ignored.
+
 Use a separate PostgreSQL test database. `WOLD_TEST_DATABASE_URL` is required; the tests never fall back to SQLite. Each test uses a disposable schema. The backup recovery test also creates a temporary database, so the test role needs `CREATEDB`. Do not use a live campaign database as the test database.
 
 Install the runtime requirements and PostgreSQL 17 client tools (`pg_dump`, `pg_restore`). Set the test connection in a protected environment, then run:

@@ -719,7 +719,7 @@ select, input, textarea, .economy-metric { color: var(--ink); background-color: 
   #view-title .map-tools { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:4px 6px; overflow:visible; }
   .map-level-label, .overlay-select, .map-style-select { display:flex; flex-direction:column; align-items:stretch; gap:2px; min-width:0; }
   #map-level, #overlay-select, #map-style { width:100%; min-width:0; }
-  #zoom-out, #zoom-in, #zoom-reset { width:100%; min-height:44px; }
+  #zoom-out, #zoom-in, #zoom-reset, #map-recenter { width:100%; min-height:44px; }
   #map-breadcrumbs { top:238px; }
   .force-map-controls { top:266px; }
   .force-map-panels { top:302px; }

@@ -8,8 +8,9 @@ import hashlib
 import heapq
 
 VERSION = "planet-v2"
-SURFACE_VERSIONS = (VERSION, "planet-v3", "planet-v4")
+SURFACE_VERSIONS = (VERSION, "planet-v3", "planet-v4", "planet-v5")
 WIDTH, HEIGHT, SEA_LEVEL = 64, 40, 400
+V5_WIDTH, V5_HEIGHT = 128, 80
 FIELDS = ("elevation", "temperature", "moisture", "drainage", "accumulation")
 SURFACE_KEYS = {"version", "sea_level", *FIELDS, "rivers"}
 PRESETS = ("continental", "archipelago", "oceanic", "arid", "barren", "frozen")
@@ -232,6 +233,81 @@ def generate_planet_v4(namespace, seed, preset):
     return geo
 
 
+def generate_planet_v5(namespace, seed, preset):
+    """Generate an opt-in 128x80 surface with stable 16x16 province cells."""
+    if preset not in PRESETS:
+        raise ValueError("unsupported planet preset")
+    width, height, size = V5_WIDTH, V5_HEIGHT, V5_WIDTH * V5_HEIGHT
+    def noise(domain, x, y, scale):
+        # Independent V5 domains; _noise's interpolation and quantization are
+        # reused while the versioned domain keeps every value separate.
+        return _noise(seed, f"planet-v5:{preset}:{domain}", x, y, scale)
+    def value(domain, ordinal=0):
+        raw=f"{seed}:planet-v5:{preset}:{domain}:{ordinal}".encode()
+        return int.from_bytes(hashlib.sha256(raw).digest()[:4],"big")
+    elevation = []
+    if preset in ("arid", "barren", "frozen"):
+        temperature, moisture, terrain = [], [], []
+        for y in range(height):
+            for x in range(width):
+                relief = noise("relief", x, y, 19)
+                elevation.append(540 + relief // 3)
+                temperature.append(40 + relief // 10 if preset == "frozen" else 330 + noise("temperature", x, y, 31) // 2)
+                moisture.append(0 if preset in ("arid", "barren") else 500 + relief // 4)
+                terrain.append("r" if preset == "barren" or relief > (600 if preset == "arid" else 700) else "p")
+        provinces = _province_rectangles(namespace, width, height, 16)
+        geo = {"planet":{"id":f"{namespace}-planet-001","name":"Kestrel's Reach","width":width,"height":height},
+               "provinces":provinces,"terrain_grid":"".join(terrain),
+               "surface":{"version":"planet-v5","preset":preset,"hydrology":"none","sea_level":None,
+                          "elevation":elevation,"temperature":temperature,"moisture":moisture,
+                          "drainage":[-1]*size,"accumulation":[1]*size,"rivers":[]}}
+        validate_surface(geo)
+        return geo
+    # Versioned, full-resolution land masks produce distinct continental,
+    # island-chain and oceanic distributions from independent V5 domains.
+    centers=[]
+    if preset=="continental":
+        side=value("continent-edge")%4
+        if side==0: centers.append((10,30+value("continent-offset")%20,54,31))
+        elif side==1: centers.append((118,30+value("continent-offset")%20,54,31))
+        elif side==2: centers.append((50+value("continent-offset")%28,5,48,36))
+        else: centers.append((50+value("continent-offset")%28,75,48,36))
+        for n in range(5): centers.append((10+value("offshore-x",n)%109,9+value("offshore-y",n)%63,5,4))
+    else:
+        count=13 if preset=="archipelago" else 7
+        points=sorted({(8+value("island-x",n)%113,7+value("island-y",n)%67) for n in range(512)},
+                      key=lambda point:(value("island-order",point[0]*1000+point[1]),point))
+        separation=17 if preset=="archipelago" else 20
+        chosen=[]
+        for point in points:
+            if all((point[0]-x)**2+(point[1]-y)**2>=separation**2 for x,y in chosen): chosen.append(point)
+            if len(chosen)==count: break
+        for n,(x,y) in enumerate(chosen):
+            rx=(7+value("island-rx",n)%8) if preset=="archipelago" else (5+value("island-rx",n)%7)
+            ry=(5+value("island-ry",n)%6) if preset=="archipelago" else (4+value("island-ry",n)%5)
+            centers.append((x,y,rx,ry))
+    for y in range(height):
+        for x in range(width):
+            wx=x+(_noise(seed,f"planet-v5:{preset}:warp-x",x,y,23)-500)//180
+            wy=y+(_noise(seed,f"planet-v5:{preset}:warp-y",x,y,19)-500)//200
+            influence=max(1000-((wx-cx)**2*1000//(rx*rx))-((wy-cy)**2*1000//(ry*ry)) for cx,cy,rx,ry in centers)
+            coast=noise("coast",x,y,11)
+            land=influence+(coast-500)//3>0 and x not in (0,width-1) and y not in (0,height-1)
+            elevation.append(425+max(0,influence)//6+noise("land-relief",x,y,13)//5 if land
+                             else SEA_LEVEL-20-noise("ocean-depth",x,y,17)*300//1000)
+    geo = _finish_planet(namespace, seed, PLANET_CLASSES[preset], elevation, "planet-v5",
+                         width=width, height=height, province_size=16, surface_preset=preset)
+    geo["surface"].update({"version":"planet-v5","preset":preset,"hydrology":"ocean-draining"})
+    validate_surface(geo)
+    return geo
+
+
+def _province_rectangles(namespace, width, height, cell):
+    return [{"id":f"{namespace}-p-{py:02d}-{px:02d}","name":f"Province {py*8+px+1:02d}",
+             "x":px*cell,"y":py*cell,"width":cell,"height":cell}
+            for py in range(height//cell) for px in range(width//cell)]
+
+
 def _geometry(namespace, version, preset, sea_level, elevation, temperature, moisture,
               drainage, accumulation, rivers, terrain):
     provinces = [{"id":f"{namespace}-p-{py:02d}-{px:02d}","name":f"Province {py*8+px+1:02d}",
@@ -243,8 +319,7 @@ def _geometry(namespace, version, preset, sea_level, elevation, temperature, moi
                        "drainage":drainage,"accumulation":accumulation,"rivers":rivers}}
 
 
-def _finish_planet(namespace, seed, planet_class, elevation, version):
-    width, height = WIDTH, HEIGHT
+def _finish_planet(namespace, seed, planet_class, elevation, version, *, width=WIDTH, height=HEIGHT, province_size=8, surface_preset=None):
     ocean = {i for i, value in enumerate(elevation) if value <= SEA_LEVEL}
     # Priority flood: each land cell gets a previously visited downstream parent.
     # Raising enclosed depressions eliminates ambiguous sinks and cycles.
@@ -276,14 +351,17 @@ def _finish_planet(namespace, seed, planet_class, elevation, version):
         for x in range(width):
             i = y*width+x
             altitude = max(0, elevation[i]-SEA_LEVEL)
-            temp = 950-abs(2*y-(height-1))*19-altitude//2
+            latitude=abs(2*y-(height-1))
+            if height>HEIGHT: latitude=latitude*HEIGHT//height
+            temp = 950-latitude*19-altitude//2
             temp += {"terrestrial":0,"oceanic":0,"arid":120,"ice":-390}[planet_class]
             temperature.append(max(0, min(1000, temp)))
             if i in ocean:
                 air = 900
             else:
                 air = max(80, air-8-max(0, elevation[i]-elevation[i-1])//2)
-            wet = (_noise(seed, "moisture", x, y, 9)*3 + air*2)//5
+            moisture_noise=_noise(seed,"planet-v5:moisture",x,y,13) if version=="planet-v5" else _noise(seed,"moisture",x,y,9)
+            wet = (moisture_noise*3 + air*2)//5
             wet += {"terrestrial":0,"oceanic":100,"arid":-310,"ice":-100}[planet_class]
             wet = max(0, min(1000, wet))
             moisture.append(wet)
@@ -313,13 +391,14 @@ def _finish_planet(namespace, seed, planet_class, elevation, version):
             i = drainage[i]
         if len(path) >= 4:
             rivers.append({"id":f"{namespace}-river-{source:04d}", "points":path})
-    provinces = [{"id":f"{namespace}-p-{py:02d}-{px:02d}","name":f"Province {py*8+px+1:02d}",
-                  "x":px*8,"y":py*8,"width":8,"height":8} for py in range(5) for px in range(8)]
+    provinces = _province_rectangles(namespace,width,height,province_size)
     result = {"planet":{"id":f"{namespace}-planet-001","name":"Kestrel's Reach","width":width,"height":height},
               "provinces":provinces,"terrain_grid":"".join(terrain),
               "surface":{"version":version,"sea_level":SEA_LEVEL,"elevation":elevation,
                          "temperature":temperature,"moisture":moisture,"drainage":drainage,
                          "accumulation":accumulation,"rivers":rivers}}
+    if version == "planet-v5":
+        result["surface"].update({"preset":surface_preset,"hydrology":"ocean-draining"})
     validate_surface(result)
     return result
 
@@ -332,7 +411,7 @@ def project_surface(geometry):
     projected={"version":surface["version"],"sea_level":surface["sea_level"],
                **{key:list(surface[key]) for key in FIELDS},
                "rivers":[{"id":r["id"],"points":[[p[0],p[1]] for p in r["points"]]} for r in surface["rivers"]]}
-    if surface["version"] == "planet-v4":
+    if surface["version"] in ("planet-v4","planet-v5"):
         projected.update({"preset":surface["preset"],"hydrology":surface["hydrology"]})
     return {"surface":projected}
 
@@ -343,10 +422,10 @@ def validate_surface(geometry):
         return
     surface = geometry["surface"]
     version = surface.get("version") if isinstance(surface,dict) else None
-    expected_keys = SURFACE_KEYS | {"preset","hydrology"} if version == "planet-v4" else SURFACE_KEYS
+    expected_keys = SURFACE_KEYS | {"preset","hydrology"} if version in ("planet-v4","planet-v5") else SURFACE_KEYS
     if not isinstance(surface, dict) or set(surface) != expected_keys or version not in SURFACE_VERSIONS:
         raise ValueError("unsupported planet surface contract")
-    if version == "planet-v4":
+    if version in ("planet-v4","planet-v5"):
         preset, hydrology = surface.get("preset"), surface.get("hydrology")
         if preset not in PRESETS or hydrology != ("none" if preset in ("arid","barren","frozen") else "ocean-draining"):
             raise ValueError("invalid planet preset surface contract")
@@ -359,8 +438,9 @@ def validate_surface(geometry):
     if not isinstance(planet,dict):
         raise ValueError("invalid planet surface dimensions")
     width, height = planet.get("width"), planet.get("height")
-    if type(width) is not int or type(height) is not int or (width,height) != (WIDTH,HEIGHT):
-        raise ValueError("versioned planet surface requires grid64x40")
+    expected_dimensions = (V5_WIDTH,V5_HEIGHT) if version == "planet-v5" else (WIDTH,HEIGHT)
+    if type(width) is not int or type(height) is not int or (width,height) != expected_dimensions:
+        raise ValueError("versioned planet surface has unsupported dimensions")
     size = width*height
     for key in FIELDS:
         low, high = (-1,size-1) if key == "drainage" else (1,size) if key == "accumulation" else (0,1000)
@@ -370,7 +450,22 @@ def validate_surface(geometry):
     codes, elevation, drainage = geometry["terrain_grid"], surface["elevation"], surface["drainage"]
     if not isinstance(codes,str) or len(codes) != size or any(c not in "ocprfm" for c in codes):
         raise ValueError("invalid planet surface terrain")
-    if version == "planet-v4" and surface["hydrology"] == "none":
+    if version == "planet-v5":
+        provinces=geometry.get("provinces")
+        cell=16
+        if not isinstance(provinces,list) or len(provinces)!=40:
+            raise ValueError("invalid planet province coverage")
+        coverage=[0]*size
+        for province in provinces:
+            if any(type(province.get(key)) is not int for key in ("x","y","width","height")):
+                raise ValueError("invalid planet province coverage")
+            x,y,w,h=(province[key] for key in ("x","y","width","height"))
+            if x<0 or y<0 or (x,y,w,h)!=(x//cell*cell,y//cell*cell,cell,cell) or x+w>width or y+h>height:
+                raise ValueError("invalid planet province coverage")
+            for row in range(y,y+h):
+                for column in range(x,x+w): coverage[row*width+column]+=1
+        if any(value!=1 for value in coverage): raise ValueError("invalid planet province coverage")
+    if version in ("planet-v4","planet-v5") and surface["hydrology"] == "none":
         preset = surface["preset"]
         allowed = {"arid":"pr", "barren":"r", "frozen":"pr"}[preset]
         if (any(c not in allowed for c in codes) or any(v <= SEA_LEVEL for v in elevation) or

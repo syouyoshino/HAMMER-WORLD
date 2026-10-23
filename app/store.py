@@ -143,7 +143,7 @@ class Store:
                     raise ValueError("snapshot v2 geography shape invariant failed")
                 validate_surface(geo)
                 surface=geo.get("surface",{})
-                if surface.get("version")=="planet-v4":
+                if surface.get("version") in ("planet-v4","planet-v5"):
                     node=nodes.get(planet_id,{})
                     if surface.get("preset") not in PRESETS or node.get("class")!=PLANET_CLASSES.get(surface.get("preset")):
                         raise ValueError("planet-v4 preset and body class invariant failed")
@@ -154,14 +154,20 @@ class Store:
             for geo in geography.values():
                 if len(geo.get("provinces",[]))==0: raise ValueError("snapshot v2 province geometry invariant failed")
             config=state.get("_private",{}).get("generator_config",{})
-            v4_planets={pid:geo["surface"]["preset"] for pid,geo in geography.items()
-                        if geo.get("surface",{}).get("version")=="planet-v4"}
-            if config.get("planet")=="planet-v4":
+            preset_planets={pid:geo["surface"]["preset"] for pid,geo in geography.items()
+                        if geo.get("surface",{}).get("version") in ("planet-v4","planet-v5")}
+            if config.get("planet") in ("planet-v4","planet-v5"):
                 recorded=config.get("planet_presets")
-                if not isinstance(recorded,dict) or set(recorded)!=planet_ids or recorded!=v4_planets:
-                    raise ValueError("planet-v4 private preset configuration invariant failed")
-            elif v4_planets or "planet_presets" in config:
-                raise ValueError("planet-v4 geography requires its matching generator configuration")
+                if not isinstance(recorded,dict) or set(recorded)!=planet_ids or recorded!=preset_planets:
+                    raise ValueError("private planet preset configuration invariant failed")
+                expected_version=config["planet"]
+                if any(geo.get("surface",{}).get("version")!=expected_version for geo in geography.values()):
+                    raise ValueError("planet preset version and generator configuration differ")
+                expected_grid="grid128x80" if expected_version=="planet-v5" else "grid64x40"
+                if config.get("grid")!=expected_grid:
+                    raise ValueError("planet generator grid configuration invariant failed")
+            elif preset_planets or "planet_presets" in config:
+                raise ValueError("preset geography requires its matching generator configuration")
             settlements={s["id"]:s for s in state["settlements"]}
             for settlement in state["settlements"]:
                 if any(type(settlement.get(k)) is not int or settlement[k]<0 for k in ("civilians",)) or any(k in settlement for k in ("soldiers","crew","settlers")):
@@ -260,9 +266,9 @@ class Store:
             return sid
 
     def create_demo_v2(self, campaign_id="demo-v2", seed=741903, *, planet_generator="planet-v1", preset=None, planet_presets=None):
-        if planet_generator != "planet-v4" and (preset is not None or planet_presets is not None):
-            raise ValueError("planet presets require planet-v4")
-        if planet_generator == "planet-v4":
+        if planet_generator not in ("planet-v4","planet-v5") and (preset is not None or planet_presets is not None):
+            raise ValueError("planet presets require planet-v4 or planet-v5")
+        if planet_generator in ("planet-v4","planet-v5"):
             ids={f"{campaign_id}-planet-{suffix}" for suffix in ("reach","ash","haven","veil")}
             resolve_planet_presets(seed, ids, "auto" if preset is None else preset, planet_presets)
         with self.connect() as c:

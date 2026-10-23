@@ -96,16 +96,28 @@ def descend_hierarchy(page, names, touch=False):
 
 
 def province_point(page, province):
-    """Project a public province into the measured, unobstructed map area."""
-    return page.locator('.map-frame').evaluate("""(frame,p)=>{
-        const f=frame.getBoundingClientRect();
-        const visible=selector=>{const e=document.querySelector(selector);if(!e||e.hidden)return null;
-            const s=getComputedStyle(e),r=e.getBoundingClientRect();return s.display!=='none'&&s.visibility!=='hidden'&&r.width&&r.height?r:null;};
-        const top=Math.max(0,...['.commandbar','#resource-shell','#view-title','#map-breadcrumbs','#live-banner'].map(visible).filter(Boolean).map(r=>r.bottom-f.top+16));
-        const bottom=Math.min(f.height,...['.map-caption','#map-legend','.map-footer'].map(visible).filter(Boolean).map(r=>r.top-f.top-16));
-        const tile=Math.min(f.width/64,Math.max(0,bottom-top)/40);
-        return {x:f.left+(f.width-64*tile)/2+(p.x+p.width/2)*tile,
-                y:f.top+(top+bottom-40*tile)/2+(p.y+p.height/2)*tile};
+    """Observe the real camera projection, including displaced holding labels.
+
+    Test-only instrumentation avoids duplicating camera formulas or assuming a
+    64x40 grid. A holding hidden beneath persistent chrome uses its visible label.
+    """
+    return page.evaluate("""p=>{
+        if(!window.__provinceTestInstalled){
+            const draw=window.HWMapRenderer.drawPlanet;
+            window.HWMapRenderer.drawPlanet=function(ctx,options){
+                const t=draw(ctx,options);window.__provinceTest={t,geometry:options.geometry};return t;
+            };window.__provinceTestInstalled=true;
+        }
+        document.querySelector('#map-style').dispatchEvent(new Event('change'));
+        const {t,geometry}=window.__provinceTest,f=document.querySelector('#planet-map').getBoundingClientRect();
+        let x=t.ox+(p.x+p.width/2)*t.tile,y=t.oy+(p.y+p.height/2)*t.tile;
+        const tile=geometry.tiles[Math.floor(p.y)*t.cols+Math.floor(p.x)];
+        const label=t.provinceTargets.find(a=>a.provinceId===(p.id||tile?.province_id));
+        const safe=t.safeRect||{left:0,right:f.width,top:0,bottom:f.height};
+        if(label&&(x<safe.left||x>safe.right||y<safe.top||y>safe.bottom)){
+            x=(label.left+label.right)/2;y=(label.top+label.bottom)/2;
+        }
+        return {x:f.left+x,y:f.top+y};
     }""", province)
 
 

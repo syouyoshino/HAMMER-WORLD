@@ -1,6 +1,28 @@
 (() => {
   "use strict";
   const cache = new WeakMap();
+  const provinceCache = new WeakMap();
+  // Geometry records are immutable; index recorded land once per response.
+  function provinceLand(geometry) {
+    if (provinceCache.has(geometry)) return provinceCache.get(geometry);
+    const index = new Map();
+    for (const tile of geometry.tiles || []) {
+      if (!tile.province_id || tile.terrain === "ocean") continue;
+      let entry = index.get(tile.province_id);
+      if (!entry) { entry = {tiles:[],x:0,y:0,anchor:null}; index.set(tile.province_id,entry); }
+      entry.tiles.push(tile); entry.x += tile.x + .5; entry.y += tile.y + .5;
+    }
+    for (const entry of index.values()) {
+      entry.x /= entry.tiles.length; entry.y /= entry.tiles.length;
+      let distance = Infinity;
+      for (const tile of entry.tiles) {
+        const next = (tile.x+.5-entry.x)**2 + (tile.y+.5-entry.y)**2;
+        if (next < distance) { distance = next; entry.anchor = tile; }
+      }
+    }
+    provinceCache.set(geometry,index);
+    return index;
+  }
   const palettes = {
     orbital: {ocean:"#143142",coast:"#677f67",plains:"#899164",rock:"#958e76",forest:"#395c42",marsh:"#4f7058"},
     survey: {ocean:"#97b5b9",coast:"#bbc09e",plains:"#bab489",rock:"#a59b83",forest:"#738b68",marsh:"#8b9f82"},
@@ -30,7 +52,7 @@
   }
   function surfaceFor(geometry) {
     const s = geometry?.surface;
-    if (!s || !["planet-v2", "planet-v3", "planet-v4"].includes(s.version) || !Array.isArray(s.elevation))
+    if (!s || !["planet-v2", "planet-v3", "planet-v4", "planet-v5"].includes(s.version) || !Array.isArray(s.elevation))
       return null;
     return s;
   }
@@ -39,7 +61,7 @@
     if (!map) { map = new Map(); cache.set(geometry, map); }
     if (map.has(style)) return map.get(style);
     const { width: cols, height: rows } = geometry.planet,
-      scale = 24, w = cols * scale, h = rows * scale,
+      scale = Math.min(24, 1536 / cols), w = Math.round(cols * scale), h = Math.round(rows * scale),
       surface = surfaceFor(geometry), tiles = geometry.tiles,
       survey = style === "survey",
       colors = surface?.hydrology === "none" ? Object.fromEntries(Object.entries(terrainPalette(style,surface.preset)).map(([key,value])=>[key,[parseInt(value.slice(1,3),16),parseInt(value.slice(3,5),16),parseInt(value.slice(5,7),16)]])) : survey ? {
@@ -179,10 +201,11 @@
       planetId = null,
       safe = null,
       paintOverlay = null,
+      labelObstacles = [],
     },
   ) {
     const { width: cols, height: rows } = geometry.planet,
-      bounds = safe || {left:0,right:w,top:0,bottom:h,width:w,height:h},
+      bounds = {left:0,right:w,top:0,bottom:h,width:w,height:h},
       tile = Math.min(bounds.width / cols, bounds.height / rows) * zoom,
       gridW = tile * cols,
       gridH = tile * rows,
@@ -312,31 +335,17 @@
     ctx.font = `700 ${labelFont}px "Noto Instrument Mono",monospace`;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    const safeTop = Math.max(compact ? 202 : 190, (safe?.top ?? 0) + 8),
+    const safeLeft=safe?.left??0,safeRight=safe?.right??w,
+      safeTop = Math.max(compact ? 202 : 190, (safe?.top ?? 0) + 8),
       safeBottom = Math.min(h - 92, (safe?.bottom ?? h) - 8),
-      placed = [], provinceTargets = [];
+      placed = labelObstacles.map(rect=>({...rect})), provinceTargets = [];
     const annotations = provinces
       .map((province) => {
-        const land = tiles.filter(
-          (t) =>
-            t.province_id === province.id &&
-            t.terrain !== "ocean" &&
-            ox + (t.x + 1) * tile > 0 &&
-            oy + (t.y + 1) * tile > 0 &&
-            ox + t.x * tile < w &&
-            oy + t.y * tile < h,
-        );
-        if (!land.length) return null;
-        const cx = land.reduce((s, t) => s + t.x + 0.5, 0) / land.length,
-          cy = land.reduce((s, t) => s + t.y + 0.5, 0) / land.length,
-          anchor = land.reduce(
-            (a, t) =>
-              Math.hypot(t.x + 0.5 - cx, t.y + 0.5 - cy) <
-              Math.hypot(a.x + 0.5 - cx, a.y + 0.5 - cy)
-                ? t
-                : a,
-            land[0],
-          ),
+        const recorded = provinceLand(geometry).get(province.id);
+        if (!recorded || !recorded.tiles.some(t =>
+          ox + (t.x + 1) * tile > 0 && oy + (t.y + 1) * tile > 0 &&
+          ox + t.x * tile < w && oy + t.y * tile < h)) return null;
+        const anchor = recorded.anchor,
           holdings = sites.filter(
             (site) =>
               site.planet_id === planetId && site.province_id === province.id,
@@ -394,7 +403,8 @@
         bh = item.holdings.length ? 23 : 18;
       let chosen = null;
       for (const [dx, dy] of (item.holdings.length ? [[0,-24],[0,24],[44,-24],[-44,-24],...offsets] : offsets)) {
-        const x = clamp(item.x + dx, bw / 2 + 6, w - bw / 2 - 6),
+        if(bw+12>safeRight-safeLeft)continue;
+        const x = clamp(item.x + dx, safeLeft+bw/2+6, safeRight-bw/2-6),
           y = clamp(item.y + dy, safeTop + bh / 2, safeBottom - bh / 2),
           box = {
             left: x - bw / 2 - 3,
@@ -444,7 +454,22 @@
       ctx.fillStyle = "#edf0df";
       ctx.fillText(label, chosen.x, chosen.y);
     }
-    return { tile, ox, oy, cols, rows, forceObstacles: placed, provinceTargets };
+    return { tile, ox, oy, cols, rows, safeRect:safe||bounds, gridW, gridH, viewportWidth:w, viewportHeight:h, forceObstacles: placed, provinceTargets };
+  }
+  function drawOverview(ctx,{geometry,w,h,transform,style="orbital"}) {
+    const {width:cols,height:rows}=geometry.planet,scale=Math.min(w/cols,h/rows),drawW=cols*scale,drawH=rows*scale,
+      left=(w-drawW)/2,top=(h-drawH)/2;
+    ctx.clearRect(0,0,w,h);ctx.fillStyle="#142f40";ctx.fillRect(0,0,w,h);
+    ctx.imageSmoothingEnabled=true;ctx.drawImage(baseRaster(geometry,style),left,top,drawW,drawH);
+    if(transform&&transform.tile>0){
+      const rect={left:clamp((0-transform.ox)/transform.tile,0,cols),
+        top:clamp((0-transform.oy)/transform.tile,0,rows),
+        right:clamp((transform.viewportWidth-transform.ox)/transform.tile,0,cols),
+        bottom:clamp((transform.viewportHeight-transform.oy)/transform.tile,0,rows)};
+      ctx.fillStyle="rgba(245,244,229,.13)";ctx.fillRect(left+rect.left*scale,top+rect.top*scale,(rect.right-rect.left)*scale,(rect.bottom-rect.top)*scale);
+      ctx.strokeStyle="#f3f1df";ctx.lineWidth=1.5;ctx.strokeRect(left+rect.left*scale,top+rect.top*scale,(rect.right-rect.left)*scale,(rect.bottom-rect.top)*scale);
+    }
+    return {left,top,width:drawW,height:drawH,cols,rows};
   }
   function drawHierarchy(
     ctx,
@@ -699,7 +724,9 @@
   }
   window.HWMapRenderer = {
     drawPlanet,
+    provinceLand,
     drawHierarchy,
+    drawOverview,
     terrainColor(style, key, preset = null) { return terrainPalette(style,preset)[key]; },
     hasSurface(geometry) {
       return Boolean(surfaceFor(geometry));
