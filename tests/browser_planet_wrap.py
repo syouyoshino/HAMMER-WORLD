@@ -54,7 +54,20 @@ def label_click(page, label):
     target = page.evaluate('''label=>window.__wrapTest.t.provinceTargets.find(t=>t.label===label)''', label)
     assert target, 'No reachable label for '+label
     page.mouse.click((target['left']+target['right'])/2, (target['top']+target['bottom'])/2)
-    page.wait_for_function('label=>document.querySelector("#inspector-content").textContent.includes(label)', arg=label)
+    try:
+        page.wait_for_function('label=>document.querySelector("#inspector-content").textContent.includes(label)', arg=label)
+    except Exception:
+        diagnostic = page.evaluate("""target=>{
+            const x=(target.left+target.right)/2,y=(target.top+target.bottom)/2,
+                  hit=document.elementFromPoint(x,y),t=window.__wrapTest;
+            return {target,hit:hit?.tagName+'#'+hit?.id,overlay:t.options.overlay,
+                safe:t.options.safe,canvas:document.querySelector('#planet-map').getBoundingClientRect().toJSON(),
+                selected:document.querySelector('.map-footer').textContent};
+        }""", target)
+        print('Failed label click:', json.dumps(diagnostic), flush=True)
+        out = Path(os.environ.get('WOLD_BROWSER_ARTIFACT_DIR','data/planet-wrap'))
+        page.screenshot(path=str(out/'failed-label-click.png'))
+        raise
 
 
 def route_short(page):
@@ -97,7 +110,7 @@ def force_controls_clear(page, has_route=False):
 def main():
     dsn = os.environ['WOLD_TEST_DATABASE_URL']
     version = os.environ.get('WOLD_TEST_PLANET_GENERATOR', 'planet-v6')
-    assert version in ('planet-v6', 'planet-v7')
+    assert version in ('planet-v6', 'planet-v7', 'planet-v8')
     schema = 'browser_wrap_' + uuid.uuid4().hex
     out = Path(os.environ.get('WOLD_BROWSER_ARTIFACT_DIR', 'data/planet-wrap'))
     out.mkdir(parents=True, exist_ok=True)
@@ -107,8 +120,12 @@ def main():
     try:
         db = Store(dsn, schema=schema)
         def create(cid, preset):
-            geology = {'geology':'cratered' if preset in ('arid','barren','frozen') else 'none'} if version=='planet-v7' else {}
-            db.create_demo_v2(cid, seed=741903, planet_generator=version, preset=preset, **geology)
+            geology = {'geology':'cratered' if preset in ('arid','barren','frozen') else 'none'} if version in ('planet-v7','planet-v8') else {}
+            materials = {}
+            if version == 'planet-v8':
+                material = 'hydrocarbon' if preset == 'frozen' else 'lava' if preset in ('arid','barren') else 'water'
+                materials = {'lake_material':material, 'polar_caps':'none' if material=='lava' else 'water-ice'}
+            db.create_demo_v2(cid, seed=741903, planet_generator=version, preset=preset, **geology, **materials)
         for name in PRESETS:
             create('wrap-'+name, name)
         db.create_demo_v2('wrap-old', seed=741903, planet_generator='planet-v5', preset='arid')
@@ -184,6 +201,13 @@ def main():
                         &&window.__wrapTest.options.geometry.surface.preset===name''',arg={'name':name,'version':version})
                     timings[name]=round((time.monotonic()-started)*1000,1)
                     covered(page)
+                    if version == 'planet-v8':
+                        materials = page.evaluate('window.__wrapTest.options.geometry.surface.materials')
+                        assert len(materials['lake_mask']) == 10240 and '1' in materials['lake_mask']
+                        legend = page.locator('#map-legend').inner_text()
+                        expected = {'water':'Water lakes','lava':'Lava lakes','hydrocarbon':'Hydrocarbon lakes'}
+                        assert expected[materials['lake_material']] in legend, legend
+                        assert ('Polar water ice' in legend) == (materials['polar_caps'] == 'water-ice'), legend
                     page.screenshot(path=str(out/f'{name}-regional.png'))
                     for style in ['survey','orbital']:
                         page.select_option('#map-style',style)

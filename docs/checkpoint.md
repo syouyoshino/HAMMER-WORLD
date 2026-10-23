@@ -4,7 +4,18 @@ V7 verified implementation: **`ed66cb6`** on `map-generation`.
 
 Read `AGENTS.md`, `plan.md` and `docs/decisions.md`, then inspect actual source/tests and Git state. The existing repository is accessible and the scheduled continuation resumed the same work. Preserve the existing implementation. Do not duplicate completed acceptance runs without a relevant change.
 
-## Current cratered-world continuation
+## Current V8 material continuation
+
+Opt-in V8 saves independently chosen liquid-lake and polar-water-ice masks.
+Read `docs/reviews/surface-materials.md` for the strict contract, creation flags,
+independent accepted backend/visual reviews, corrections and minor limits.
+122 Python tests, Node material/crater checks, corrected protected V8 browser,
+legacy V7 navigation and V3 cartography pass. Backend source is frozen and the
+10,000-turn V8 gate is currently running in isolated QA PostgreSQL; do not edit
+backend or claim final gate acceptance until its source-matching report passes.
+Preserve this continuation; do not rerun accepted visual reviews without a change.
+
+## Verified V7 cratered-world milestone
 
 On `map-generation`, opt-in V7 saves separately chosen cratered geology for new
 dry rock/ice worlds. All63 V1–V6 private/public baseline pairs remain exact;

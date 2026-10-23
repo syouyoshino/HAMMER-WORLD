@@ -165,3 +165,32 @@ set `WOLD_TEST_PLANET_PRESETS` and independent `WOLD_TEST_PLANET_GEOLOGIES` JSON
 maps of full planet IDs, and write `WOLD_STRESS_REPORT=data/verification/stress-v7-geology.json`
 with `python tests/stress_v2.py 10000`. Preserve older reports; all runtime
 screenshots, manifests, schemas and generated records remain outside tracked Git.
+
+
+## V8 liquid lakes and polar caps (desktop)
+
+Creation uses opt-in `--planet-generator planet-v8`, `--lake-material
+none|water|hydrocarbon|lava`, `--polar-caps none|water-ice` and repeatable
+`--planet-lake-material PLANET_ID=CHOICE` / `--planet-polar-caps PLANET_ID=CHOICE`.
+These independent new-campaign options have explicit compatibility restrictions;
+see [surface-material review](reviews/surface-materials.md). Existing records are
+never converted. No new in-game generation dialog is implied.
+
+Using the explicit isolated `WOLD_TEST_DATABASE_URL`:
+
+```sh
+python -m unittest tests.test_planet_v8 tests.test_planet_preset_cli -q
+node tests/check_crater_renderer.cjs
+node tests/check_material_renderer.cjs
+WOLD_TEST_PLANET_GENERATOR=planet-v8 python tests/browser_planet_wrap.py
+```
+
+The existing browser runner defaults to V6. V8 selects water+caps for wet presets,
+lava for Arid/Barren and hydrocarbon+caps for Frozen, preserving separate geology.
+For the required10,000-turn V8 gate, set `WOLD_TEST_PLANET_GENERATOR=planet-v8`,
+`WOLD_TEST_PLANET_PRESETS`, `WOLD_TEST_PLANET_GEOLOGIES`,
+`WOLD_TEST_PLANET_LAKE_MATERIALS` and `WOLD_TEST_PLANET_POLAR_CAPS_BY_PLANET` to
+JSON maps of full planet IDs, with `WOLD_STRESS_REPORT=data/verification/stress-v8-materials.json`.
+Optional globals are `WOLD_TEST_PLANET_LAKE_MATERIAL` and
+`WOLD_TEST_PLANET_POLAR_CAPS`. Run `python tests/stress_v2.py 10000`.
+All schemas are disposable; keep runtime reports, fixtures and screenshots ignored.

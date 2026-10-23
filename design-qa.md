@@ -2,7 +2,12 @@
 
 final result: passed
 
-Latest scoped continuation: opt-in V7 idealized cratered rock/ice on `map-generation`.
+Latest V8 scoped visual/material and backend reviews accepted; final persisted
+10,000-turn gate is pending. See `docs/reviews/surface-materials.md` for the
+same-critic corrections, observed browser checks and retained limits. This is
+not physical realism or operational release certification.
+
+Earlier scoped continuation: opt-in V7 idealized cratered rock/ice on `map-generation`.
 The same fresh independent critic accepted corrected bowl lighting, surface
 readability, Terrain hierarchy and desktop layout after an anonymous baseline
 comparison and bounded live workflows. The earlier usage-limit interruption

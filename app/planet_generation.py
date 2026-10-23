@@ -9,7 +9,7 @@ import heapq
 import math
 
 VERSION = "planet-v2"
-SURFACE_VERSIONS = (VERSION, "planet-v3", "planet-v4", "planet-v5", "planet-v6", "planet-v7")
+SURFACE_VERSIONS = (VERSION, "planet-v3", "planet-v4", "planet-v5", "planet-v6", "planet-v7", "planet-v8")
 WIDTH, HEIGHT, SEA_LEVEL = 64, 40, 400
 V5_WIDTH, V5_HEIGHT = 128, 80
 V6_WIDTH, V6_HEIGHT = 128, 80
@@ -20,6 +20,7 @@ PLANET_CLASSES = {"continental":"terrestrial", "archipelago":"oceanic", "oceanic
                   "arid":"arid", "barren":"barren", "frozen":"ice"}
 
 GEOLOGIES = ("none", "cratered")
+from .planet_materials import LAKE_MATERIALS, POLAR_CAPS, generate_materials, validate_materials
 
 
 def crater_profile_q(distance_q, radius_q, depth, rim_height):
@@ -110,6 +111,15 @@ def generate_planet_v7(namespace, seed, preset, geology="none"):
                     relief += crater_profile_q(d, crater["radius_q"], crater["depth"], crater["rim_height"])
                 i=y*width+x
                 surface["elevation"][i]=max(401,min(1000,surface["elevation"][i]+relief))
+    validate_surface(geo)
+    return geo
+
+
+def generate_planet_v8(namespace, seed, preset, geology="none", lake_material="none", polar_caps="none"):
+    """V8 annotates the unchanged V7 surface with saved composition masks."""
+    geo = generate_planet_v7(namespace, seed, preset, geology)
+    materials = generate_materials(geo, seed, lake_material, polar_caps)
+    geo["surface"].update(version="planet-v8", materials=materials)
     validate_surface(geo)
     return geo
 
@@ -608,13 +618,15 @@ def project_surface(geometry):
     projected={"version":surface["version"],"sea_level":surface["sea_level"],
                **{key:list(surface[key]) for key in FIELDS},
                "rivers":[{"id":r["id"],"points":[[p[0],p[1]] for p in r["points"]]} for r in surface["rivers"]]}
-    if surface["version"] in ("planet-v4","planet-v5","planet-v6","planet-v7"):
+    if surface["version"] in ("planet-v4","planet-v5","planet-v6","planet-v7","planet-v8"):
         projected.update({"preset":surface["preset"],"hydrology":surface["hydrology"]})
     if surface["version"]=="planet-v6": projected["topology"]="cylinder-x"
-    if surface["version"]=="planet-v7":
+    if surface["version"] in ("planet-v7","planet-v8"):
         projected.update({"topology":"cylinder-x","geology":surface["geology"],
             "craters":[{key:c[key] for key in ("id","x_q","y_q","radius_q","depth","rim_height")}
                        for c in surface["craters"]]})
+    if surface["version"]=="planet-v8":
+        projected["materials"] = {key:surface["materials"][key] for key in ("lake_material", "polar_caps", "lake_mask", "ice_mask")}
     return {"surface":projected}
 
 
@@ -627,9 +639,10 @@ def validate_surface(geometry):
     expected_keys = SURFACE_KEYS | {"preset","hydrology"} if version in ("planet-v4","planet-v5") else SURFACE_KEYS
     if version=="planet-v6": expected_keys=SURFACE_KEYS|{"preset","hydrology","topology"}
     if version=="planet-v7": expected_keys=SURFACE_KEYS|{"preset","hydrology","topology","geology","craters"}
+    if version=="planet-v8": expected_keys=SURFACE_KEYS|{"preset","hydrology","topology","geology","craters","materials"}
     if not isinstance(surface, dict) or set(surface) != expected_keys or version not in SURFACE_VERSIONS:
         raise ValueError("unsupported planet surface contract")
-    if version in ("planet-v4","planet-v5","planet-v6","planet-v7"):
+    if version in ("planet-v4","planet-v5","planet-v6","planet-v7","planet-v8"):
         preset, hydrology = surface.get("preset"), surface.get("hydrology")
         if preset not in PRESETS or hydrology != ("none" if preset in ("arid","barren","frozen") else "ocean-draining"):
             raise ValueError("invalid planet preset surface contract")
@@ -642,12 +655,12 @@ def validate_surface(geometry):
     if not isinstance(planet,dict):
         raise ValueError("invalid planet surface dimensions")
     width, height = planet.get("width"), planet.get("height")
-    expected_dimensions = (V5_WIDTH,V5_HEIGHT) if version in ("planet-v5","planet-v6","planet-v7") else (WIDTH,HEIGHT)
+    expected_dimensions = (V5_WIDTH,V5_HEIGHT) if version in ("planet-v5","planet-v6","planet-v7","planet-v8") else (WIDTH,HEIGHT)
     if type(width) is not int or type(height) is not int or (width,height) != expected_dimensions:
         raise ValueError("versioned planet surface has unsupported dimensions")
-    if version in ("planet-v6","planet-v7") and surface.get("topology")!="cylinder-x":
+    if version in ("planet-v6","planet-v7","planet-v8") and surface.get("topology")!="cylinder-x":
         raise ValueError("invalid cylindrical planet topology")
-    if version=="planet-v7":
+    if version in ("planet-v7","planet-v8"):
         if surface.get("geology") not in GEOLOGIES or (surface["geology"]=="cratered" and surface["preset"] not in ("arid","barren","frozen")):
             raise ValueError("invalid planet geology contract")
         _validate_craters(surface.get("craters"))
@@ -662,7 +675,7 @@ def validate_surface(geometry):
     codes, elevation, drainage = geometry["terrain_grid"], surface["elevation"], surface["drainage"]
     if not isinstance(codes,str) or len(codes) != size or any(c not in "ocprfm" for c in codes):
         raise ValueError("invalid planet surface terrain")
-    if version in ("planet-v5","planet-v6","planet-v7"):
+    if version in ("planet-v5","planet-v6","planet-v7","planet-v8"):
         provinces=geometry.get("provinces")
         cell=16
         if not isinstance(provinces,list) or len(provinces)!=40:
@@ -677,7 +690,9 @@ def validate_surface(geometry):
             for row in range(y,y+h):
                 for column in range(x,x+w): coverage[row*width+column]+=1
         if any(value!=1 for value in coverage): raise ValueError("invalid planet province coverage")
-    if version in ("planet-v4","planet-v5","planet-v6","planet-v7") and surface["hydrology"] == "none":
+    if version=="planet-v8":
+        validate_materials(geometry)
+    if version in ("planet-v4","planet-v5","planet-v6","planet-v7","planet-v8") and surface["hydrology"] == "none":
         preset = surface["preset"]
         allowed = {"arid":"pr", "barren":"r", "frozen":"pr"}[preset]
         if (any(c not in allowed for c in codes) or any(v <= SEA_LEVEL for v in elevation) or
@@ -687,7 +702,7 @@ def validate_surface(geometry):
                 not isinstance(surface["rivers"],list) or surface["rivers"] != []):
             raise ValueError("invalid dry planet preset fields")
         return
-    wrap_x=version in ("planet-v6","planet-v7")
+    wrap_x=version in ("planet-v6","planet-v7","planet-v8")
     for i, j in enumerate(drainage):
         ocean = codes[i] == "o"
         if ocean != (elevation[i] <= SEA_LEVEL) or (ocean and j != -1) or (not ocean and (j not in _neighbors(i,width,height,wrap_x) or elevation[j] > elevation[i])):

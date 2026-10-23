@@ -349,3 +349,36 @@ Direct renderer samples exclude API/input/compositing; no production FPS claim.
 
 V7 implementation and verified source: **`ed66cb6`**. Subsequent liquid-lake and
 polar-cap options are a separate opt-in continuation; this verdict covers V7.
+
+
+## V8 lake materials and polar caps
+
+User requested separately chosen lava/other liquid lakes and polar ice caps.
+Opt-in V8 adds saved128×80 composition masks with explicit lake choices
+None/Water/Hydrocarbon/Lava and cap choices None/Water ice through existing
+new-campaign CLI/global/per-planet flags. Existing presets and cratered geology
+remain independent; no existing records, base geography or rules are converted.
+Supported authoring combinations and integration contract are documented in
+[surface-material review](../reviews/surface-materials.md).
+
+Luna's incomplete first backend attempt was escalated to localized Sol medium.
+One bounded Sol high review accepted strict contracts/privacy, all90 legacy
+private/public pairs (180 hashes),34 exact V7-base variants and hidden canaries.
+The same fresh visual critic accepted the corrected candidate after anonymous
+stills, specific material/river/anchor findings, implementation and frozen live
+recheck. Initial failures and remaining minor limits are retained in the review.
+
+122 Python tests, focused renderer checks, corrected protected V8 six-preset/
+both-style seam/overlay/context/order/history browser workflows, and V7 navigation
+plus V3 cartography regressions pass. No exercised page errors; canvas/handlers
+remain stable. Chromium154 on shared Linux was tested; WebKit binary absent and
+native Safari unverified. Desktop acceptance only. The final10,000-turn V8
+persisted fixture gate is still running; this backup milestone is not final gate
+acceptance. Backend/renderer source stays frozen while that gate completes.
+
+Known scope limits: coarse/soft lake shores, idealized overlapping craters,
+coarse biomes/axial rivers, small legend type, long tooltip under inspector,
+full-snapshot storage/history cost and unsupported authoring combinations. No
+new hazards, movement barriers, lake resources or production rules are invented.
+No physical/photo realism, whole-game parity, original cloud recovery, character
+branch merge, schema/rule migration or operational deployment is claimed.

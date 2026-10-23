@@ -215,3 +215,17 @@ User authorized implementation on `map-generation`, following an Orbital/Survey/
 
 
 - ADR-013 cratered-world follow-up: opt-in V7 derives fresh V6 surfaces and adds a separately chosen `none | cratered` geology with complete private per-planet configuration and surveyed-only bounded integer descriptors. Dry Arid/Barren/Frozen only; wet combinations fail because existing ocean-draining depression filling erases bowls. Preserve all V1–V6 data outputs/defaults/IDs and numeric rules. Sample descriptors into authoritative dry elevation; the renderer adds only continuous-profile residual detail, with matching gradient stencils and northwest relief lighting. Render sea contours only with recorded ocean hydrology; keep waterless surfaces land regardless of the old sea datum. Simplify Terrain annotation density while retaining selected/holding labels and explicit Provinces. Idealized geometry is not physical erosion, mineral composition or photo accuracy. See `docs/reviews/cratered-worlds.md` for independent findings, corrections, persisted-turn evidence and remaining families.
+
+
+- ADR-013 surface-material follow-up: opt-in V8 wraps unchanged V7 and adds explicit
+  saved composition masks for independently selected lake material (none, water,
+  hydrocarbon, lava) and polar caps (none, water-ice). Keep base terrain, climate,
+  hydrology, province IDs, resource/traversal rules and V1–V7 outputs unchanged.
+  Use strict per-planet private creation maps, surveyed-only nested public
+  allowlists, deterministic integer connected lake placement away from anchor
+  halos, and continuous periodic cap boundaries. Render saved masks with inward
+  shores/flat liquid tint; no client-created features. Current supported authoring
+  combinations are deliberately bounded, not a climate/phase simulation. These
+  options live in the existing new-campaign CLI, without a new web write endpoint
+  or live terrain toggle. See `docs/reviews/surface-materials.md` for contracts,
+  independent findings, corrections and final gate status.

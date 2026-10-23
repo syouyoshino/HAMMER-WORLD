@@ -92,4 +92,49 @@ class PlanetPresetCommandTests(PostgresTestCase, unittest.TestCase):
         self.assertNotIn('bad-legacy-geology', [item['id'] for item in self.db.campaigns()])
 
 
+
+
+class PlanetMaterialCommandTests(PostgresTestCase, unittest.TestCase):
+    def run_cli(self, cid, options):
+        return subprocess.run([sys.executable, '-m', 'app.cli', 'init-v2', '--campaign-id', cid, *options],
+                              env=dict(os.environ), capture_output=True, text=True)
+
+    def test_v8_global_and_per_planet_options_persist(self):
+        result=self.run_cli('cli-v8',['--planet-generator','planet-v8','--preset','barren',
+                                    '--geology','cratered','--lake-material','water','--polar-caps','water-ice',
+                                    '--planet-lake-material','cli-v8-planet-reach=none',
+                                    '--planet-polar-caps','cli-v8-planet-ash=none'])
+        self.assertEqual(result.returncode,0,result.stderr)
+        state=self.db.current('cli-v8')['snapshot']['state']
+        config=state['_private']['generator_config']
+        self.assertEqual(config['planet_lake_materials']['cli-v8-planet-reach'],'none')
+        self.assertEqual(config['planet_lake_materials']['cli-v8-planet-ash'],'water')
+        self.assertEqual(config['planet_polar_caps']['cli-v8-planet-ash'],'none')
+        self.assertEqual(config['planet_polar_caps']['cli-v8-planet-reach'],'water-ice')
+        self.db.validate_state('world-v2','demo-v2',0,state)
+
+    def test_cli_rejects_legacy_even_explicit_none_duplicates_unknown_and_bad_combinations(self):
+        for version in range(1,8):
+            for flag in ('--lake-material','--polar-caps'):
+                result=self.run_cli('bad-legacy-material',['--planet-generator',f'planet-v{version}',flag,'none'])
+                self.assertNotEqual(result.returncode,0)
+                self.assertIn('require --planet-generator planet-v8',result.stderr)
+        for options in (
+            ['--planet-lake-material','bad-v8-planet-reach=water','--planet-lake-material','bad-v8-planet-reach=lava'],
+            ['--planet-polar-caps','bad-v8-planet-reach=none','--planet-polar-caps','bad-v8-planet-reach=water-ice'],
+            ['--planet-lake-material','unknown=water'],
+            ['--planet-polar-caps','unknown=water-ice'],
+            ['--planet-lake-material','bad-v8-planet-reach=unknown'],
+            ['--planet-polar-caps','missing-equals'],
+            ['--lake-material','lava','--polar-caps','water-ice'],
+            ['--preset','frozen','--lake-material','water'],
+            ['--preset','frozen','--lake-material','lava'],
+            ['--lake-material','hydrocarbon'],
+        ):
+            result=self.run_cli('bad-v8',['--planet-generator','planet-v8','--preset','barren',*options])
+            self.assertNotEqual(result.returncode,0,result.stdout)
+        self.assertNotIn('bad-v8',[c['id'] for c in self.db.campaigns()])
+        self.assertNotIn('bad-legacy-material',[c['id'] for c in self.db.campaigns()])
+
+
 if __name__ == '__main__': unittest.main()

@@ -3,7 +3,7 @@ import json
 from .archive import worker_from_environment
 from .sqlite_migration import import_sqlite
 from .store import Store
-from .planet_generation import GEOLOGIES, PRESETS
+from .planet_generation import GEOLOGIES, PRESETS, LAKE_MATERIALS, POLAR_CAPS
 
 
 def main():
@@ -11,15 +11,19 @@ def main():
     sub=p.add_subparsers(dest="command",required=True)
     sub.add_parser("init")
     q=sub.add_parser("init-v2"); q.add_argument("--campaign-id",default="demo-v2"); q.add_argument("--seed",type=int,default=741903)
-    q.add_argument("--planet-generator",choices=("planet-v1","planet-v2","planet-v3","planet-v4","planet-v5","planet-v6","planet-v7"),default="planet-v1",
+    q.add_argument("--planet-generator",choices=("planet-v1","planet-v2","planet-v3","planet-v4","planet-v5","planet-v6","planet-v7","planet-v8"),default="planet-v1",
                    help="generator for a new isolated demo; existing campaigns are never regenerated")
     q.add_argument("--preset",choices=("auto",*PRESETS),default=None,
-                   help="planet-v4 through v7 water/surface preset applied to every planet unless overridden")
+                   help="planet-v4 through v8 water/surface preset applied to every planet unless overridden")
     q.add_argument("--planet-preset",action="append",default=[],metavar="PLANET_ID=PRESET",
-                   help="planet-v4 through v7 override; repeat for independent stable planet node IDs")
-    q.add_argument("--geology",choices=GEOLOGIES,default=None,help="planet-v7 geology applied to every planet")
+                   help="planet-v4 through v8 override; repeat for independent stable planet node IDs")
+    q.add_argument("--geology",choices=GEOLOGIES,default=None,help="planet-v7/v8 geology applied to every planet")
     q.add_argument("--planet-geology",action="append",default=[],metavar="PLANET_ID=CHOICE",
-                   help="planet-v7 per-planet geology override; repeat for independent planet IDs")
+                   help="planet-v7/v8 per-planet geology override; repeat for independent planet IDs")
+    q.add_argument("--lake-material", choices=LAKE_MATERIALS, default=None, help="planet-v8 saved lake composition")
+    q.add_argument("--polar-caps", choices=POLAR_CAPS, default=None, help="planet-v8 saved polar composition")
+    q.add_argument("--planet-lake-material", action="append", default=[], metavar="PLANET_ID=CHOICE")
+    q.add_argument("--planet-polar-caps", action="append", default=[], metavar="PLANET_ID=CHOICE")
     q=sub.add_parser("packet"); q.add_argument("campaign_id")
     q=sub.add_parser("preview"); q.add_argument("campaign_id"); q.add_argument("proposal")
     q=sub.add_parser("import-turn"); q.add_argument("campaign_id"); q.add_argument("proposal")
@@ -48,10 +52,25 @@ def main():
             if choice not in GEOLOGIES: p.error(f"unsupported planet geology: {choice}")
             geologies[planet_id]=choice
         args.planet_geologies=geologies or None
-        if args.planet_generator not in ("planet-v4","planet-v5","planet-v6","planet-v7") and (args.preset is not None or args.planet_presets is not None):
-            p.error("--preset and --planet-preset require planet-v4 through planet-v7")
-        if args.planet_generator!="planet-v7" and (args.geology is not None or args.planet_geologies is not None):
-            p.error("--geology and --planet-geology require --planet-generator planet-v7")
+        if args.planet_generator not in ("planet-v4","planet-v5","planet-v6","planet-v7","planet-v8") and (args.preset is not None or args.planet_presets is not None):
+            p.error("--preset and --planet-preset require planet-v4 through planet-v8")
+        if args.planet_generator not in ("planet-v7","planet-v8") and (args.geology is not None or args.planet_geologies is not None):
+            p.error("--geology and --planet-geology require --planet-generator planet-v7 or planet-v8")
+        for option, destination, choices in (("planet_lake_material", "planet_lake_materials", LAKE_MATERIALS),
+                                               ("planet_polar_caps", "planet_polar_caps_map", POLAR_CAPS)):
+            overrides = {}
+            flag = "--"+option.replace("_", "-")
+            for value in getattr(args, option):
+                if "=" not in value: p.error(f"{flag} must be PLANET_ID=CHOICE")
+                planet_id, choice = value.split("=", 1)
+                if planet_id in overrides: p.error(f"duplicate {flag} for {planet_id}")
+                if choice not in choices: p.error(f"unsupported surface material: {choice}")
+                if planet_id not in {f"{args.campaign_id}-planet-{suffix}" for suffix in ("reach", "ash", "haven", "veil")}:
+                    p.error(f"unknown planet ID: {planet_id}")
+                overrides[planet_id] = choice
+            setattr(args, destination, overrides or None)
+        if args.planet_generator != "planet-v8" and (args.lake_material is not None or args.polar_caps is not None or args.planet_lake_materials is not None or args.planet_polar_caps_map is not None):
+            p.error("surface material options require --planet-generator planet-v8")
     db=Store()
     if args.command=="init":
         try: sid=db.create_demo()
@@ -62,7 +81,9 @@ def main():
     elif args.command=="init-v2":
         sid=db.create_demo_v2(args.campaign_id,args.seed,planet_generator=args.planet_generator,
                               preset=args.preset,planet_presets=args.planet_presets,
-                              geology=args.geology or "none",planet_geologies=args.planet_geologies)
+                              geology=args.geology or "none",planet_geologies=args.planet_geologies,
+                              lake_material=args.lake_material, polar_caps=args.polar_caps,
+                              planet_lake_materials=args.planet_lake_materials, planet_polar_caps=args.planet_polar_caps_map)
         out={"campaign_id":args.campaign_id,"snapshot_id":sid,"campaigns":db.campaigns()}
     elif args.command=="packet": out=db.packet(args.campaign_id)
     elif args.command in ("preview","import-turn"):

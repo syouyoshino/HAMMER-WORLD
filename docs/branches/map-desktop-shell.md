@@ -164,3 +164,9 @@ separate from unfinished planetary geology/art and production readiness.
 The separate [V7 cratered-world follow-up](../reviews/cratered-worlds.md) records
 saved opt-in geology and the latest terrain/chrome corrections. Its scoped
 review does not establish photographic accuracy or change existing campaigns.
+
+
+The separate [V8 surface-material continuation](../reviews/surface-materials.md)
+adds new-campaign lake/cap options and reviews annotation/material clarity. Its
+own persistence gate status and scoped limitations are recorded there; it does
+not extend this shell's acceptance to operational deployment or physical realism.
