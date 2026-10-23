@@ -1,8 +1,8 @@
 # Lake materials and polar caps
 
 Branch `map-generation`, following verified V7 delivery `ed66cb6` / `84ecff5`.
-Status: corrected V8 scoped visual/interaction and backend reviews accepted;
-final 10,000-turn delivery gate remains in progress. V7 acceptance is separate.
+Status: V8 scoped backend, visual/interaction and final persisted-turn gates
+passed. Implementation **`50a4afa`**; V7 acceptance is recorded separately.
 
 ## Authorized scope and architecture
 
@@ -52,17 +52,17 @@ helper. Separate full private maps record per-planet lake materials and caps;
 strict nested surveyed surface projection exposes only the four explicit keys.
 
 The same bounded Sol high reviewer accepted the final backend with zero critical/
-major findings. It independently checked all90 committed V1–V7 private/public
-pairs (180 hashes, including nine cratered V7 cases): no mismatches. Its34 V8
+major findings. It independently checked all 90 committed V1–V7 private/public
+pairs (180 hashes, including nine cratered V7 cases): no mismatches. Its 34 V8
 variants across all presets retained exact V7 base dictionaries; hidden/detected
 material canaries were omitted. Lakes reserve anchor halos; ice stays continuous
 over holdings. No engine, schema, authentication or archive path was changed.
 
 ## Initial independent visual critique
 
-A fresh Sol medium critic first examined anonymous full-frame1440×1024 images
+A fresh Sol medium critic first examined anonymous full-frame 1440×1024 images
 before receiving provenance, implementation discussion or any previous verdict.
-The set contained200% lake details and100% cap overviews for distinct worlds;
+The set contained 200% lake details and 100% cap overviews for distinct worlds;
 it was expressly not a winner comparison between different information loads.
 
 It identified new lakes as flat cutouts with abrupt, regular corners, and lava's
@@ -71,7 +71,8 @@ past shores, unclear settlement anchoring/occluded labels, repeated crater rings
 and coarse blurred biome blocks. The latter two are inherited V7 limitations;
 they remain recorded rather than being presented as new realism achievements.
 New material finish and concrete navigation findings require correction/recheck.
-Interaction assessment and the full persistence gate are still in progress.
+Interaction assessment and the persistence gate were pending at this initial
+candidate; their final outcomes are recorded below.
 
 ## Creation interface
 
@@ -113,7 +114,7 @@ triangles and tooltip explanation; offscreen duplicate world anchors no longer
 produce misleading clamped tags. Actual saved lake/ice composition appears in
 hover text separately from underlying ground. Camera/selection are preserved.
 
-122 Python tests passed in389.713s in the isolated QA PostgreSQL environment.
+122 Python tests passed in 389.713 s in the isolated QA PostgreSQL environment.
 Focused Node checks exercise actual raster code for saved-mask centres and seams,
 solid poles, material palettes, restrained texture without inherited lake
 hillshade, recorded river crossings and safe accessible edge labels. Existing
@@ -128,8 +129,8 @@ pixels and desktop resize, real recruitment/movement draft/preview/commit,
 historical read-only return, unchanged fixture hashes and stable canvas/handlers.
 No exercised page errors. That success does not replace independent visual review.
 
-A fresh Chromium154 browser run at1440×1024 observed campaign-to-first-draw
-961.5–1467.1ms on shared Linux with a concurrent persisted-turn gate. This is a
+A fresh Chromium 154 browser run at 1440×1024 observed campaign-to-first-draw
+961.5–1467.1 ms on shared Linux with a concurrent persisted-turn gate. This is a
 fixture observation, not controlled before/after benchmarking or production FPS.
 Full captures and metrics remain ignored under `data/surface-materials/`.
 
@@ -142,8 +143,8 @@ findings. It confirmed the selection-like lava keyline gone, inward shoreline
 transitions and subtle interiors integrating with ground, and outlets ending at
 shore. Offscreen north triangles/leaders explain the previously floating row.
 
-Its actual frozen browser recheck at100% hovered Forge's explicit north-anchor
-message, clicked its tag to select Province02/Forge900 without camera relocation,
+Its actual frozen browser recheck at 100% hovered Forge's explicit north-anchor
+message, clicked its tag to select Province 02 and Forge (900 recorded residents) without camera relocation,
 and hovered hydrocarbon to read both composition and underlying Ice field.
 1024×768 retained the full header, legend, status and inspector. Its earlier
 bounded Economy/Construction/context, themes and four-level navigation checks
@@ -151,10 +152,65 @@ were recorded separately; only its frozen recheck is final material acceptance.
 It discarded a capture that raced cold campaign loading instead of treating the
 transient “No recorded geography” message as a permanent missing-record defect.
 
-Remaining minor finish limits:128×80 lake outlines can look coarse at200%, shore
+Remaining minor finish limits: 128×80 lake outlines can look coarse at 200%, shore
 softness, small legend/meta type, and a long composition hover tooltip can extend
 behind an open right inspector (core composition remains visible). Inherited
 repeated concentric craters, overlapping bowls, broad biome blocks and axial
 rivers remain limits. No lunar/Titan photographic, thermodynamic or commercial
 game quality parity is established. New reviewed references were actual matched
 application states and recorded masks, not externally recovered planet photos.
+
+
+## Final persisted delivery gate
+
+Mixed V8 Barren/Archipelago/Oceanic/Frozen, with lava/water/hydrocarbon lakes,
+water-ice caps and separately selected dry cratered geology:
+**10,000 turns PASS in 3291.49 s**. All 10,001 source snapshots remained intact;
+every-turn conservation, checkpoints/history and exact independent initial-state
+restore passed. Largest serialized state 1,050,779 bytes; summed source-state
+JSON 8,408,795,953 bytes (not physical database disk consumption). Current read
+75.1 ms; read of 50 history records 5558.8 ms. Full-geography repeated snapshots remain a
+material inherited storage/history-performance limitation, not a solved
+production-scaling concern.
+
+All 11 backend source hashes equal the initial frozen manifest, completed report,
+current source and pushed implementation `50a4afa`. The gate used only isolated
+QA PostgreSQL and its own disposable schema. No live records, credentials,
+databases, generated fixtures or runtime captures are committed.
+
+Legacy V7 protected navigation and V3 cartography browser regressions also passed.
+An additional actual Chromium tab-zoom check used a disposable browser profile,
+Chrome Settings 100/125/150/200% zoom, physical window 1920×1280 and full CDP
+captures 1920×1193. CSS viewports ranged 1920×1193 to 960×596 with visual scale 1.
+The V8 material legend, command/campaign/map controls, Economy return and hierarchy
+remained operable/in bounds, without page errors. This is desktop Chromium 154
+coverage; WebKit executable is absent and native macOS Safari remains unverified.
+Mobile acceptance is excluded per user direction.
+
+Continue by authoring new fictional campaigns through explicit V8 options.
+Integrate unrecovered cartography through versioned saved contracts and surveyed
+allowlists, without converting established maps. Additional liquid compositions,
+fractures/volcanic terrain, thermodynamics and traversal/resource hazards require
+separate scoped work. No original cloud data recovery, character-relationships
+branch edit, merge, deployment, operational-security certification or scientific/
+whole-game commercial parity is claimed. This is an interface release candidate.
+
+
+## Rendering measurements and environment
+
+Shared Linux 6.18.55/glibc 2.41 with 2 CPU quota, Chromium 154.0.8037.57,
+1440×1024 viewport and 1536×960 cached rasters; four saved material fixtures
+in both Orbital/Survey styles (eight samples). After the stress and regression
+processes completed, one cold direct draw per case ranged 323.8–856.7 ms;
+ten synchronous cached-draw averages ranged 1.09–5.23 ms. Earlier concurrent
+stress/browser load samples ranged 812.6–2103.9 ms cold and 2.31–18.53 ms warm.
+These uncontrolled observations do not establish an attributed speedup or
+production-scale performance. They exclude input, API, force DOM, compositing
+and GPU residency; they are not frame-rate measurements. Actual campaign-first-
+draw timings from the protected browser run are recorded above.
+
+Ignored evidence: `data/surface-materials/performance.json`,
+`performance-quiet.json`, `corrected-browser/wrap-metrics.json`,
+`browser-zoom/metrics.json` and `data/verification/stress-v8-materials.json`.
+The independent critic's frozen screenshots are under scratch/material-critic;
+product captures remain in ignored `data/surface-materials/corrected/`.

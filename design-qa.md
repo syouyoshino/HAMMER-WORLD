@@ -3,7 +3,8 @@
 final result: passed
 
 Latest V8 scoped visual/material and backend reviews accepted; final persisted
-10,000-turn gate is pending. See `docs/reviews/surface-materials.md` for the
+10,000-turn gate passed (source `50a4afa`, matching all 11 backend hashes).
+See `docs/reviews/surface-materials.md` for the
 same-critic corrections, observed browser checks and retained limits. This is
 not physical realism or operational release certification.
 

@@ -354,7 +354,7 @@ polar-cap options are a separate opt-in continuation; this verdict covers V7.
 ## V8 lake materials and polar caps
 
 User requested separately chosen lava/other liquid lakes and polar ice caps.
-Opt-in V8 adds saved128×80 composition masks with explicit lake choices
+Opt-in V8 adds saved 128×80 composition masks with explicit lake choices
 None/Water/Hydrocarbon/Lava and cap choices None/Water ice through existing
 new-campaign CLI/global/per-planet flags. Existing presets and cratered geology
 remain independent; no existing records, base geography or rules are converted.
@@ -362,7 +362,7 @@ Supported authoring combinations and integration contract are documented in
 [surface-material review](../reviews/surface-materials.md).
 
 Luna's incomplete first backend attempt was escalated to localized Sol medium.
-One bounded Sol high review accepted strict contracts/privacy, all90 legacy
+One bounded Sol high review accepted strict contracts/privacy, all 90 legacy
 private/public pairs (180 hashes),34 exact V7-base variants and hidden canaries.
 The same fresh visual critic accepted the corrected candidate after anonymous
 stills, specific material/river/anchor findings, implementation and frozen live
@@ -371,10 +371,13 @@ recheck. Initial failures and remaining minor limits are retained in the review.
 122 Python tests, focused renderer checks, corrected protected V8 six-preset/
 both-style seam/overlay/context/order/history browser workflows, and V7 navigation
 plus V3 cartography regressions pass. No exercised page errors; canvas/handlers
-remain stable. Chromium154 on shared Linux was tested; WebKit binary absent and
-native Safari unverified. Desktop acceptance only. The final10,000-turn V8
-persisted fixture gate is still running; this backup milestone is not final gate
-acceptance. Backend/renderer source stays frozen while that gate completes.
+remain stable. Chromium 154 on shared Linux was tested; WebKit binary absent and
+native Safari unverified. Desktop acceptance only. The final 10,000-turn V8
+persisted fixture gate passed in 3291.49 s with 10,001 source snapshots, conservation,
+history/checkpoint and exact independent restore checks. All 11 backend hashes
+match the initial freeze, report and pushed implementation **`50a4afa`**.
+Largest state 1,050,779 bytes; source JSON sum 8,408,795,953 bytes (not disk use).
+Current read 75.1 ms; read of 50 history records 5558.8 ms remains a full-snapshot limitation.
 
 Known scope limits: coarse/soft lake shores, idealized overlapping craters,
 coarse biomes/axial rivers, small legend type, long tooltip under inspector,
@@ -382,3 +385,17 @@ full-snapshot storage/history cost and unsupported authoring combinations. No
 new hazards, movement barriers, lake resources or production rules are invented.
 No physical/photo realism, whole-game parity, original cloud recovery, character
 branch merge, schema/rule migration or operational deployment is claimed.
+
+
+V8 actual desktop Chromium tab zoom 100/125/150/200% passed in a 1920×1280
+window (CSS 1920×1193 down to 960×596), including the full material legend,
+command/campaign/map controls, Economy return and hierarchy. Full source,
+independent review, test, browser and performance limits are in the linked review.
+Implementation delivery: **`50a4afa`**; this follow-up record completes its gate.
+
+
+After other checks finished, shared 2-CPU Linux/Chromium 154 direct renderer
+samples at 1440×1024 with 1536×960 rasters ranged 323.8–856.7 ms cold;
+ten synchronous warm-draw averages ranged 1.09–5.23 ms across eight material/style
+cases. Concurrent-load samples and exclusions are retained in the review.
+No production FPS or physical/photo accuracy is established.
