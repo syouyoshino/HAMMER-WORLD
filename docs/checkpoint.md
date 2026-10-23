@@ -1,3 +1,5 @@
+V7 verified implementation: **`ed66cb6`** on `map-generation`.
+
 # Continuation checkpoint
 
 Read `AGENTS.md`, `plan.md` and `docs/decisions.md`, then inspect actual source/tests and Git state. The existing repository is accessible and the scheduled continuation resumed the same work. Preserve the existing implementation. Do not duplicate completed acceptance runs without a relevant change.

@@ -201,3 +201,6 @@ lighting; to terrain clutter, selective labels/grid; to coarse shores/rivers,
 restrained contours and variable-width strokes. The same critic accepted those
 bounded improvements after corrections. These comparisons establish improvement
 over the prior build, not equivalence to lunar photographs or commercial games.
+
+V7 implementation and verified source: **`ed66cb6`**. Subsequent liquid-lake and
+polar-cap options are a separate opt-in continuation; this verdict covers V7.

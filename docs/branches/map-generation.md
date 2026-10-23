@@ -346,3 +346,6 @@ V7 delivery rendering observations: shared Linux2 CPU quota, Chromium154,
 1440×1024 viewport and1536×960 rasters; cold direct draws143.6–472.2ms,
 ten-draw warm averages0.36–5.02ms, campaign-to-first-draw697.8–1243.7ms.
 Direct renderer samples exclude API/input/compositing; no production FPS claim.
+
+V7 implementation and verified source: **`ed66cb6`**. Subsequent liquid-lake and
+polar-cap options are a separate opt-in continuation; this verdict covers V7.
