@@ -4,6 +4,16 @@ from .archive import worker_from_environment
 from .sqlite_migration import import_sqlite
 from .store import Store
 from .planet_generation import GEOLOGIES, PRESETS, LAKE_MATERIALS, POLAR_CAPS
+from .universe import build_universe, V2_SCHEMA, V2_RULES
+
+
+def _unique_object(pairs):
+    result = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError(f"duplicate JSON key: {key}")
+        result[key] = value
+    return result
 
 
 def main():
@@ -11,7 +21,7 @@ def main():
     sub=p.add_subparsers(dest="command",required=True)
     sub.add_parser("init")
     q=sub.add_parser("init-v2"); q.add_argument("--campaign-id",default="demo-v2"); q.add_argument("--seed",type=int,default=741903)
-    q.add_argument("--planet-generator",choices=("planet-v1","planet-v2","planet-v3","planet-v4","planet-v5","planet-v6","planet-v7","planet-v8"),default="planet-v1",
+    q.add_argument("--planet-generator",choices=("planet-v1","planet-v2","planet-v3","planet-v4","planet-v5","planet-v6","planet-v7","planet-v8","planet-v9"),default="planet-v1",
                    help="generator for a new isolated demo; existing campaigns are never regenerated")
     q.add_argument("--preset",choices=("auto",*PRESETS),default=None,
                    help="planet-v4 through v8 water/surface preset applied to every planet unless overridden")
@@ -24,6 +34,9 @@ def main():
     q.add_argument("--polar-caps", choices=POLAR_CAPS, default=None, help="planet-v8 saved polar composition")
     q.add_argument("--planet-lake-material", action="append", default=[], metavar="PLANET_ID=CHOICE")
     q.add_argument("--planet-polar-caps", action="append", default=[], metavar="PLANET_ID=CHOICE")
+    q.add_argument("--feature-names", choices=("none", "generated"), default=None)
+    q.add_argument("--feature-names-file", default=None, metavar="JSON")
+    q.add_argument("--catalog", action="store_true", help="validate in memory and print a hydrography authoring catalog without opening the database")
     q=sub.add_parser("packet"); q.add_argument("campaign_id")
     q=sub.add_parser("preview"); q.add_argument("campaign_id"); q.add_argument("proposal")
     q=sub.add_parser("import-turn"); q.add_argument("campaign_id"); q.add_argument("proposal")
@@ -52,10 +65,10 @@ def main():
             if choice not in GEOLOGIES: p.error(f"unsupported planet geology: {choice}")
             geologies[planet_id]=choice
         args.planet_geologies=geologies or None
-        if args.planet_generator not in ("planet-v4","planet-v5","planet-v6","planet-v7","planet-v8") and (args.preset is not None or args.planet_presets is not None):
-            p.error("--preset and --planet-preset require planet-v4 through planet-v8")
-        if args.planet_generator not in ("planet-v7","planet-v8") and (args.geology is not None or args.planet_geologies is not None):
-            p.error("--geology and --planet-geology require --planet-generator planet-v7 or planet-v8")
+        if args.planet_generator not in ("planet-v4","planet-v5","planet-v6","planet-v7","planet-v8","planet-v9") and (args.preset is not None or args.planet_presets is not None):
+            p.error("--preset and --planet-preset require planet-v4 through planet-v9")
+        if args.planet_generator not in ("planet-v7","planet-v8","planet-v9") and (args.geology is not None or args.planet_geologies is not None):
+            p.error("--geology and --planet-geology require --planet-generator planet-v7 or later")
         for option, destination, choices in (("planet_lake_material", "planet_lake_materials", LAKE_MATERIALS),
                                                ("planet_polar_caps", "planet_polar_caps_map", POLAR_CAPS)):
             overrides = {}
@@ -70,7 +83,39 @@ def main():
                 overrides[planet_id] = choice
             setattr(args, destination, overrides or None)
         if args.planet_generator != "planet-v8" and (args.lake_material is not None or args.polar_caps is not None or args.planet_lake_materials is not None or args.planet_polar_caps_map is not None):
-            p.error("surface material options require --planet-generator planet-v8")
+            if args.planet_generator != "planet-v9": p.error("surface material options require --planet-generator planet-v8 or planet-v9")
+        feature_file = None
+        if args.feature_names_file:
+            if args.planet_generator != "planet-v9": p.error("--feature-names-file requires --planet-generator planet-v9")
+            try:
+                with open(args.feature_names_file, encoding="utf8") as f:
+                    feature_file = json.load(f, object_pairs_hook=_unique_object)
+            except (OSError, ValueError, json.JSONDecodeError) as exc:
+                p.error(f"invalid feature names JSON: {exc}")
+            if not isinstance(feature_file, dict) or any(not isinstance(k, str) or not isinstance(v, dict) for k, v in feature_file.items()):
+                p.error("feature names file must map planet node IDs to feature ID maps")
+        if args.feature_names is not None and args.planet_generator != "planet-v9":
+            p.error("--feature-names requires --planet-generator planet-v9")
+        args.feature_name_overrides = feature_file
+        if args.catalog and args.planet_generator != "planet-v9":
+            p.error("--catalog requires --planet-generator planet-v9")
+        if args.catalog:
+            try:
+                state = build_universe(args.campaign_id, args.seed, planet_generator=args.planet_generator,
+                    preset=args.preset, planet_presets=args.planet_presets, geology=args.geology or "none",
+                    planet_geologies=args.planet_geologies, lake_material=args.lake_material, polar_caps=args.polar_caps,
+                    planet_lake_materials=args.planet_lake_materials, planet_polar_caps=args.planet_polar_caps_map,
+                    feature_names=args.feature_names, feature_name_overrides=args.feature_name_overrides)
+                Store.validate_state(V2_SCHEMA, V2_RULES, 0, state)
+            except (ValueError, TypeError) as exc:
+                p.error(str(exc))
+            catalog = []
+            for planet_id, geo in state["geography"].items():
+                for feature in geo["surface"]["hydrography"]["features"]:
+                    catalog.append({"planet_id":planet_id,"feature_id":feature["id"],"kind":feature["kind"],
+                        "material":feature["material"],"cell_count":len(feature["cells"]),"anchor":feature["anchor"],"name":feature["name"]})
+            print(json.dumps({"status":"uncommitted_creation_preview","campaign_id":args.campaign_id,"catalog":catalog},indent=2,ensure_ascii=False))
+            return
     db=Store()
     if args.command=="init":
         try: sid=db.create_demo()
@@ -83,7 +128,8 @@ def main():
                               preset=args.preset,planet_presets=args.planet_presets,
                               geology=args.geology or "none",planet_geologies=args.planet_geologies,
                               lake_material=args.lake_material, polar_caps=args.polar_caps,
-                              planet_lake_materials=args.planet_lake_materials, planet_polar_caps=args.planet_polar_caps_map)
+                              planet_lake_materials=args.planet_lake_materials, planet_polar_caps=args.planet_polar_caps_map,
+                              feature_names=args.feature_names, feature_name_overrides=args.feature_name_overrides)
         out={"campaign_id":args.campaign_id,"snapshot_id":sid,"campaigns":db.campaigns()}
     elif args.command=="packet": out=db.packet(args.campaign_id)
     elif args.command in ("preview","import-turn"):

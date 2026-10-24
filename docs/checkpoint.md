@@ -2,6 +2,25 @@
 
 Read `AGENTS.md`, `plan.md` and `docs/decisions.md`, then inspect actual source/tests and Git state. The existing repository is accessible and the scheduled continuation resumed the same work. Preserve the existing implementation. Do not duplicate completed acceptance runs without a relevant change.
 
+## Current V9 hydrographic-identity continuation
+
+On `map-generation`, the optional V9 names/catalog/feature inspector and rendering
+corrections are implemented and independently accepted within the documented
+scope. Read `docs/reviews/hydrography-names.md` and the latest branch section.
+132 Python tests, 240 exact legacy hashes, focused renderer checks, complete
+protected V9 and legacy cartography/strategic browsers pass. Chromium154 actual
+native zoom100–200% passes both physical desktop window sizes; WebKit absent,
+native Safari unverified. Existing maps/defaults/history/rules remain unchanged.
+
+The FINAL V9 10,000-turn disposable fixture gate is STILL RUNNING. All twelve
+backend hashes are frozen in ignored `data/hydrography-pass/backend-freeze.json`.
+Continue the existing process/log `/workspace/scratch/hydro-stress.log`, expecting
+report `data/hydrography-pass/stress-v9.json`; do not restart it or substitute old
+V8 evidence. It has passed the 6,000-turn checkpoint without a failure. No backend
+edits are permitted during this run. Final result and commit references remain
+to be recorded; this checkpoint will be updated when the gate finishes. No merge
+or deploy. Product source, docs and tests only; runtime data stays ignored.
+
 ## Current V8 material continuation
 
 Opt-in V8 saves independently chosen liquid-lake and polar-water-ice masks.

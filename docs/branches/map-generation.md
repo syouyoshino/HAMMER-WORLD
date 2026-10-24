@@ -399,3 +399,69 @@ samples at 1440×1024 with 1536×960 rasters ranged 323.8–856.7 ms cold;
 ten synchronous warm-draw averages ranged 1.09–5.23 ms across eight material/style
 cases. Concurrent-load samples and exclusions are retained in the review.
 No production FPS or physical/photo accuracy is established.
+
+## V9 hydrographic names and feature inspection
+
+Opt-in V9 wraps the unchanged V8 map with saved identities for connected ocean/
+sea/lake regions and existing recorded river courses. Names are independently
+optional generated fiction or operator-supplied at new-map creation. The CLI
+provides a no-database `--catalog` authoring preview and `--feature-names-file`;
+there is no live rename endpoint or retroactive naming of existing maps. V1
+remains the default. All 120 V1–V8 private/public baseline cases, 240 hashes,
+remain exact. Terrain, history, IDs, auth/intelligence and numeric rules are
+preserved. The user requested desktop acceptance only.
+
+The permanent map retains one inspector. Names is a UI preference; Features
+exposes every surveyed catalog record even when labels are hidden for fit.
+Selection carries actual kind/material/name provenance and underlying province;
+legacy V8 composition remains inspectable without fabricated identities. Labels
+use recorded interior cells/readable unique river spans, safe bounds, collision
+checks and canonical IDs. River coordinates unwrap before screen projection;
+painted-name selection uses the visible recorded cell rather than jumping to a
+remote saved anchor. List selection still uses that anchor when needed. Blue
+river strokes, quiet relief/shore treatment, bounded list scrolling, max-length
+name wrapping and compact desktop controls address the demonstrated critiques.
+
+Luna built the initial backend/UI candidates. Localized Sol medium corrections
+resolved concrete high-review and browser findings. Sol high accepted explicit
+surveyed nested projection and strict persistence contracts, then diagnosed and
+verified the later panned-river coordinate/visible-span fix. The same independent
+Sol medium critic preserved all initial findings and accepted the corrected
+scope after fresh screenshots and bounded real-browser checks. A favourable
+stills verdict did not override the later panned-browser failure. Exact findings,
+resolutions, actual references, authoring examples and limits are in
+[hydrography naming review](../reviews/hydrography-names.md).
+
+Verified before the final persisted-turn gate: 132 Python tests; 240 exact legacy
+hashes; hydro-label/material/crater renderer regressions; full protected V9 six-
+preset/both-style seam, selection, Names mouse/keyboard/touch, literal/80-character
+custom name, management return, DRAFT/PREVIEW/commit, history, sign-out and stable
+canvas/handler workflows; legacy V3 cartography and broad strategic regressions.
+No exercised page errors. Actual Chromium Settings zoom 100/125/150/200% passes
+1280×960 and 1920×1280 physical windows, including Names/Features and inspector
+close. At <=550 CSS-pixel height the informational legend/resource strip is
+intentionally hidden to preserve controls. WebKit binary is absent; native
+macOS Safari remains unverified. This is not a compliance certification.
+
+Observed direct renderer samples on shared Linux 6.18.55 / glibc2.41, 2-CPU quota,
+Chromium154, 1440×1024 with 1536×960 rasters, concurrent V9 gate: cold537–1612.9ms;
+ten-draw warm averages Names On1.95–14ms, Off0.84–5.37ms, selected1.17–7.8ms across
+eight fixture/style cases. These exclude API/input, force DOM, compositing and
+GPU residency; no production FPS or large-campaign claim.
+
+The final V9 10,000-turn gate is still running against the twelve frozen backend
+source hashes at this milestone. Do not infer completion from prior V8 results
+or restart the active disposable run. Its log is `/workspace/scratch/hydro-stress.log`;
+final report will be `data/hydrography-pass/stress-v9.json`. Final results and
+implementation commit references will be appended after completion.
+
+Known limitations: 128×80 coast/biome sampling and soft shores, axial saved river
+routes, idealized quiet craters, sparse overview labels, province-level ice
+emphasis, high native zoom consuming map space, and full-snapshot history/storage
+cost. No new NASA optical-photo comparison, physical/cartographic atlas parity,
+whole-game commercial parity, recovered cloud data, character-relationships
+merge, operational security, deployment or backup-service verification is claimed.
+This remains an interface release candidate. Recovered cartography should join
+through explicit generator/catalog versions and surveyed public allowlists;
+never regenerate old records. Character inspection remains a separate existing
+integration point.

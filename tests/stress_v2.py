@@ -108,8 +108,11 @@ def run(turns=10000):
         for variable, argument in (("LAKE_MATERIALS", "planet_lake_materials"), ("POLAR_CAPS_BY_PLANET", "planet_polar_caps")):
             if "WOLD_TEST_PLANET_" + variable in os.environ:
                 creation[argument] = json.loads(os.environ["WOLD_TEST_PLANET_" + variable])
+        if "WOLD_TEST_FEATURE_NAMES" in os.environ:
+            creation["feature_names"] = os.environ["WOLD_TEST_FEATURE_NAMES"]
         initial_id = db.create_demo_v2("long-run", seed=4242, planet_generator=planet_generator, **creation)
         current = db.current("long-run")["snapshot"]
+        geography_hash = hashlib.sha256(json.dumps(current["state"]["geography"], sort_keys=True).encode()).hexdigest()
         checkpoints = {0: (initial_id, current["state_hash"])}
         largest = len(json.dumps(current["state"]))
         for turn in range(1, turns + 1):
@@ -143,6 +146,7 @@ def run(turns=10000):
             assert budget["closing_credits"] == expected, (turn, "budget reconciliation")
             largest = max(largest, len(json.dumps(state)))
             if turn % 1000 == 0 or turn == turns:
+                assert hashlib.sha256(json.dumps(state["geography"], sort_keys=True).encode()).hexdigest() == geography_hash, (turn, "saved geography changed")
                 checkpoints[turn] = (current["id"], current["state_hash"])
                 print(json.dumps({"progress_turn": turn, "elapsed_seconds": round(time.monotonic() - started, 1), "population": owned_humans(state)}), flush=True)
         assert {"logistics-I", "industry-I"} <= set(state["technologies"])
@@ -168,6 +172,7 @@ def run(turns=10000):
         history_ms = (time.monotonic() - query_start) * 1000
         assert total == turns + 1 and page[-1]["turn"] == turns
         return {"connected_stress": "PASS", "planet_generator": planet_generator, "creation_options": creation, "turns": turns, "seconds": round(time.monotonic() - started, 2),
+                "geography_hash": geography_hash,
                 "population": owned_humans(state), "largest_state_bytes": largest,
                 "current_read_ms": round(current_ms, 1), "history_50_ms": round(history_ms, 1), **metrics}
     finally:

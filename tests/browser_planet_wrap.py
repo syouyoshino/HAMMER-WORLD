@@ -18,8 +18,133 @@ from playwright.sync_api import sync_playwright
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from app.store import Store
+from app.universe import build_universe
 
 PRESETS = ('continental', 'archipelago', 'oceanic', 'arid', 'barren', 'frozen')
+UNTRUSTED_NAME = '<img src=x onerror="window.__nameExecuted=1">'
+LONG_NAME = 'A' * 80
+
+
+def hydrography_journey(page, out):
+    """Exercise real name/list/selection controls without changing saved records."""
+    page.select_option('#campaign-select', 'wrap-continental')
+    page.wait_for_function("window.__wrapTest.options.geometry.planet.id.startsWith('wrap-continental')")
+    before = current(page)
+    names = page.locator('#feature-name-toggle')
+    assert names.is_enabled()
+    if names.get_attribute('aria-pressed') != 'true':
+        names.click()
+    assert current(page) == before, 'Names toggle moved the map'
+    names.focus()
+    names.press('Space')
+    assert names.get_attribute('aria-pressed') == 'false'
+    touch_target = names.bounding_box()
+    page.touchscreen.tap(touch_target['x']+touch_target['width']/2,
+                         touch_target['y']+touch_target['height']/2)
+    assert names.get_attribute('aria-pressed') == 'true'
+    assert current(page) == before, 'Keyboard/touch name controls moved the map'
+    features = page.evaluate('window.__wrapTest.options.geometry.surface.hydrography.features')
+    lake_index = next(i for i, f in enumerate(features) if f['kind'] == 'lake')
+    lake = features[lake_index]
+    page.locator('#feature-list-button').focus()
+    page.locator('#feature-list-button').press('Enter')
+    page.wait_for_selector('.hydrography-feature-list[open]')
+    assert page.locator('.hydro-feature-row').count() == len(features)
+    page.locator('[data-hydro-feature-id="'+lake['id']+'"]').click()
+    page.wait_for_function('id=>window.__wrapTest.options.selectedFeatureId===id', arg=lake['id'])
+    assert lake['name'] in page.locator('#inspector-content').inner_text()
+    assert 'Material' in page.locator('#inspector-content').inner_text()
+    page.screenshot(path=str(out/'named-lake-inspection.png'))
+    context = current(page)
+    page.keyboard.press('Escape')
+    assert current(page) == context, 'Collapsing inspector moved the map'
+    assert page.evaluate('window.__wrapTest.options.selectedFeatureId') == lake['id']
+    command(page, 'economy')
+    page.locator('[data-return-map]').click()
+    assert current(page) == context, 'Management return moved the selected feature'
+    assert page.evaluate('window.__wrapTest.options.selectedFeatureId') == lake['id']
+    page.locator('#feature-list-button').click()
+    river_index = next(i for i, f in enumerate(features) if f['kind'] == 'river')
+    river = features[river_index]
+    page.locator('[data-hydro-feature-id="'+river['id']+'"]').click()
+    page.wait_for_function('id=>window.__wrapTest.options.selectedFeatureId===id', arg=river['id'])
+    assert river['name'] in page.locator('#inspector-content').inner_text()
+    page.screenshot(path=str(out/'named-river-inspection.png'))
+    page.keyboard.press('Escape')
+    # Navigate to an actual long horizontal saved course. Short or vertical
+    # courses are legitimately unlabeled at this zoom; their list entries work.
+    course = page.evaluate('''()=>{
+        const g=window.__wrapTest.options.geometry,w=g.planet.width,m=g.surface.materials,candidates=[];
+        for(const river of g.surface.rivers){let start=0;
+            for(let end=1;end<=river.points.length;end++){
+                if(end<river.points.length&&river.points[end][1]===river.points[start][1])continue;
+                const mid=river.points[Math.floor((start+end-1)/2)],cell=mid[1]*w+mid[0];
+                if(end-start>=7&&m.lake_mask[cell]==='0'&&m.ice_mask[cell]==='0'&&g.tiles[cell].terrain!=='ocean')
+                    candidates.push({x:mid[0]+.5,y:mid[1]+.5,length:end-start});
+                start=end;
+            }
+        }return candidates.sort((a,b)=>b.length-a.length)[0];
+    }''')
+    assert course, 'Fixture lacks a sufficiently long inspectable horizontal course'
+    overview_at(page, course['x'], course['y'])
+    # Click a painted name rather than merely proving its list entry works.
+    target = page.evaluate('''()=>{
+        const t=window.__wrapTest.t,fs=window.__wrapTest.options.geometry.surface.hydrography.features;
+        return (t.featureTargets||[]).find(t=>fs.some(f=>f.id===t.id&&f.kind==='river'));
+    }''')
+    if not target:
+        page.screenshot(path=str(out/'failed-painted-name.png'))
+        diagnostic = page.evaluate('''()=>({camera:window.__wrapTest.t,
+            names:window.__wrapTest.options.featureNamesVisible,style:window.__wrapTest.options.style,
+            selected:window.__wrapTest.options.selectedFeatureId,
+            features:window.__wrapTest.options.geometry.surface.hydrography.features.map(({id,kind,name,anchor})=>({id,kind,name,anchor}))})''')
+        (out/'failed-painted-name.json').write_text(json.dumps({'course':course, **diagnostic},indent=2)+'\n')
+    assert target, 'No readable river name in this regional view'
+    before_label_click = current(page)
+    page.mouse.click((target['left']+target['right'])/2, (target['top']+target['bottom'])/2)
+    page.wait_for_function('id=>window.__wrapTest.options.selectedFeatureId===id', arg=target['id'])
+    assert current(page) == before_label_click, 'Clicking an unobscured painted river name jumped to a remote anchor'
+    context = current(page)
+    names.click()
+    assert names.get_attribute('aria-pressed') == 'false'
+    assert current(page) == context
+    assert page.evaluate('window.__wrapTest.options.selectedFeatureId') == target['id']
+    page.select_option('#campaign-select', 'wrap-text')
+    page.wait_for_function("window.__wrapTest.options.geometry.planet.id.startsWith('wrap-text')")
+    assert page.evaluate('window.__wrapTest.options.selectedFeatureId') is None
+    page.locator('#feature-list-button').click()
+    text_features = page.evaluate('window.__wrapTest.options.geometry.surface.hydrography.features')
+    custom_index = next(i for i, f in enumerate(text_features) if f['name_source'] == 'custom')
+    page.locator('[data-hydro-feature-id="'+text_features[custom_index]['id']+'"]').click()
+    assert UNTRUSTED_NAME in page.locator('#inspector-content').inner_text()
+    assert page.locator('#inspector-content img').count() == 0
+    assert page.evaluate('window.__nameExecuted') is None
+    long_feature = next(f for f in text_features if f['name'] == LONG_NAME)
+    page.locator('#feature-list-button').click()
+    page.locator('[data-hydro-feature-id="'+long_feature['id']+'"]').click()
+    heading = page.locator('#inspector-content .inspector-planet').first
+    assert heading.inner_text() == LONG_NAME
+    page.screenshot(path=str(out/'long-custom-name.png'))
+    assert heading.evaluate('e=>e.scrollWidth<=e.clientWidth+1'), 'A valid 80-character name overflows the inspector'
+    page.locator('#feature-list-button').click()
+    unnamed_index = next(i for i, f in enumerate(text_features) if f['name'] is None)
+    page.locator('[data-hydro-feature-id="'+text_features[unnamed_index]['id']+'"]').click()
+    assert 'Unnamed' in page.locator('#inspector-content').inner_text()
+    page.select_option('#campaign-select', 'wrap-old')
+    page.wait_for_function("window.__wrapTest.options.geometry.surface.version==='planet-v5'")
+    assert names.is_disabled(), 'Legacy map advertises unavailable name rendering'
+    page.locator('#feature-list-button').click()
+    assert 'not recorded' in page.locator('.hydrography-inspector').inner_text()
+    assert page.locator('.hydro-feature-row').count() == 0
+    page.keyboard.press('Escape')
+    (out/'hydrography-workflow.json').write_text(json.dumps({
+        'result':'PASS', 'lake_id':lake['id'], 'river_id':river['id'],
+        'checks':['Names does not change camera', 'all features accessible in list',
+                  'lake and river inspect actual records', 'painted river name selects its record',
+                  'collapse and management return preserve selection/camera',
+                  'Names off preserves inspection', 'campaign switch clears feature context',
+                  'custom names remain plain text', 'unnamed and legacy states are explicit',
+                  'desktop mouse, keyboard and touch command controls']}, indent=2)+'\n')
 
 
 def current(page):
@@ -110,7 +235,7 @@ def force_controls_clear(page, has_route=False):
 def main():
     dsn = os.environ['WOLD_TEST_DATABASE_URL']
     version = os.environ.get('WOLD_TEST_PLANET_GENERATOR', 'planet-v6')
-    assert version in ('planet-v6', 'planet-v7', 'planet-v8')
+    assert version in ('planet-v6', 'planet-v7', 'planet-v8', 'planet-v9')
     schema = 'browser_wrap_' + uuid.uuid4().hex
     out = Path(os.environ.get('WOLD_BROWSER_ARTIFACT_DIR', 'data/planet-wrap'))
     out.mkdir(parents=True, exist_ok=True)
@@ -120,14 +245,23 @@ def main():
     try:
         db = Store(dsn, schema=schema)
         def create(cid, preset):
-            geology = {'geology':'cratered' if preset in ('arid','barren','frozen') else 'none'} if version in ('planet-v7','planet-v8') else {}
+            geology = {'geology':'cratered' if preset in ('arid','barren','frozen') else 'none'} if version in ('planet-v7','planet-v8','planet-v9') else {}
             materials = {}
-            if version == 'planet-v8':
+            if version in ('planet-v8','planet-v9'):
                 material = 'hydrocarbon' if preset == 'frozen' else 'lava' if preset in ('arid','barren') else 'water'
                 materials = {'lake_material':material, 'polar_caps':'none' if material=='lava' else 'water-ice'}
-            db.create_demo_v2(cid, seed=741903, planet_generator=version, preset=preset, **geology, **materials)
+            naming = {'feature_names':'generated'} if version == 'planet-v9' else {}
+            db.create_demo_v2(cid, seed=741903, planet_generator=version, preset=preset, **geology, **materials, **naming)
         for name in PRESETS:
             create('wrap-'+name, name)
+        extra_ids = []
+        if version == 'planet-v9':
+            choices = {'planet_generator':version, 'preset':'continental', 'lake_material':'water'}
+            preview = build_universe('wrap-text', 741903, **choices)
+            lakes = [f for f in preview['geography']['wrap-text-planet-reach']['surface']['hydrography']['features'] if f['kind']=='lake']
+            db.create_demo_v2('wrap-text', seed=741903, **choices,
+                feature_name_overrides={'wrap-text-planet-reach':{lakes[0]['id']:UNTRUSTED_NAME,lakes[1]['id']:LONG_NAME}})
+            extra_ids.append('wrap-text')
         db.create_demo_v2('wrap-old', seed=741903, planet_generator='planet-v5', preset='arid')
         create('wrap-military', 'barren')
         # Real supported recruitment produces two owned forces before the UI
@@ -141,7 +275,7 @@ def main():
         proposal['orders']['actions'] = []
         db.commit('wrap-military', proposal)
         db.create_pregame()
-        ids = ['wrap-'+p for p in PRESETS]+['wrap-old','wrap-military','campaign']
+        ids = ['wrap-'+p for p in PRESETS]+['wrap-old','wrap-military','campaign']+extra_ids
         hashes = {cid:db.current(cid)['snapshot']['state_hash'] for cid in ids if cid!='campaign'}
         gm, player = secrets.token_urlsafe(32), secrets.token_urlsafe(32)
         env = dict(os.environ, WOLD_DATABASE_URL=dsn, WOLD_DB_SCHEMA=schema,
@@ -162,7 +296,7 @@ def main():
             with sync_playwright() as pw:
                 browser = pw.chromium.launch(executable_path=shutil.which('chromium'),
                     args=['--no-sandbox','--disable-dev-shm-usage'])
-                page = browser.new_page(viewport={'width':1440,'height':1024})
+                page = browser.new_page(viewport={'width':1440,'height':1024}, has_touch=version=='planet-v9')
                 page.add_init_script('''
                     window.__mapInputHandlers={};
                     const add=EventTarget.prototype.addEventListener;
@@ -201,7 +335,7 @@ def main():
                         &&window.__wrapTest.options.geometry.surface.preset===name''',arg={'name':name,'version':version})
                     timings[name]=round((time.monotonic()-started)*1000,1)
                     covered(page)
-                    if version == 'planet-v8':
+                    if version in ('planet-v8','planet-v9'):
                         materials = page.evaluate('window.__wrapTest.options.geometry.surface.materials')
                         assert len(materials['lake_mask']) == 10240 and '1' in materials['lake_mask']
                         legend = page.locator('#map-legend').inner_text()
@@ -220,6 +354,8 @@ def main():
                             assert circular_error((760-after['ox'])/after['tile'],q-dx/before['tile'])<.02
                             covered(page)
                     assert canvas.evaluate('c=>c===document.querySelector("#planet-map")')
+                if version == 'planet-v9':
+                    hydrography_journey(page, out)
                 page.select_option('#campaign-select','wrap-barren')
                 page.wait_for_function("window.__wrapTest.options.geometry.surface.preset==='barren'")
                 overview_at(page,.5,40)
@@ -323,6 +459,15 @@ def main():
                 for cid,expected in hashes.items():
                     if cid!='wrap-military':assert db.current(cid)['snapshot']['state_hash']==expected
                 assert page.evaluate('window.__mapInputHandlers')==handlers
+                assert not errors,errors
+                if version == 'planet-v9':
+                    storage = page.evaluate('JSON.stringify({local:{...localStorage},session:{...sessionStorage}})')
+                    assert player not in storage and gm not in storage, 'Authentication persisted in browser storage'
+                    command(page, 'campaign')
+                    page.locator('#logout-button').click()
+                    page.wait_for_function("document.querySelector('#campaign-select').options.length===1")
+                    assert page.locator('.hydro-feature-row').count() == 0
+                    assert page.locator('#feature-list-button').is_disabled()
                 assert not errors,errors
                 result={'result':'PASS','generator':version,'browser':browser.version,'viewport':'desktop only',
                     'campaign_to_first_draw_ms':timings,'page_errors':errors,'checks':[

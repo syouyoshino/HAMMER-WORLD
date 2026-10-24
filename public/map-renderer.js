@@ -1,6 +1,7 @@
 (() => {
   "use strict";
   const cache = new WeakMap();
+  const featureCellCache = new WeakMap();
   const provinceCache = new WeakMap();
   // Geometry records are immutable; index recorded land once per response.
   function provinceLand(geometry) {
@@ -52,12 +53,20 @@
   }
   function surfaceFor(geometry) {
     const s = geometry?.surface;
-    if (!s || !["planet-v2", "planet-v3", "planet-v4", "planet-v5", "planet-v6", "planet-v7", "planet-v8"].includes(s.version) || !Array.isArray(s.elevation))
+    if (!s || !["planet-v2", "planet-v3", "planet-v4", "planet-v5", "planet-v6", "planet-v7", "planet-v8", "planet-v9"].includes(s.version) || !Array.isArray(s.elevation))
       return null;
     return s;
   }
-  const wrapsX = geometry => ["planet-v6", "planet-v7", "planet-v8"].includes(geometry?.surface?.version) && geometry.surface.topology === "cylinder-x";
+  const wrapsX = geometry => ["planet-v6", "planet-v7", "planet-v8", "planet-v9"].includes(geometry?.surface?.version) && geometry.surface.topology === "cylinder-x";
   const nearestX = (x, reference, width) => x + Math.round((reference-x)/width)*width;
+  function featureAt(geometry,index){
+    const surface=geometry?.surface;if(surface?.version!=="planet-v9"||surface.hydrography?.version!=="hydrography-v1"||!Number.isInteger(index))return null;
+    let lookup=featureCellCache.get(geometry);if(!lookup){lookup=new Map();const rank={ocean:1,sea:1,river:2,lake:3};
+      for(const feature of surface.hydrography.features||[])for(const cell of feature.cells||[]){const prior=lookup.get(cell),score=rank[feature.kind]||0;
+        if(!prior||score>prior.score||score===prior.score&&feature.kind==="river"&&feature.cells.length>prior.feature.cells.length)lookup.set(cell,{feature,score});}
+      featureCellCache.set(geometry,lookup);}
+    return lookup.get(index)?.feature||null;
+  }
   function craterProfile(distanceQ, radiusQ, depth, rimHeight) {
     const scaled = distanceQ * 4;
     if (scaled > radiusQ * 5) return 0;
@@ -157,6 +166,53 @@
     }
     return result;
   }
+  function projectRiverPoints(points, cols, cylinder, tile, ox, oy) {
+    // Unwrap in saved-grid coordinates before applying any camera translation.
+    const world=[];
+    for(const [x,y] of points)world.push([world.length&&cylinder?nearestX(x,world[world.length-1][0],cols):x,y]);
+    return world.map(([x,y])=>[ox+(x+.5)*tile,oy+(y+.5)*tile]);
+  }
+  function riverLabelCandidates(points, rawPoints, owners, cols, bounds, textWidth) {
+    const runs=[];let run=null,previousAngle=null;
+    for(let i=1;i<Math.min(points.length,rawPoints.length);i++){
+      const cell=([x,y])=>y*cols+((x%cols)+cols)%cols,
+        a=points[i-1],b=points[i],angle=Math.atan2(b[1]-a[1],b[0]-a[0]),
+        unique=owners.get(cell(rawPoints[i-1]))===1&&owners.get(cell(rawPoints[i]))===1,
+        readable=Math.abs(Math.sin(angle))<.82,
+        turn=previousAngle===null?0:Math.abs(Math.atan2(Math.sin(angle-previousAngle),Math.cos(angle-previousAngle)));
+      if(!unique||!readable){run=null;previousAngle=null;continue;}
+      if(!run||turn>Math.PI/4+.001){run={first:i-1,last:i};runs.push(run);}else run.last=i;
+      previousAngle=angle;
+    }
+    const candidates=[],cx=(bounds.left+bounds.right)/2,cy=(bounds.top+bounds.bottom)/2;
+    for(const {first,last} of runs){
+      // Measure only the part of this unshared run that intersects the viewport.
+      let visibleSpan=0;
+      for(let i=first+1;i<=last;i++){
+        const a=points[i-1],b=points[i],dx=b[0]-a[0],dy=b[1]-a[1];let lo=0,hi=1;
+        for(const [p,q] of [[-dx,a[0]-bounds.left],[dx,bounds.right-a[0]],[-dy,a[1]-bounds.top],[dy,bounds.bottom-a[1]]]){
+          if(p===0){if(q<0){hi=-1;break;}continue;}
+          const t=q/p;if(p<0)lo=Math.max(lo,t);else hi=Math.min(hi,t);
+        }
+        if(hi>=lo)visibleSpan+=Math.hypot(dx,dy)*(hi-lo);
+      }
+      if(visibleSpan<textWidth+12)continue;
+      for(let step=first*2;step<=last*2;step++){
+        const index=step/2,low=Math.floor(index),high=Math.ceil(index),
+          x=(points[low][0]+points[high][0])/2,y=(points[low][1]+points[high][1])/2;
+        if(x<bounds.left||x>bounds.right||y<bounds.top||y>bounds.bottom)continue;
+        const a=points[Math.max(first,Math.ceil(index-1))],b=points[Math.min(last,Math.floor(index+1))];let angle=Math.atan2(b[1]-a[1],b[0]-a[0]);
+        if(Math.abs(Math.sin(angle))>=.82)continue;
+        // The full name must have unique recorded course on both sides.
+        const ux=Math.cos(angle),uy=Math.sin(angle),before=(x-points[first][0])*ux+(y-points[first][1])*uy,
+          after=(points[last][0]-x)*ux+(points[last][1]-y)*uy;
+        if(before<textWidth/2+6||after<textWidth/2+6)continue;
+        if(angle>Math.PI/2)angle-=Math.PI;else if(angle< -Math.PI/2)angle+=Math.PI;
+        candidates.push({x,y,angle,visibleSpan,distance:Math.hypot(x-cx,y-cy),index});
+      }
+    }
+    return candidates.sort((a,b)=>b.visibleSpan-a.visibleSpan||a.distance-b.distance||a.index-b.index);
+  }
   function baseRaster(geometry, style) {
     let map = cache.get(geometry);
     if (!map) { map = new Map(); cache.set(geometry, map); }
@@ -191,14 +247,14 @@
       }
       return result;
     };
-    const materials = surface?.version === "planet-v8" ? surface.materials : null,
+    const materials = ["planet-v8","planet-v9"].includes(surface?.version) ? surface.materials : null,
       lakeField = materials?.lake_material !== "none" && materials?.lake_mask
         ? interpolateRows(Array.from(materials.lake_mask, Number)) : null,
       lakeDepth = lakeField ? interpolateRows(lakeInterior(materials.lake_mask, cols, rows)) : null,
       iceField = materials?.polar_caps !== "none" && materials?.ice_mask
         ? interpolateRows(Array.from(materials.ice_mask, Number)) : null,
       composition = lakeField || iceField ? ctx.createImageData(w, h) : null;
-    const cratered = ["planet-v7", "planet-v8"].includes(surface?.version) && surface.geology === "cratered" && surface.craters?.length,
+    const cratered = ["planet-v7", "planet-v8", "planet-v9"].includes(surface?.version) && surface.geology === "cratered" && surface.craters?.length,
       gradientStep = cratered ? 1 / scale : .35;
     const land = interpolateRows(tiles.map(t => t.terrain === "ocean" ? 0 : 1)),
       channels = [0,1,2].map(c => interpolateRows(tiles.map(t => (colors[t.terrain] || colors.plains)[c]))),
@@ -226,7 +282,7 @@
           sampledElevation=elevation?elevation[i]*inv+elevation[j]*ty:sea,
           correction=craterResidual?.[py*w+px]||0,
           elev=sampledElevation+correction,
-          heightContour=["planet-v7","planet-v8"].includes(surface?.version)&&surface.hydrology==="ocean-draining"&&surface.sea_level!==null&&heights,
+          heightContour=["planet-v7","planet-v8","planet-v9"].includes(surface?.version)&&surface.hydrology==="ocean-draining"&&surface.sea_level!==null&&heights,
           cover=heightContour?clamp((elev-sea+18)/36,0,1):land[i]*inv+land[j]*ty,
           onLand=heightContour?elev>=sea:cover>=.5,
           wet=moisture?moisture[i]*inv+moisture[j]*ty:500,
@@ -234,7 +290,7 @@
         let shade=1,high=0,wetMix=0,coldMix=0,depth=0,shore=0;
         if(!onLand) {
           depth=(heights?clamp((sea-elev)/250,0,1):.45)*.35;
-          shore=heightContour?clamp((elev-(sea-14))/14,0,1)*.28:clamp(cover*1.6,0,.65);
+          shore=heightContour?clamp((elev-(sea-14))/14,0,1)*.09:clamp(cover*1.2,0,.22);
         } else if(heights) {
           let dx=(heightRight[i]*inv+heightRight[j]*ty)-(heightLeft[i]*inv+heightLeft[j]*ty),
             dy=(elevation[down0+px]*(1-downT)+elevation[down1+px]*downT)-(elevation[up0+px]*(1-upT)+elevation[up1+px]*upT);
@@ -247,13 +303,13 @@
             dx+=right-left;dy+=down-up;
           }
           if(craterResidual){
-            const nx=dx/(2*gradientStep*65),ny=dy/(2*gradientStep*65),
+            const nx=dx/(2*gradientStep*140),ny=dy/(2*gradientStep*140),
               // Normal (-gx,-gy,1) under northwest light (-.5,-.6,.75).
               illumination=(nx*.5+ny*.6+.75)/Math.sqrt(1+nx*nx+ny*ny);
-            shade=.78+.32*illumination;
+            shade=.95+.065*illumination;
             if(survey)shade=1+(shade-1)*.6;
           }else shade=1+clamp((-dx*.65-dy*.75)/110,-.32,.3)*(survey?.6:1);
-          high=clamp((elev-620)/350,0,1)*.44;
+          high=clamp((elev-620)/350,0,1)*(craterResidual?.18:.44);
           wetMix=surface?.hydrology==="none"?0:clamp((wet-450)/700,0,.24);
           coldMix=clamp((320-temp)/600,0,.3);
         }
@@ -270,7 +326,7 @@
               color=Math.round(color*(1-wetMix)+wetColor[c]*wetMix);
               color=Math.round(color*(1-coldMix)+coldColor[c]*coldMix)*shade;
             }
-            if(heightContour){const landColor=color,coastal=clamp((14-(elev-sea))/14,0,1)*.18;color=shoreColor[c]*coastal+landColor*(1-coastal);}
+            if(heightContour){const landColor=color,coastal=clamp((14-(elev-sea))/14,0,1)*.035;color=shoreColor[c]*coastal+landColor*(1-coastal);}
           }
           img.data[off+c]=clamp(color+grain,0,255);
         }
@@ -328,36 +384,38 @@
             }
           }
       }
-      ctx.strokeStyle=survey?"rgba(52,105,123,.82)":"rgba(67,118,131,.86)";
+      ctx.strokeStyle=survey?"rgba(48,113,143,.96)":"rgba(78,151,179,.98)";
       ctx.lineWidth=survey?1.3:1.65;ctx.lineCap="round";ctx.lineJoin="round";
+      const inkedRiverSegments=new Set();
       for(const river of surface.rivers || []) {
         const points=riverShorePoints(surface,river.points||[],cols,cylinder);
         if(!Array.isArray(points)||points.length<2)continue;
-        const xy=[];
-        for(const [x,y] of points){const px=xy.length&&cylinder?nearestX(x,xy[xy.length-1][0]/scale-.5,cols):x;xy.push([(px+.5)*scale,(y+.5)*scale]);}
-        const trace=()=>{
+        const xy=projectRiverPoints(points,cols,cylinder,scale,0,0);
+        const trace=(shift=0)=>{
           const flowAt=index=>{
             const x=((Math.round(xy[index][0]/scale-.5)%cols)+cols)%cols,
               y=clamp(Math.round(xy[index][1]/scale-.5),0,rows-1);
             return surface.accumulation?.[y*cols+x]||1;
-          },
-          widthAt=index=>surface.accumulation?.length
-            ?clamp(.22+Math.sqrt(flowAt(index))*.052,survey?.4:.45,survey?1.1:1.25)
-            :survey?1.3:1.65;
-          // Midpoint quadratics stay inside recorded segments; rounded ends
-          // keep the width change continuous at tributaries and outlets.
-          if(xy.length===2){ctx.beginPath();ctx.moveTo(...xy[0]);ctx.lineTo(...xy[1]);ctx.lineWidth=(widthAt(0)+widthAt(1))/2;ctx.stroke();return;}
-          const midpoint=(a,b)=>[(a[0]+b[0])/2,(a[1]+b[1])/2];
-          ctx.beginPath();ctx.moveTo(...xy[0]);ctx.lineTo(...midpoint(xy[0],xy[1]));ctx.lineWidth=widthAt(0);ctx.stroke();
-          for(let i=1;i<xy.length-1;i++){
-            ctx.beginPath();ctx.moveTo(...midpoint(xy[i-1],xy[i]));
-            ctx.quadraticCurveTo(...xy[i],...midpoint(xy[i],xy[i+1]));
-            ctx.lineWidth=widthAt(i);ctx.stroke();
+          }, widthAt=index=>surface.accumulation?.length
+            ?clamp(.5+Math.sqrt(flowAt(index))*.042,survey?.65:.7,survey?1.05:1.2)
+            :survey?1:1.2;
+          const midpoint=(a,b)=>[(a[0]+b[0])/2,(a[1]+b[1])/2],segments=[];
+          if(xy.length===2)segments.push({start:xy[0],end:xy[1],width:(widthAt(0)+widthAt(1))/2});
+          else{
+            segments.push({start:xy[0],end:midpoint(xy[0],xy[1]),width:widthAt(0)});
+            for(let i=1;i<xy.length-1;i++)segments.push({start:midpoint(xy[i-1],xy[i]),control:xy[i],end:midpoint(xy[i],xy[i+1]),width:widthAt(i)});
+            segments.push({start:midpoint(xy[xy.length-2],xy[xy.length-1]),end:xy[xy.length-1],width:widthAt(xy.length-1)});
           }
-          ctx.beginPath();ctx.moveTo(...midpoint(xy[xy.length-2],xy[xy.length-1]));ctx.lineTo(...xy[xy.length-1]);
-          ctx.lineWidth=widthAt(xy.length-1);ctx.stroke();
+          for(const segment of segments){
+            const key=JSON.stringify([shift,segment.start,segment.control,segment.end]);
+            if(inkedRiverSegments.has(key))continue;inkedRiverSegments.add(key);
+            const path=()=>{ctx.beginPath();ctx.moveTo(...segment.start);if(segment.control)ctx.quadraticCurveTo(...segment.control,...segment.end);else ctx.lineTo(...segment.end);};
+            // Both ink passes trace exactly the same recorded midpoint course.
+            ctx.save();path();ctx.strokeStyle=survey?"rgba(234,242,231,.35)":"rgba(9,34,43,.35)";ctx.lineWidth=segment.width+.65;ctx.stroke();ctx.restore();
+            path();ctx.lineWidth=segment.width;ctx.stroke();
+          }
         };
-        if(cylinder){trace();ctx.save();ctx.translate(-w,0);trace();ctx.restore();ctx.save();ctx.translate(w,0);trace();ctx.restore();}else trace();
+        if(cylinder){trace();ctx.save();ctx.translate(-w,0);trace(-w);ctx.restore();ctx.save();ctx.translate(w,0);trace(w);ctx.restore();}else trace();
       }
     }
     if(composition) {
@@ -380,6 +438,8 @@
       style = "orbital",
       theme = "light",
       selectedProvince = null,
+      selectedFeatureId = null,
+      featureNamesVisible = false,
       overlay = "terrain",
       compact = false,
       sites = [],
@@ -387,6 +447,7 @@
       safe = null,
       paintOverlay = null,
       labelObstacles = [],
+      featureLabelIds = new Set(),
       copyIndex = 0,
       clearCanvas = true,
       renderPhase = "all",
@@ -400,7 +461,7 @@
       ox = (bounds.left + bounds.right - gridW) / 2 + panX + copyIndex*gridW,
       oy = (bounds.top + bounds.bottom - gridH) / 2 + panY;
     const surface=surfaceFor(geometry), preset=surface?.hydrology==="none"?surface.preset:null,
-      cylinder=wrapsX(geometry),v7=["planet-v7","planet-v8"].includes(surface?.version),
+      cylinder=wrapsX(geometry),v7=["planet-v7","planet-v8","planet-v9"].includes(surface?.version),
       labelZoom=v7?tile/Math.max(w/cols,h/rows):zoom;
     const tiles = geometry.tiles, provinces = geometry.provinces;
     if (renderPhase !== "labels") {
@@ -483,7 +544,7 @@
       }
     }
     if (!(v7 && overlay === "terrain")) ctx.stroke();
-    if (selectedProvince) {
+    if (selectedProvince && !selectedFeatureId) {
       ctx.strokeStyle = "#90c9ef";
       ctx.lineWidth = Math.max(2.2, Math.min(3.2, tile * 0.15));
       ctx.beginPath();
@@ -533,8 +594,66 @@
       safeTop = (safe?.top ?? 0) + 8,
       safeBottom = Math.min(h - 92, (safe?.bottom ?? h) - 8),
       placed = labelObstacles.map(rect=>({...rect})), provinceTargets = [];
-    const clipAnnotations=surface?.version === "planet-v8";
+    const clipAnnotations=["planet-v8","planet-v9"].includes(surface?.version);
     if(clipAnnotations){ctx.save();ctx.beginPath();ctx.rect(safeLeft,safeTop,safeRight-safeLeft,Math.max(0,safeBottom-safeTop));ctx.clip();}
+    const features=surface?.version==="planet-v9"&&surface.hydrography?.version==="hydrography-v1"
+      ?surface.hydrography.features:[], selectedFeature=features.find(item=>item.id===selectedFeatureId);
+    const riverFor=feature=>surface?.rivers?.find(item=>item.id===feature?.id);
+    const riverScreenPoints=feature=>{
+      const river=riverFor(feature);if(!river)return [];
+      return projectRiverPoints(riverShorePoints(surface,river.points||[],cols,cylinder),cols,cylinder,tile,ox,oy);
+    };
+    if(selectedFeature){
+      if(selectedFeature.kind==="river"){
+        const points=riverScreenPoints(selectedFeature);
+        if(points.length>1){ctx.save();ctx.strokeStyle="rgba(43,137,194,.92)";ctx.lineWidth=Math.max(1.9,Math.min(3,tile*.13));ctx.lineCap="round";ctx.lineJoin="round";ctx.beginPath();ctx.moveTo(...points[0]);if(points.length===2)ctx.lineTo(...points[1]);else{const midpoint=(a,b)=>[(a[0]+b[0])/2,(a[1]+b[1])/2];ctx.lineTo(...midpoint(points[0],points[1]));for(let i=1;i<points.length-1;i++)ctx.quadraticCurveTo(...points[i],...midpoint(points[i],points[i+1]));ctx.lineTo(...points[points.length-1]);}ctx.stroke();ctx.restore();}
+      }else{
+        const cells=new Set(selectedFeature.cells);ctx.save();ctx.strokeStyle="rgba(54,142,198,.92)";ctx.lineWidth=Math.max(1.6,tile*.13);ctx.beginPath();
+        for(const index of selectedFeature.cells){const x=index%cols,y=Math.floor(index/cols),left=ox+x*tile,top=oy+y*tile;
+          if(!cells.has(y*cols+(x-1+cols)%cols)||!cylinder&&x===0){ctx.moveTo(left,top);ctx.lineTo(left,top+tile);}
+          if(!cells.has(y*cols+(x+1)%cols)||!cylinder&&x===cols-1){ctx.moveTo(left+tile,top);ctx.lineTo(left+tile,top+tile);}
+          if(y===0||!cells.has((y-1)*cols+x)){ctx.moveTo(left,top);ctx.lineTo(left+tile,top);}
+          if(y===rows-1||!cells.has((y+1)*cols+x)){ctx.moveTo(left,top+tile);ctx.lineTo(left+tile,top+tile);}
+        }ctx.stroke();ctx.restore();
+      }
+    }
+    const featureTargets=[];
+    if(featureNamesVisible&&features.length){
+      const ordered=[...features].filter(item=>typeof item.name==="string"&&item.name.length)
+        .sort((a,b)=>Number(b.id===selectedFeatureId)-Number(a.id===selectedFeatureId)||Number(a.kind==="river")-Number(b.kind==="river")||a.cells[0]-b.cells[0]);
+      const riverOwners=new Map();for(const item of features)if(item.kind==="river")for(const cell of item.cells)riverOwners.set(cell,(riverOwners.get(cell)||0)+1);
+      for(const feature of ordered){
+        if(featureLabelIds.has(feature.id))continue;
+        const anchorIndex=feature.anchor,anchorX=anchorIndex%cols,anchorY=Math.floor(anchorIndex/cols),cellSet=feature.kind==="river"?null:new Set(feature.cells),
+          font=feature.kind==="river"?11:Math.max(11,Math.min(13,tile*.92));
+        ctx.save();ctx.font=`${feature.id===selectedFeatureId?700:500} ${font}px "Noto Instrument Mono",monospace`;
+        const textWidth=ctx.measureText(feature.name).width,boxHeight=font+4,
+          plans=feature.kind==="river"?riverLabelCandidates(riverScreenPoints(feature),riverFor(feature)?.points||[],riverOwners,cols,
+            {left:safeLeft+3,right:safeRight-3,top:safeTop+3,bottom:safeBottom-3},textWidth):[{x:ox+(anchorX+.5)*tile,y:oy+(anchorY+.5)*tile,angle:0}];
+        for(const {x,y,angle} of plans){
+          const cos=Math.abs(Math.cos(angle)),sin=Math.abs(Math.sin(angle)),aabbWidth=cos*textWidth+sin*boxHeight,aabbHeight=sin*textWidth+cos*boxHeight;
+          if(feature.kind!=="river"){
+            let runX=1,runY=1;for(let d=1;d<cols&&cellSet.has(anchorY*cols+((anchorX+d)%cols));d++)runX++;for(let d=1;d<cols&&cellSet.has(anchorY*cols+((anchorX-d+cols)%cols));d++)runX++;
+            for(let d=1;d<rows&&anchorY+d<rows&&cellSet.has((anchorY+d)*cols+anchorX);d++)runY++;for(let d=1;d<rows&&anchorY-d>=0&&cellSet.has((anchorY-d)*cols+anchorX);d++)runY++;
+            if(runX*tile<textWidth+8||runY*tile<boxHeight+4){continue;}
+            // Every cell under the complete body label must belong to its saved mask.
+            let fits=true;
+            for(let cy=Math.floor((y-boxHeight/2-2-oy)/tile);cy<=Math.floor((y+boxHeight/2+2-oy)/tile)&&fits;cy++)
+              for(let cx=Math.floor((x-textWidth/2-4-ox)/tile);cx<=Math.floor((x+textWidth/2+4-ox)/tile);cx++)
+                if(cy<0||cy>=rows||!cylinder&&(cx<0||cx>=cols)||!cellSet.has(cy*cols+((cx%cols)+cols)%cols)){fits=false;break;}
+            if(!fits){continue;}
+          }
+          const box={left:x-aabbWidth/2-2,right:x+aabbWidth/2+2,top:y-aabbHeight/2-2,bottom:y+aabbHeight/2+2};
+          if(box.left<safeLeft+3||box.right>safeRight-3||box.top<safeTop+3||box.bottom>safeBottom-3||placed.some(o=>box.left<o.right&&box.right>o.left&&box.top<o.bottom&&box.bottom>o.top)){continue;}
+          placed.push(box);featureLabelIds.add(feature.id);featureTargets.push({id:feature.id,left:box.left,right:box.right,top:box.top,bottom:box.bottom});
+          ctx.translate(x,y);ctx.rotate(feature.kind==="river"?angle:0);
+          if(feature.id===selectedFeatureId){ctx.fillStyle="rgba(20,42,53,.72)";ctx.fillRect(-textWidth/2-4,-boxHeight/2-3,textWidth+8,boxHeight+6);}
+          ctx.lineWidth=2.2;ctx.strokeStyle=feature.kind==="river"?"rgba(9,29,38,.86)":"rgba(18,36,42,.78)";ctx.textAlign="center";ctx.textBaseline="middle";ctx.strokeText(feature.name,0,0);
+          ctx.fillStyle=feature.id===selectedFeatureId?"#ffffff":"#f0f1df";ctx.fillText(feature.name,0,0);break;
+        }
+        ctx.restore();
+      }
+    }
     const annotations = provinces
       .map((province) => {
         const recorded = provinceLand(geometry).get(province.id);
@@ -663,7 +782,7 @@
       ctx.fillText(label, chosen.x, chosen.y);
     }
     if(clipAnnotations)ctx.restore();
-    return { tile, ox, oy, cols, rows, safeRect:safe||bounds, gridW, gridH, viewportWidth:w, viewportHeight:h, forceObstacles: placed, provinceTargets };
+    return { tile, ox, oy, cols, rows, safeRect:safe||bounds, gridW, gridH, viewportWidth:w, viewportHeight:h, forceObstacles: placed, provinceTargets, featureTargets };
   }
   function drawPlanet(ctx, options) {
     const {geometry,w,h,zoom,panX,panY}=options;
@@ -677,9 +796,9 @@
     // Paint every world strip before annotations, which may extend across a
     // strip edge. Share annotation reservations across the visible copies.
     copies.forEach((copyIndex,index)=>drawPlanetCopy(ctx,{...options,copyIndex,clearCanvas:index===0,renderPhase:"base"}));
-    const labelObstacles=[...(options.labelObstacles||[])],
+    const featureLabelIds=new Set(),labelObstacles=[...(options.labelObstacles||[])],
       results=copies.map(copyIndex=>{
-        const result=drawPlanetCopy(ctx,{...options,copyIndex,clearCanvas:false,renderPhase:"labels",labelObstacles});
+        const result=drawPlanetCopy(ctx,{...options,copyIndex,clearCanvas:false,renderPhase:"labels",labelObstacles,featureLabelIds});
         labelObstacles.splice(0,labelObstacles.length,...result.forceObstacles);
         return result;
       }),
@@ -687,6 +806,7 @@
       primary=results[Math.max(0,copies.indexOf(primaryIndex))]||results[0];
     return {...primary,ox:baseOx,visibleCopies:copies.map(k=>baseOx+k*gridW),
       provinceTargets:results.flatMap(result=>result.provinceTargets||[]),
+      featureTargets:results.flatMap(result=>result.featureTargets||[]),
       forceObstacles:results.flatMap(result=>result.forceObstacles||[])};
   }
   function drawOverview(ctx,{geometry,w,h,transform,style="orbital"}) {
@@ -971,5 +1091,6 @@
     },
     wrapsX,
     nearestX,
+    featureAt,
   };
 })();

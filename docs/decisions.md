@@ -229,3 +229,22 @@ User authorized implementation on `map-generation`, following an Orbital/Survey/
   options live in the existing new-campaign CLI, without a new web write endpoint
   or live terrain toggle. See `docs/reviews/surface-materials.md` for contracts,
   independent findings, corrections and final gate status.
+
+- ADR-013 hydrographic-identity follow-up: opt-in V9 wraps unchanged V8 and saves
+  a strict `hydrography-v1` feature catalog, without changing terrain, hydrology,
+  province IDs, rules, default generator or existing snapshots. Connected body
+  membership uses periodic longitude and bounded latitude; existing saved
+  headwater-course IDs remain intact, including shared downstream segments.
+  Names are optional generated fiction or supplied at new-map creation. The
+  operator can inspect an explicitly uncommitted catalog without opening the
+  database, then validate names by stable planet/feature ID. No live rename
+  endpoint, migration or retroactive naming is introduced. Single-line canonical
+  names and exact nested surveyed-only projection protect persistence/privacy.
+  Names visibility is a separate UI preference. One feature inspector and a
+  discoverable bounded catalog preserve map context; legacy composition remains
+  inspectable without invented identities. Unwrap river grid coordinates before
+  screen projection, share that projection with selection and labels, and try
+  visible readable unique spans rather than a global offscreen midpoint. A
+  painted label selects its visible canonical member cell; catalog selection
+  uses the saved anchor. See `docs/reviews/hydrography-names.md` for actual
+  references, independent findings/corrections and verification limits.
