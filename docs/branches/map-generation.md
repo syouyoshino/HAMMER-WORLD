@@ -199,7 +199,7 @@ errors in exercised paths. Initial backup-test failure was a missing QA `pg_dump
 PATH entry; the test passed with existing PostgreSQL17 QA tools configured.
 
 The mixed V5 **10,000-turn gate passed in2529.31s** with10,001 immutable source
-snapshots and exact history/restore assertions. Current read60.1ms; history50
+snapshots and exact history/restore assertions. Current read60.1ms; history 50
 3980.1ms. Full surface arrays make snapshot/history storage expensive: summed
 source JSON7.50GB, distinct from physical database disk use. Raster size remains
 1536×960; sampled warm direct draws averaged2.0–14.3ms under concurrent QA.
@@ -259,7 +259,7 @@ input, force DOM and compositing and do not establish production performance.
 The mixed V6 **10,000-turn gate passed in2722.03s**, retaining10,001 immutable
 source snapshots and exact checkpoint/history/restore assertions. Largest state
 956,759 bytes; summed source-state JSON7,481,633,246 bytes (not database disk
-use). Current read60.0ms;history50 read3721.7ms. All stress-report source hashes
+use). Current read60.0ms;history 50 read3721.7ms. All stress-report source hashes
 equal the initial freeze and final backend. Delivery references follow below.
 
 Read [cylindrical-chart review](../reviews/planet-wrap.md) for exact boundaries,
@@ -328,7 +328,7 @@ unverified. Desktop-only acceptance; older responsive tests are supplementary.
 Mixed V7 **10,000-turn gate passed in2465.58s**, retaining10,001 source snapshots
 and exact conservation/checkpoint/history/restore assertions. Largest state
 968,119 bytes; summed source JSON7,582,653,347 bytes (not physical disk use).
-Current read64.9ms;history50 read4095.5ms. Final backend hashes match the stress
+Current read64.9ms;history 50 read4095.5ms. Final backend hashes match the stress
 report and initial freeze. Rendering samples and exact critique/evidence are in
 [cratered-world review](../reviews/cratered-worlds.md).
 
@@ -449,11 +449,17 @@ ten-draw warm averages Names On1.95–14ms, Off0.84–5.37ms, selected1.17–7.8
 eight fixture/style cases. These exclude API/input, force DOM, compositing and
 GPU residency; no production FPS or large-campaign claim.
 
-The final V9 10,000-turn gate is still running against the twelve frozen backend
-source hashes at this milestone. Do not infer completion from prior V8 results
-or restart the active disposable run. Its log is `/workspace/scratch/hydro-stress.log`;
-final report will be `data/hydrography-pass/stress-v9.json`. Final results and
-implementation commit references will be appended after completion.
+Implementation **`feaf766`** is pushed. The frozen V9 10,000-turn gate passed
+5450.49 seconds with 10,001 snapshots, conserved fixture population, unchanged
+geography and exact history/independent restore. All twelve source hashes match
+freeze, report and committed code. Largest state 1,183,300 bytes; snapshot JSON sum
+9,538,588,921 bytes (not disk usage); current read 161.4ms; history 50 10,021.3ms.
+These shared 2-CPU fixture measurements establish a full-snapshot scale limit,
+not production capacity. Exact ignored report: `data/hydrography-pass/stress-v9.json`.
+
+Continuation: user requests increased planetary geographic scale with a Google
+Earth-like sense of descent. Diagnose renderer, geometry and persistence together
+before expanding grids; preserve all saved maps and version any new generation.
 
 Known limitations: 128×80 coast/biome sampling and soft shores, axial saved river
 routes, idealized quiet craters, sparse overview labels, province-level ice

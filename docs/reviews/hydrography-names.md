@@ -1,8 +1,8 @@
 # Hydrographic identity and planetary chart review
 
-Status: scoped UI/backend review accepted and representative browsers pass; the
-final frozen-backend 10,000-turn gate is still running. Earlier V8 acceptance is
-not used as acceptance of the naming candidate.
+Status: scoped UI/backend review accepted, representative browsers pass, and the
+final frozen-backend V9 10,000-turn gate passes. Implementation `feaf766` is pushed.
+Earlier V8 acceptance is not used as acceptance of the naming candidate.
 
 ## Examined references and limits
 
@@ -320,3 +320,15 @@ context for ice rather than exact-cell emphasis, high browser zoom reducing map
 space, no live rename operation and full-snapshot persistence/history cost.
 Operational deployment/security/backups and original cloud recovery are outside
 this interface candidate; no other branch is merged or deployed.
+
+## Final persistence gate and delivery
+
+The isolated V9 10,000-turn gate passed in 5450.49s, preserving geography,
+conservation, historical checkpoints and exact independent restoration. It wrote
+10,001 snapshots; largest state 1,183,300 bytes; summed snapshot JSON 9,538,588,921
+bytes (not disk usage). Current read 161.4ms; history 50 10,021.3ms. All twelve
+source hashes match freeze, final report and pushed implementation `feaf766`.
+Evidence: `data/hydrography-pass/stress-v9.json`; shared 2-CPU Linux fixture, not
+production-scale performance. The measured snapshot cost constrains the newly
+requested planetary-scale work; larger geometry must not be multiplied blindly
+through every turn. No records were recovered, replaced or fabricated.

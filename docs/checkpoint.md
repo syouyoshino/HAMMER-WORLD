@@ -12,14 +12,19 @@ protected V9 and legacy cartography/strategic browsers pass. Chromium154 actual
 native zoom100–200% passes both physical desktop window sizes; WebKit absent,
 native Safari unverified. Existing maps/defaults/history/rules remain unchanged.
 
-The FINAL V9 10,000-turn disposable fixture gate is STILL RUNNING. All twelve
-backend hashes are frozen in ignored `data/hydrography-pass/backend-freeze.json`.
-Continue the existing process/log `/workspace/scratch/hydro-stress.log`, expecting
-report `data/hydrography-pass/stress-v9.json`; do not restart it or substitute old
-V8 evidence. It has passed the 6,000-turn checkpoint without a failure. No backend
-edits are permitted during this run. Final result and commit references remain
-to be recorded; this checkpoint will be updated when the gate finishes. No merge
-or deploy. Product source, docs and tests only; runtime data stays ignored.
+Implementation **`feaf766`** is committed and pushed. The final V9 10,000-turn
+isolated PostgreSQL gate passed in **5450.49 seconds**, with 10,001 snapshots,
+unchanged geography and exact history/independent restore. All twelve report
+source hashes match the frozen backend and committed implementation. Largest
+state: 1,183,300 bytes; summed snapshot JSON: 9,538,588,921 bytes (not disk usage).
+Current read: 161.4 ms; 50-record history: 10,021.3 ms on the shared 2-CPU Linux
+fixture. Full-snapshot storage/history cost is a measured limitation, especially
+for the newly requested larger planetary scale. Report:
+`data/hydrography-pass/stress-v9.json` (ignored runtime evidence).
+
+Next: investigate genuinely larger geographic scale/detail and meaningful zoom,
+preserving existing maps and immutable history; obtain the bounded architecture
+review before increasing grids or changing persistence. No merge or deploy.
 
 ## Current V8 material continuation
 
