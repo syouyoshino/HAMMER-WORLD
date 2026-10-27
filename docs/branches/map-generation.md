@@ -590,3 +590,9 @@ excludes DOM/GPU and is not production FPS. Backend and terrain/sphere renderer
 hashes are unchanged; prior147/264-hash/10,000-turn gates were not repeated for
 this frontend change. Original cloud data remains unrecovered. No merge, deploy
 or data reset; character-relationships work remains untouched.
+
+Delivery: orientation implementation/tests/review [`61f19a8`](https://github.com/syouyoshino/HAMMER-WORLD/commit/61f19a854af875c0c26bb718d4d1da623adf7c99)
+is committed and pushed to `origin/map-generation`; the remote branch reference
+was verified. No merge or deployment. Continue through the existing versioned
+asset integration boundary if adding spherical terrain/LOD; keep annotations
+derived from public records and retain exact province-anchor semantics.

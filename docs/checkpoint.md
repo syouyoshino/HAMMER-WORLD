@@ -4,6 +4,8 @@ Read `AGENTS.md`, `plan.md` and `docs/decisions.md`, then inspect actual source/
 
 ## Orbital settlement orientation continuation
 
+Implementation `61f19a8` is committed and pushed to `origin/map-generation`.
+
 Recorded settlement annotations now make rocky globes navigable. Independent
 blind A/B review and follow-up interaction review accept the bounded task after
 fixing focus loss, visibility-cap ordering, directional cues and label/anchor

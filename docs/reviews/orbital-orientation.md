@@ -147,3 +147,8 @@ Reproduce the read-only check with `WOLD_ORBIT_TEST_BASE`,
 local V10 fixtures, then run `python tests/browser_orbit_landmarks.py`. Run
 `node tests/check_orbit_landmarks.cjs` for pure layout checks. Generated captures,
 metrics, test databases and caches remain excluded from Git.
+
+Delivery verified: `61f19a8` is pushed to `origin/map-generation`. Runtime images,
+metrics and fixture data remain ignored. Final source hashes are retained at
+`data/orbit-orientation/frontend-freeze.json`; no backend or terrain/sphere
+renderer source changed in this milestone.
