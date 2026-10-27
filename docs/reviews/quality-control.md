@@ -1,5 +1,8 @@
 # Desktop quality control — 27 October 2026
 
+Implementation and regression: `917fb6af3e979804ff8dca72f2d10c1fdf2703b4`,
+pushed to `origin/map-generation`.
+
 Scope: current `map-generation` interface release candidate. Audit the actual
 campaign → orbital settlement → Economy → Construction → map journey, including
 empty/pregame states. No terrain, generation, numerical, persistence or security

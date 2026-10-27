@@ -4,6 +4,8 @@ Read `AGENTS.md`, `plan.md` and `docs/decisions.md`, then inspect actual source/
 
 ## Desktop quality-control follow-up
 
+Implementation `917fb6a` is verified, committed and pushed to `origin/map-generation`.
+
 The current-run audit and correction are recorded in
 `docs/reviews/quality-control.md`. Truthful startup/pregame state, stable report
 reading surfaces, active scope semantics, campaign-dialog naming/focus, settlement

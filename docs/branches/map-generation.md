@@ -630,4 +630,4 @@ Final focused `tests/browser_quality_control.py` passes: keyboard modal cycle,
 truthful startup/pregame state, canonical settlement selection, both scopes in
 both reports, nine facility IDs retained, light/dark screenshots and exact map
 return. Public demo/pregame records stay unchanged and no page errors occur.
-Delivery code/docs/test commit is recorded in the next delivery note.
+Delivery code/docs/test commit: `917fb6af3e979804ff8dca72f2d10c1fdf2703b4`, pushed to `origin/map-generation`.
