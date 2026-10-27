@@ -248,3 +248,26 @@ User authorized implementation on `map-generation`, following an Orbital/Survey/
   painted label selects its visible canonical member cell; catalog selection
   uses the saved anchor. See `docs/reviews/hydrography-names.md` for actual
   references, independent findings/corrections and verification limits.
+
+## ADR-014: canonical fine planets and compact strategic summaries
+
+Reviewed by GPT-6.1 Sol high after independent critique rejected additive detail
+on V9 silhouettes. Opt-in `planet-v10` generates canonical1024×640 natural
+geography FIRST, then derives128×80 strategic terrain and forty province IDs.
+Existing V1–V9 outputs/history/defaults and all numeric turn rules stay intact.
+Do not convert existing maps. No physical radius or kilometre units are inferred.
+
+A strict `planet-detail-v2` asset (maximum8MiB) stores actual fine elevations,
+terrain/materials, named hydrographic metadata, complete shared river courses,
+craters and fine province anchors. Immutable PostgreSQL content identities are
+published atomically with compact referencing snapshots. Turn state contains
+strategic summaries and manifests, not fine arrays. Loading never regenerates.
+Retrieval binds authorization, campaign, historical snapshot and surveyed planet;
+public archives carry only the surveyed self-contained subset. Schema backups
+include assets; restoration reuses their immutable identities and preserves IDs.
+
+The map uses recorded fine anchors for selection, sites and forces, keeps display
+coordinates out of orders, and invalidates stale detail after context changes.
+Fine geometry is periodic east/west and bounded north/south; it remains a2D chart.
+The initial V9-refinement approaches and failed candidates are preserved in
+[planet scale review](reviews/planet-scale.md), along with verification and limits.

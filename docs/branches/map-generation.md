@@ -471,3 +471,23 @@ This remains an interface release candidate. Recovered cartography should join
 through explicit generator/catalog versions and surveyed public allowlists;
 never regenerate old records. Character inspection remains a separate existing
 integration point.
+
+## Native V10 backend milestone
+
+The requested increase in planetary scale required fine-first generation. New
+opt-in V10 worlds save1024×640 natural geography (64×V9's sample count), then
+derive128×80 strategic summaries and forty canonical province IDs. Existing
+V1–V9 worlds/defaults/IDs/history and turn rules are preserved. Names, waterless
+classes, independently chosen liquids/caps and surveyed visibility remain explicit.
+Immutable assets are stored once, scoped to selected campaign/snapshot/planet
+reads, included in surveyed archive bundles and exact PostgreSQL recovery. No
+fine arrays repeat in turn snapshots. See ADR014 and the full
+[scale review](../reviews/planet-scale.md) for rejected designs and current status.
+
+Verified frozen backend:147 Python tests;264 exact legacy private/public hashes;
+10,000 fixture turns in459.36s with10,001 snapshots and exact history/restore. Four
+assets total20,906,145B, unchanged through turns/branch; snapshot JSON713,976,548B;
+largest state75,232B; current read12.0ms; history50 290.1ms. These shared2-CPU local
+measurements are not disk usage or production performance. Original cloud data
+has not been recovered or replaced. No merge/deploy. Frontend completion remains
+pending the same independent critic's dry/ice relief reassessment.

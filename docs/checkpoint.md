@@ -2,6 +2,35 @@
 
 Read `AGENTS.md`, `plan.md` and `docs/decisions.md`, then inspect actual source/tests and Git state. The existing repository is accessible and the scheduled continuation resumed the same work. Preserve the existing implementation. Do not duplicate completed acceptance runs without a relevant change.
 
+## Active native planetary-scale continuation
+
+Native V10 backend is verified; frontend delivery is pending final dry-world
+visual review. Read `docs/reviews/planet-scale.md`. Independent critique twice
+rejected additive V9-detail treatments, leading to canonical1024×640 generation
+and compact128×80 strategic summaries. Old V1–V9 maps/defaults remain exact.
+
+Final frozen backend:147 Python tests PASS1144.544s under concurrent QA load;
+264 exact V1–V9 private/public baseline hashes; 10,000-turn isolated PostgreSQL
+fixture PASS459.36s with10,001 snapshots, exact history/restore, unchanged fine
+geography and4assets. Snapshot JSON sum713,976,548B plus20,906,145B separate detail;
+largest state75,232B; current read12.0ms; history50 290.1ms. All14 app source hashes
+match ignored `data/planet-scale/{backend-freeze,stress-v10}.json` and current code.
+These are local fixture measurements, not production throughput/disk usage.
+
+Protected Chromium native workflow passes: defaultForge; settlement economy/
+construction/map return; fine feature search/picking; stable canvas/input handlers;
+canonical map-target movement preview/commit; read-only history; late actual
+asset rejection after campaign switch/logout; no stored tokens or page errors.
+Replay used previously generated fictional fixtures with exact backend hashes and
+creation-option checks, then actual SQL/auth/turn operations. See ignored
+`data/planet-scale/browser-final/workflow.json`. Water's scoped visual review is
+accepted; dry/ice relief revision awaits the SAME critic's final fresh captures.
+
+QA exposed an inherited concurrent startup-DDL/writer deadlock; rollback left no
+orphan assets/jobs or failed campaign head. Serialize setup after readiness;
+operational startup/migration concurrency is not certified. Do not rerun gates
+for frontend-only fixes. No merge/deploy; runtime data stays ignored.
+
 ## Current V9 hydrographic-identity continuation
 
 On `map-generation`, the optional V9 names/catalog/feature inspector and rendering

@@ -1,5 +1,6 @@
 """PostgreSQL persistence: immutable snapshots and transactional campaign turns."""
 import json
+import hashlib
 import os
 import subprocess
 import time
@@ -15,6 +16,7 @@ from psycopg import sql
 from .engine import (RULES_VERSION, SCHEMA_VERSION, advance, canonical_json, digest,
                      initial_state, public_state, validate_submission)
 from . import engine_v2
+from .detail_assets import asset_bytes, detail_reference, validate_detail_reference, project_detail_reference
 from .universe import V2_RULES, V2_SCHEMA, RESOURCES, owned_humans, public_state_v2
 from .universe import build_universe
 from .planet_generation import GEOLOGIES, PLANET_CLASSES, PRESETS, resolve_planet_presets, validate_surface
@@ -79,6 +81,14 @@ class Store:
             c.execute("""CREATE TABLE IF NOT EXISTS schema_migrations(
               version INTEGER PRIMARY KEY, name TEXT NOT NULL, applied_at TEXT NOT NULL
             )""")
+            c.execute("""CREATE TABLE IF NOT EXISTS planet_detail_assets(
+              sha256 TEXT PRIMARY KEY CHECK(sha256 ~ '^[0-9a-f]{64}$'),
+              version TEXT NOT NULL CHECK(version IN ('planet-detail-v1','planet-detail-v2')),
+              width INTEGER NOT NULL CHECK(width IN (512,1024)),
+              height INTEGER NOT NULL CHECK(height IN (320,640)),
+              byte_length INTEGER NOT NULL CHECK(byte_length BETWEEN 1 AND 8388608),
+              payload_json TEXT NOT NULL CHECK(octet_length(payload_json)=byte_length)
+            )""")
             c.execute("""DO $$ BEGIN
               IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='campaign_parent_snapshot_fk' AND connamespace=current_schema()::regnamespace) THEN
                 ALTER TABLE campaigns ADD CONSTRAINT campaign_parent_snapshot_fk
@@ -98,8 +108,77 @@ class Store:
             c.execute("DROP TRIGGER IF EXISTS snapshots_no_delete ON snapshots")
             c.execute("CREATE TRIGGER snapshots_no_update BEFORE UPDATE ON snapshots FOR EACH ROW EXECUTE FUNCTION reject_snapshot_mutation()")
             c.execute("CREATE TRIGGER snapshots_no_delete BEFORE DELETE ON snapshots FOR EACH ROW EXECUTE FUNCTION reject_snapshot_mutation()")
+            c.execute("""CREATE OR REPLACE FUNCTION reject_detail_asset_mutation() RETURNS trigger AS $$
+              BEGIN RAISE EXCEPTION 'planet detail assets are immutable'; END;
+            $$ LANGUAGE plpgsql""")
+            c.execute("DROP TRIGGER IF EXISTS planet_detail_no_mutation ON planet_detail_assets")
+            c.execute("CREATE TRIGGER planet_detail_no_mutation BEFORE UPDATE OR DELETE ON planet_detail_assets FOR EACH ROW EXECUTE FUNCTION reject_detail_asset_mutation()")
             c.execute("INSERT INTO schema_migrations(version,name,applied_at) VALUES(1,'postgresql_archive_leases',%s) ON CONFLICT(version) DO NOTHING", (now(),))
             c.execute("INSERT INTO schema_migrations(version,name,applied_at) VALUES(2,'campaign_scoped_current_pointer',%s) ON CONFLICT(version) DO NOTHING", (now(),))
+            c.execute("INSERT INTO schema_migrations(version,name,applied_at) VALUES(3,'immutable_planet_detail_assets',%s) ON CONFLICT(version) DO NOTHING", (now(),))
+            c.execute("ALTER TABLE planet_detail_assets DROP CONSTRAINT IF EXISTS planet_detail_assets_version_check")
+            c.execute("ALTER TABLE planet_detail_assets ADD CONSTRAINT planet_detail_assets_version_check CHECK(version IN ('planet-detail-v1','planet-detail-v2'))")
+            c.execute("ALTER TABLE planet_detail_assets DROP CONSTRAINT IF EXISTS planet_detail_assets_width_check")
+            c.execute("ALTER TABLE planet_detail_assets ADD CONSTRAINT planet_detail_assets_width_check CHECK(width IN (512,1024))")
+            c.execute("ALTER TABLE planet_detail_assets DROP CONSTRAINT IF EXISTS planet_detail_assets_height_check")
+            c.execute("ALTER TABLE planet_detail_assets ADD CONSTRAINT planet_detail_assets_height_check CHECK(height IN (320,640))")
+            c.execute("ALTER TABLE planet_detail_assets DROP CONSTRAINT IF EXISTS planet_detail_assets_byte_length_check")
+            c.execute("ALTER TABLE planet_detail_assets ADD CONSTRAINT planet_detail_assets_byte_length_check CHECK(byte_length BETWEEN 1 AND 8388608)")
+            c.execute("ALTER TABLE planet_detail_assets DROP CONSTRAINT IF EXISTS planet_detail_assets_dimensions_check")
+            c.execute("ALTER TABLE planet_detail_assets ADD CONSTRAINT planet_detail_assets_dimensions_check CHECK((width,height) IN ((512,320),(1024,640)))")
+            c.execute("INSERT INTO schema_migrations(version,name,applied_at) VALUES(4,'canonical_fine_planet_assets',%s) ON CONFLICT(version) DO NOTHING", (now(),))
+
+    @staticmethod
+    def _persist_detail_assets(c, state, assets):
+        """Publish generated detail and its referencing snapshot in one transaction."""
+        geographies = [g for g in state.get("geography", {}).values() if "detail_ref" in g]
+        if set(assets) != {g["detail_ref"]["sha256"] for g in geographies}:
+            raise ValueError("planet detail creation assets do not match their references")
+        if not geographies:
+            return
+        from .planet_detail import validate_planet_detail
+        for geo in geographies:
+            ref = geo["detail_ref"]
+            payload = assets[ref["sha256"]]
+            validate_planet_detail(payload, geo)
+            if payload["hydrography"]["naming"] != state["_private"]["generator_config"]["feature_names"]:
+                raise ValueError("fine hydrography naming differs from creation configuration")
+            if detail_reference(payload) != ref:
+                raise ValueError("planet detail creation checksum mismatch")
+            raw = asset_bytes(payload).decode("utf8")
+            c.execute("""INSERT INTO planet_detail_assets(sha256,version,width,height,byte_length,payload_json)
+                VALUES(%s,%s,%s,%s,%s,%s) ON CONFLICT(sha256) DO NOTHING""",
+                (ref["sha256"], ref["version"], ref["width"], ref["height"], ref["byte_length"], raw))
+            existing = c.execute("SELECT payload_json FROM planet_detail_assets WHERE sha256=%s", (ref["sha256"],)).fetchone()
+            if existing["payload_json"] != raw:
+                raise ValueError("planet detail content identity conflict")
+
+    @staticmethod
+    def _verify_detail_refs(c, state):
+        """Check immutable asset existence cheaply without decoding detail each turn."""
+        refs = [g["detail_ref"] for g in state.get("geography", {}).values() if "detail_ref" in g]
+        if not refs:
+            return
+        rows = c.execute("SELECT sha256,version,width,height,byte_length FROM planet_detail_assets WHERE sha256=ANY(%s)",
+                         ([r["sha256"] for r in refs],)).fetchall()
+        recorded = {row["sha256"]:dict(row) for row in rows}
+        if any(recorded.get(ref["sha256"]) != ref for ref in refs):
+            raise ValueError("snapshot references missing or mismatched planet detail")
+
+    @staticmethod
+    def _read_detail_asset(c, geo):
+        from .planet_detail import validate_planet_detail, project_planet_detail
+        ref = geo.get("detail_ref")
+        validate_detail_reference(ref)
+        row = c.execute("SELECT payload_json FROM planet_detail_assets WHERE sha256=%s", (ref["sha256"],)).fetchone()
+        if not row:
+            raise ValueError("saved planet detail is missing")
+        raw = row["payload_json"].encode("utf8")
+        if len(raw) != ref["byte_length"] or hashlib.sha256(raw).hexdigest() != ref["sha256"]:
+            raise ValueError("saved planet detail checksum verification failed")
+        payload = json.loads(raw)
+        validate_planet_detail(payload, geo)
+        return project_planet_detail(payload)
 
     @staticmethod
     def snapshot_hash(campaign_id, turn, state, schema_version=SCHEMA_VERSION, rules_version=RULES_VERSION):
@@ -143,7 +222,7 @@ class Store:
                     raise ValueError("snapshot v2 geography shape invariant failed")
                 validate_surface(geo)
                 surface=geo.get("surface",{})
-                if surface.get("version") in ("planet-v4","planet-v5","planet-v6","planet-v7","planet-v8","planet-v9"):
+                if surface.get("version") in ("planet-v4","planet-v5","planet-v6","planet-v7","planet-v8","planet-v9","planet-v10"):
                     node=nodes.get(planet_id,{})
                     if surface.get("preset") not in PRESETS or node.get("class")!=PLANET_CLASSES.get(surface.get("preset")):
                         raise ValueError("planet-v4 preset and body class invariant failed")
@@ -154,39 +233,43 @@ class Store:
             for geo in geography.values():
                 if len(geo.get("provinces",[]))==0: raise ValueError("snapshot v2 province geometry invariant failed")
             config=state.get("_private",{}).get("generator_config",{})
-            if config.get("planet") != "planet-v9" and ("feature_names" in config or any("hydrography" in geo.get("surface", {}) for geo in geography.values())):
+            if config.get("planet") not in ("planet-v9","planet-v10") and ("feature_names" in config or any("hydrography" in geo.get("surface", {}) for geo in geography.values())):
                 raise ValueError("hydrography requires planet-v9")
-            if config.get("planet") not in ("planet-v7","planet-v8","planet-v9") and "planet_geologies" in config:
+            if config.get("planet") not in ("planet-v7","planet-v8","planet-v9","planet-v10") and "planet_geologies" in config:
                 raise ValueError("V7 geology requires its matching generator configuration")
             material_config_keys = {"planet_lake_materials", "planet_polar_caps"}
-            if config.get("planet") not in ("planet-v8","planet-v9") and material_config_keys.intersection(config):
+            if config.get("planet") not in ("planet-v8","planet-v9","planet-v10") and material_config_keys.intersection(config):
                 raise ValueError("V8 materials require matching generator configuration")
-            if config.get("planet") in ("planet-v8","planet-v9"):
+            if config.get("planet") in ("planet-v8","planet-v9","planet-v10"):
                 for key, field in (("planet_lake_materials", "lake_material"), ("planet_polar_caps", "polar_caps")):
-                    recorded = {pid:geo.get("surface", {}).get("materials", {}).get(field) for pid,geo in geography.items()}
+                    recorded = {pid:(geo["surface"].get(field) if config.get("planet") == "planet-v10" else
+                                    geo.get("surface", {}).get("materials", {}).get(field)) for pid,geo in geography.items()}
                     values = config.get(key)
                     if not isinstance(values, dict) or set(values) != planet_ids or values != recorded:
                         raise ValueError("private planet materials configuration invariant failed")
             preset_planets={pid:geo["surface"]["preset"] for pid,geo in geography.items()
-                        if geo.get("surface",{}).get("version") in ("planet-v4","planet-v5","planet-v6","planet-v7","planet-v8","planet-v9")}
-            if config.get("planet") in ("planet-v4","planet-v5","planet-v6","planet-v7","planet-v8","planet-v9"):
+                        if geo.get("surface",{}).get("version") in ("planet-v4","planet-v5","planet-v6","planet-v7","planet-v8","planet-v9","planet-v10")}
+            if config.get("planet") in ("planet-v4","planet-v5","planet-v6","planet-v7","planet-v8","planet-v9","planet-v10"):
                 recorded=config.get("planet_presets")
                 if not isinstance(recorded,dict) or set(recorded)!=planet_ids or recorded!=preset_planets:
                     raise ValueError("private planet preset configuration invariant failed")
                 expected_version=config["planet"]
                 if any(geo.get("surface",{}).get("version")!=expected_version for geo in geography.values()):
                     raise ValueError("planet preset version and generator configuration differ")
-                expected_grid="grid128x80" if expected_version in ("planet-v5","planet-v6","planet-v7","planet-v8","planet-v9") else "grid64x40"
+                expected_grid="grid128x80" if expected_version in ("planet-v5","planet-v6","planet-v7","planet-v8","planet-v9","planet-v10") else "grid64x40"
                 if config.get("grid")!=expected_grid:
                     raise ValueError("planet generator grid configuration invariant failed")
-                if expected_version in ("planet-v7","planet-v8","planet-v9"):
+                if expected_version in ("planet-v7","planet-v8","planet-v9","planet-v10"):
                     geologies=config.get("planet_geologies")
                     recorded_geologies={pid:geo["surface"].get("geology") for pid,geo in geography.items()}
                     if not isinstance(geologies,dict) or set(geologies)!=planet_ids or geologies!=recorded_geologies or any(g not in GEOLOGIES for g in geologies.values()):
                         raise ValueError("private planet geology configuration invariant failed")
-                elif "planet_geologies" in config or any(geo.get("surface",{}).get("version")in ("planet-v7","planet-v8","planet-v9") for geo in geography.values()):
+                elif "planet_geologies" in config or any(geo.get("surface",{}).get("version")in ("planet-v7","planet-v8","planet-v9","planet-v10") for geo in geography.values()):
                     raise ValueError("V7 geology requires its matching generator configuration")
-                if expected_version == "planet-v9":
+                if expected_version == "planet-v10":
+                    if config.get("feature_names") not in ("none", "generated"):
+                        raise ValueError("private fine hydrography naming configuration invariant failed")
+                elif expected_version == "planet-v9":
                     naming = config.get("feature_names")
                     if naming not in ("none", "generated") or any(geo["surface"]["hydrography"].get("naming") != naming for geo in geography.values()):
                         raise ValueError("private hydrography naming configuration invariant failed")
@@ -194,6 +277,11 @@ class Store:
                     raise ValueError("hydrography requires planet-v9")
             elif preset_planets or "planet_presets" in config:
                 raise ValueError("preset geography requires its matching generator configuration")
+            for geo in geography.values():
+                if config.get("planet") == "planet-v10":
+                    validate_detail_reference(geo.get("detail_ref"))
+                elif "detail_ref" in geo:
+                    raise ValueError("planet detail requires planet-v10")
             settlements={s["id"]:s for s in state["settlements"]}
             for settlement in state["settlements"]:
                 if any(type(settlement.get(k)) is not int or settlement[k]<0 for k in ("civilians",)) or any(k in settlement for k in ("soldiers","crew","settlers")):
@@ -292,26 +380,28 @@ class Store:
             return sid
 
     def create_demo_v2(self, campaign_id="demo-v2", seed=741903, *, planet_generator="planet-v1", preset=None, planet_presets=None, geology="none", planet_geologies=None, lake_material=None, polar_caps=None, planet_lake_materials=None, planet_polar_caps=None, feature_names=None, feature_name_overrides=None):
-        if planet_generator not in ("planet-v4","planet-v5","planet-v6","planet-v7","planet-v8","planet-v9") and (preset is not None or planet_presets is not None or planet_geologies is not None):
+        if planet_generator not in ("planet-v4","planet-v5","planet-v6","planet-v7","planet-v8","planet-v9","planet-v10") and (preset is not None or planet_presets is not None or planet_geologies is not None):
             raise ValueError("planet presets require planet-v4 or later")
-        if planet_generator in ("planet-v4","planet-v5","planet-v6","planet-v7","planet-v8","planet-v9"):
+        if planet_generator in ("planet-v4","planet-v5","planet-v6","planet-v7","planet-v8","planet-v9","planet-v10"):
             ids={f"{campaign_id}-planet-{suffix}" for suffix in ("reach","ash","haven","veil")}
             resolve_planet_presets(seed, ids, "auto" if preset is None else preset, planet_presets)
-        if planet_generator not in ("planet-v7","planet-v8","planet-v9") and (planet_geologies is not None or geology!="none"):
+        if planet_generator not in ("planet-v7","planet-v8","planet-v9","planet-v10") and (planet_geologies is not None or geology!="none"):
             raise ValueError("planet geology requires planet-v7 or later")
-        if planet_generator not in ("planet-v8","planet-v9") and (lake_material is not None or polar_caps is not None or planet_lake_materials is not None or planet_polar_caps is not None):
+        if planet_generator not in ("planet-v8","planet-v9","planet-v10") and (lake_material is not None or polar_caps is not None or planet_lake_materials is not None or planet_polar_caps is not None):
             raise ValueError("surface materials require planet-v8 or later")
-        if planet_generator != "planet-v9" and (feature_names is not None or feature_name_overrides is not None):
+        if planet_generator not in ("planet-v9","planet-v10") and (feature_names is not None or feature_name_overrides is not None):
             raise ValueError("feature naming requires planet-v9")
         with self.connect() as c:
             c.execute("BEGIN")
             if c.execute("SELECT 1 FROM campaigns WHERE id=%s", (campaign_id,)).fetchone():
                 raise ValueError("campaign already exists")
+            detail_assets = {}
             state=build_universe(campaign_id,seed,planet_generator=planet_generator,preset=preset,planet_presets=planet_presets,geology=geology,planet_geologies=planet_geologies,
                                  lake_material=lake_material, polar_caps=polar_caps,
                                  planet_lake_materials=planet_lake_materials, planet_polar_caps=planet_polar_caps,
-                                 feature_names=feature_names, feature_name_overrides=feature_name_overrides)
+                                 feature_names=feature_names, feature_name_overrides=feature_name_overrides, detail_assets=detail_assets)
             self.validate_state(V2_SCHEMA,V2_RULES,0,state)
+            self._persist_detail_assets(c, state, detail_assets)
             sid=str(uuid.uuid4()); h=self.snapshot_hash(campaign_id,0,state,V2_SCHEMA,V2_RULES)
             c.execute("INSERT INTO campaigns(id,kind) VALUES(%s,'demo')",(campaign_id,))
             c.execute("""INSERT INTO snapshots(id,campaign_id,turn,schema_version,rules_version,state_json,state_hash,
@@ -341,6 +431,7 @@ class Store:
             raise ValueError("snapshot v2 private campaign identity invariant failed")
         if result["state_hash"] != self.snapshot_hash(result["campaign_id"], result["turn"], result["state"],*versions):
             raise ValueError("snapshot checksum verification failed")
+        self._verify_detail_refs(c, result["state"])
         result["command"] = json.loads(result.pop("command_json")) if result["command_json"] else None
         return result
 
@@ -363,6 +454,26 @@ class Store:
         if (snapshot["schema_version"],snapshot["rules_version"])==(V2_SCHEMA,V2_RULES):
             return public_state_v2(snapshot["state"])
         return public_state(snapshot["state"])
+
+    def planet_detail(self, campaign_id, planet_id, snapshot_id=None):
+        """Resolve authority through a campaign snapshot, never a public digest URL."""
+        if snapshot_id:
+            snap = self._snapshot_for_campaign(campaign_id, snapshot_id)
+        else:
+            current = self.current(campaign_id)
+            snap = current["snapshot"] if current else None
+        if not snap:
+            raise KeyError("planet detail not found")
+        state = snap["state"]
+        node = next((n for n in state.get("nodes", []) if n.get("id") == planet_id
+                     and n.get("kind") == "planet" and n.get("knowledge") == "surveyed"), None)
+        geo = state.get("geography", {}).get(planet_id) if node else None
+        if not geo or "detail_ref" not in geo:
+            raise KeyError("planet detail not found")
+        with self.connect() as c:
+            detail = self._read_detail_asset(c, geo)
+        return {"planet_id":planet_id, "snapshot_id":snap["id"],
+                "detail_ref":project_detail_reference(geo["detail_ref"]), "detail":detail}
 
     def map_view(self,campaign_id,level,node_id=None,snapshot_id=None,overlay="terrain"):
         if level not in ("galactic","sector","system","planet"): raise ValueError("invalid map level")
@@ -559,6 +670,7 @@ class Store:
             sid = str(uuid.uuid4())
             schema,rules=(V2_SCHEMA,V2_RULES) if is_v2 else (SCHEMA_VERSION,RULES_VERSION)
             self.validate_state(schema,rules,new["turn"],new)
+            self._verify_detail_refs(c, new)
             if is_v2 and new.get("_private",{}).get("campaign_id")!=campaign_id: raise ValueError("snapshot v2 private campaign identity invariant failed")
             h = self.snapshot_hash(campaign_id,new["turn"],new,schema,rules)
             c.execute("""INSERT INTO snapshots(id,campaign_id,turn,schema_version,rules_version,state_json,
@@ -579,6 +691,9 @@ class Store:
                 raise KeyError("snapshot not found in campaign")
             checked = self._snapshot(c, snapshot_id)
             original = checked["state"]
+            for geo in original.get("geography", {}).values():
+                if "detail_ref" in geo:
+                    self._read_detail_asset(c, geo)
             new = dict(original)
             new["_private"] = dict(original["_private"])
             if "campaign_id" in new["_private"]: new["_private"]["campaign_id"]=new_campaign_id
@@ -654,6 +769,14 @@ class Store:
                     "rules_version": snapshot["rules_version"], "created_at": snapshot["created_at"],
                     "state": projection,
                 }
+                # Archives remain self-contained. Only the already surveyed
+                # public geography contributes detail, never hidden assets.
+                visible_details = {geo["detail_ref"]["sha256"]:self._read_detail_asset(c, snapshot["state"]["geography"][pid])
+                                   for pid, geo in projection.get("geography", {}).items() if "detail_ref" in geo}
+                if visible_details:
+                    archive_version = "archive-player-v3"
+                    envelope["archive_schema_version"] = archive_version
+                    envelope["detail_assets"] = visible_details
                 payload_bytes = canonical_json(envelope).encode("utf-8")
                 payload_checksum = hashlib.sha256(payload_bytes).hexdigest()
                 projection_version = archive_version

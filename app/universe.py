@@ -2,6 +2,8 @@
 import hashlib
 import random
 
+from .detail_assets import detail_reference, project_detail_reference
+
 from .engine import generate_planet
 from .planet_generation import (PRESETS, GEOLOGIES, PLANET_CLASSES, generate_planet_v2, generate_planet_v3,
                                 generate_planet_v4, generate_planet_v5, generate_planet_v6, generate_planet_v7, generate_planet_v8, generate_planet_v9, project_surface, resolve_planet_presets, LAKE_MATERIALS, POLAR_CAPS)
@@ -16,14 +18,14 @@ def _seed(seed, parent, domain, ordinal=0):
     return int.from_bytes(hashlib.sha256(raw).digest()[:8], "big")
 
 
-def build_universe(campaign_id, seed, *, planet_generator="planet-v1", preset=None, planet_presets=None, geology="none", planet_geologies=None, lake_material=None, polar_caps=None, planet_lake_materials=None, planet_polar_caps=None, feature_names=None, feature_name_overrides=None):
+def build_universe(campaign_id, seed, *, planet_generator="planet-v1", preset=None, planet_presets=None, geology="none", planet_geologies=None, lake_material=None, polar_caps=None, planet_lake_materials=None, planet_polar_caps=None, feature_names=None, feature_name_overrides=None, detail_assets=None):
     """Build the approved compact node hierarchy, settlements and fixture accounts."""
-    if planet_generator not in ("planet-v1", "planet-v2", "planet-v3", "planet-v4", "planet-v5", "planet-v6", "planet-v7", "planet-v8", "planet-v9"):
+    if planet_generator not in ("planet-v1", "planet-v2", "planet-v3", "planet-v4", "planet-v5", "planet-v6", "planet-v7", "planet-v8", "planet-v9","planet-v10"):
         raise ValueError("unsupported planet generator")
-    if planet_generator not in ("planet-v7","planet-v8","planet-v9") and (geology != "none" or planet_geologies is not None):
+    if planet_generator not in ("planet-v7","planet-v8","planet-v9","planet-v10") and (geology != "none" or planet_geologies is not None):
         raise ValueError("planet geology requires planet-v7 or later")
-    if planet_generator not in ("planet-v8","planet-v9") and (lake_material is not None or polar_caps is not None or planet_lake_materials is not None or planet_polar_caps is not None): raise ValueError("surface materials require planet-v8 or later")
-    if planet_generator != "planet-v9" and (feature_names is not None or feature_name_overrides is not None):
+    if planet_generator not in ("planet-v8","planet-v9","planet-v10") and (lake_material is not None or polar_caps is not None or planet_lake_materials is not None or planet_polar_caps is not None): raise ValueError("surface materials require planet-v8 or later")
+    if planet_generator not in ("planet-v9","planet-v10") and (feature_names is not None or feature_name_overrides is not None):
         raise ValueError("feature naming requires planet-v9")
     if feature_names is None:
         feature_names = "none"
@@ -31,9 +33,9 @@ def build_universe(campaign_id, seed, *, planet_generator="planet-v1", preset=No
         raise ValueError("unsupported feature naming mode")
     if feature_name_overrides is not None and (not isinstance(feature_name_overrides, dict) or any(not isinstance(k, str) for k in feature_name_overrides)):
         raise ValueError("invalid feature name overrides")
-    if planet_generator not in ("planet-v4","planet-v5","planet-v6","planet-v7","planet-v8","planet-v9") and (preset is not None or planet_presets is not None or geology!="none" or planet_geologies is not None):
+    if planet_generator not in ("planet-v4","planet-v5","planet-v6","planet-v7","planet-v8","planet-v9","planet-v10") and (preset is not None or planet_presets is not None or geology!="none" or planet_geologies is not None):
         raise ValueError("planet presets require planet-v4 or later")
-    if planet_generator in ("planet-v4","planet-v5","planet-v6","planet-v7","planet-v8","planet-v9") and preset is None:
+    if planet_generator in ("planet-v4","planet-v5","planet-v6","planet-v7","planet-v8","planet-v9","planet-v10") and preset is None:
         preset = "auto"
     rng = random.Random(_seed(seed, campaign_id, "universe"))
     root = f"{campaign_id}-galaxy"
@@ -77,8 +79,8 @@ def build_universe(campaign_id, seed, *, planet_generator="planet-v1", preset=No
             moon_rng.uniform(.3,.7),moon_rng.uniform(.3,.7))
         nodes[-1].update({"class":moon_rng.choice(("rocky","icy")),"radius":round(moon_rng.uniform(.12,.48),3)})
     planet_ids=[n["id"] for n in nodes if n["kind"]=="planet"]
-    resolved_presets = resolve_planet_presets(seed, planet_ids, preset, planet_presets) if planet_generator in ("planet-v4","planet-v5","planet-v6","planet-v7","planet-v8","planet-v9") else {}
-    if planet_generator in ("planet-v7","planet-v8","planet-v9"):
+    resolved_presets = resolve_planet_presets(seed, planet_ids, preset, planet_presets) if planet_generator in ("planet-v4","planet-v5","planet-v6","planet-v7","planet-v8","planet-v9","planet-v10") else {}
+    if planet_generator in ("planet-v7","planet-v8","planet-v9","planet-v10"):
         if geology not in GEOLOGIES: raise ValueError("unsupported planet geology")
         if planet_geologies is None: planet_geologies = {}
         if not isinstance(planet_geologies,dict) or any(not isinstance(k,str) or k not in planet_ids for k in planet_geologies) or any(v not in GEOLOGIES for v in planet_geologies.values()):
@@ -88,27 +90,40 @@ def build_universe(campaign_id, seed, *, planet_generator="planet-v1", preset=No
             raise ValueError("cratered geology requires an arid, barren, or frozen preset")
     else:
         resolved_geologies={}
-    if planet_generator in ("planet-v4","planet-v5","planet-v6","planet-v7","planet-v8","planet-v9"):
+    if planet_generator in ("planet-v4","planet-v5","planet-v6","planet-v7","planet-v8","planet-v9","planet-v10"):
         for node in nodes:
             if node["id"] in resolved_presets:
                 node["class"] = PLANET_CLASSES[resolved_presets[node["id"]]]
-        if planet_generator in ("planet-v7","planet-v8","planet-v9"):
-            if planet_generator in ("planet-v8","planet-v9"):
+        if planet_generator in ("planet-v7","planet-v8","planet-v9","planet-v10"):
+            if planet_generator in ("planet-v8","planet-v9","planet-v10"):
                 def resolve_map(default, overrides, choices, name):
                     overrides={} if overrides is None else overrides
                     if default not in choices or not isinstance(overrides,dict) or any(k not in planet_ids or not isinstance(k,str) or v not in choices for k,v in overrides.items()): raise ValueError(f"invalid {name} overrides")
                     return {pid:overrides.get(pid,default) for pid in planet_ids}
                 lakes=resolve_map("none" if lake_material is None else lake_material,planet_lake_materials,LAKE_MATERIALS,"lake material")
                 caps=resolve_map("none" if polar_caps is None else polar_caps,planet_polar_caps,POLAR_CAPS,"polar cap")
-                generator = generate_planet_v9 if planet_generator == "planet-v9" else generate_planet_v8
-                if planet_generator == "planet-v9":
+                generator = generate_planet_v9 if planet_generator in ("planet-v9","planet-v10") else generate_planet_v8
+                if planet_generator in ("planet-v9","planet-v10"):
                     allowed = set(planet_ids)
                     if feature_name_overrides is not None and (set(feature_name_overrides) - allowed):
                         raise ValueError("feature name override references an unknown planet")
                     names = {pid: (feature_name_overrides or {}).get(pid, {}) for pid in planet_ids}
                     if any(not isinstance(v, dict) for v in names.values()):
                         raise ValueError("feature names must map planet IDs to feature maps")
-                    geography={pid:generator(f"{campaign_id}-{pid.rsplit('-',1)[-1]}",_seed(seed,pid,"geography"),resolved_presets[pid],resolved_geologies[pid],lakes[pid],caps[pid],feature_names,names[pid]) for pid in planet_ids}
+                    if planet_generator == "planet-v10":
+                        from .planet_detail import generate_planet_v10, validate_planet_detail
+                        geography = {}
+                        for pid in planet_ids:
+                            geo, payload = generate_planet_v10(f"{campaign_id}-{pid.rsplit('-',1)[-1]}", _seed(seed,pid,"geography"),
+                                resolved_presets[pid], resolved_geologies[pid], lakes[pid], caps[pid], feature_names, names[pid])
+                            validate_planet_detail(payload, geo)
+                            ref = detail_reference(payload)
+                            geo["detail_ref"] = ref
+                            geography[pid] = geo
+                            if detail_assets is not None:
+                                detail_assets[ref["sha256"]] = payload
+                    else:
+                        geography={pid:generator(f"{campaign_id}-{pid.rsplit('-',1)[-1]}",_seed(seed,pid,"geography"),resolved_presets[pid],resolved_geologies[pid],lakes[pid],caps[pid],feature_names,names[pid]) for pid in planet_ids}
                 else:
                     geography={pid:generator(f"{campaign_id}-{pid.rsplit('-',1)[-1]}",_seed(seed,pid,"geography"),resolved_presets[pid],resolved_geologies[pid],lakes[pid],caps[pid]) for pid in planet_ids}
             else:
@@ -133,6 +148,8 @@ def build_universe(campaign_id, seed, *, planet_generator="planet-v1", preset=No
         if any(codes[y * geometry["planet"]["width"] + x] != "o"
                for y in range(py, py + province["height"]) for x in range(px, px + province["width"])):
             land_ids.append(province["id"])
+    if planet_generator == "planet-v10" and len(land_ids) < 3:
+        raise ValueError("new V10 demo geography requires three physical land provinces")
     land_ids = land_ids or land_provinces
     if planet_generator in ("planet-v2", "planet-v3", "planet-v4", "planet-v5", "planet-v6") and len(land_ids) < 3:
         raise ValueError("new demo geography requires three land provinces")
@@ -175,12 +192,12 @@ def build_universe(campaign_id, seed, *, planet_generator="planet-v1", preset=No
                   for role in ("engineer","steward","general","scout")]
     private = {"seed": seed, "campaign_id": campaign_id, "seeded_marker": f"secret:{seed}", "enemy_population":20,
                "generator_version":"hierarchical-v1",
-               "generator_config":{"hierarchy":"hierarchical-v1","planet":planet_generator,"grid":"grid128x80" if planet_generator in ("planet-v5","planet-v6","planet-v7","planet-v8","planet-v9") else "grid64x40",
+               "generator_config":{"hierarchy":"hierarchical-v1","planet":planet_generator,"grid":"grid128x80" if planet_generator in ("planet-v5","planet-v6","planet-v7","planet-v8","planet-v9","planet-v10") else "grid64x40",
                                    "domain_seed_derivation":"sha256-parent-domain-v1",
-                                   **({"planet_presets":dict(resolved_presets)} if planet_generator in ("planet-v4","planet-v5","planet-v6","planet-v7","planet-v8","planet-v9") else {}),
-                                   **({"planet_geologies":dict(resolved_geologies)} if planet_generator in ("planet-v7","planet-v8","planet-v9") else {}),
-                                   **({"planet_lake_materials":dict(lakes), "planet_polar_caps":dict(caps)} if planet_generator in ("planet-v8","planet-v9") else {}),
-                                   **({"feature_names":feature_names} if planet_generator=="planet-v9" else {})},
+                                   **({"planet_presets":dict(resolved_presets)} if planet_generator in ("planet-v4","planet-v5","planet-v6","planet-v7","planet-v8","planet-v9","planet-v10") else {}),
+                                   **({"planet_geologies":dict(resolved_geologies)} if planet_generator in ("planet-v7","planet-v8","planet-v9","planet-v10") else {}),
+                                   **({"planet_lake_materials":dict(lakes), "planet_polar_caps":dict(caps)} if planet_generator in ("planet-v8","planet-v9","planet-v10") else {}),
+                                   **({"feature_names":feature_names} if planet_generator in ("planet-v9","planet-v10") else {})},
                "enemy_allocations":{"farmers":14,"technicians":2}, "adjacency":[[hsys,gsys],[gsys,dsys]],
                "generation_nonce":rng.randrange(1, 2**31)}
     return {"turn":0,"nodes":nodes,"links":[{"a":hsys,"b":gsys},{"a":gsys,"b":dsys}],
@@ -369,7 +386,8 @@ def public_state_v2(state):
             x,y=index%width,index//width
             province=province_at[index] if code!="o" else None
             tiles.append({"x":x,"y":y,"terrain":codes[code],"province_id":province})
-        return {"planet":planet,"provinces":provinces,"tiles":tiles,**project_surface(geo)}
+        return {"planet":planet,"provinces":provinces,"tiles":tiles,**project_surface(geo),
+                **({"detail_ref":project_detail_reference(geo["detail_ref"])} if "detail_ref" in geo else {})}
     return {"turn":state["turn"],"owned_totals":{"population":owned_humans(state),"resources":owned_resources(state)},"nodes":nodes,"links":links,"settlements":settlements,"facilities":facilities,
         "projects":projects,"units":units,"fleets":fleets,"shipments":shipments,"factions":factions,
         "expeditions":expeditions,"characters":characters,"technologies":list(state["technologies"]),"discoveries":discoveries,

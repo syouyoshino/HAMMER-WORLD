@@ -112,6 +112,16 @@ def run(turns=10000):
             creation["feature_names"] = os.environ["WOLD_TEST_FEATURE_NAMES"]
         initial_id = db.create_demo_v2("long-run", seed=4242, planet_generator=planet_generator, **creation)
         current = db.current("long-run")["snapshot"]
+        detail_metrics = {}
+        if planet_generator == "planet-v10":
+            with db.connect() as connection:
+                row = connection.execute("SELECT count(*) AS detail_assets, sum(byte_length) AS detail_bytes FROM planet_detail_assets").fetchone()
+            detail_metrics = dict(row)
+            assert detail_metrics["detail_assets"] == 4
+            with db.connect() as connection:
+                initial_asset_hashes = [row["sha256"] for row in connection.execute("SELECT sha256 FROM planet_detail_assets ORDER BY sha256").fetchall()]
+            initial_detail = db.planet_detail("long-run", "long-run-planet-reach")
+            initial_detail_hash = hashlib.sha256(json.dumps(initial_detail["detail"], sort_keys=True).encode()).hexdigest()
         geography_hash = hashlib.sha256(json.dumps(current["state"]["geography"], sort_keys=True).encode()).hexdigest()
         checkpoints = {0: (initial_id, current["state_hash"])}
         largest = len(json.dumps(current["state"]))
@@ -162,6 +172,16 @@ def run(turns=10000):
         branch_state["_private"]["campaign_id"] = "long-run"
         assert branch_state == original["state"]
         assert db.current("long-run")["snapshot"]["turn"] == turns
+        if planet_generator == "planet-v10":
+            for cid, sid in (("long-run", None), ("long-run", initial_id), ("restored-initial", restored)):
+                detail = db.planet_detail(cid, "long-run-planet-reach", sid)
+                assert hashlib.sha256(json.dumps(detail["detail"], sort_keys=True).encode()).hexdigest() == initial_detail_hash
+            with db.connect() as connection:
+                row = connection.execute("SELECT count(*) AS detail_assets, sum(byte_length) AS detail_bytes FROM planet_detail_assets").fetchone()
+            assert dict(row) == detail_metrics, "Turns or restore duplicated immutable detail"
+            with db.connect() as connection:
+                final_asset_hashes = [row["sha256"] for row in connection.execute("SELECT sha256 FROM planet_detail_assets ORDER BY sha256").fetchall()]
+            assert final_asset_hashes == initial_asset_hashes
         with db.connect() as connection:
             metrics = connection.execute("SELECT count(*) AS snapshots, sum(octet_length(state_json)) AS state_bytes FROM snapshots WHERE campaign_id='long-run'").fetchone()
         query_start = time.monotonic()
@@ -174,7 +194,7 @@ def run(turns=10000):
         return {"connected_stress": "PASS", "planet_generator": planet_generator, "creation_options": creation, "turns": turns, "seconds": round(time.monotonic() - started, 2),
                 "geography_hash": geography_hash,
                 "population": owned_humans(state), "largest_state_bytes": largest,
-                "current_read_ms": round(current_ms, 1), "history_50_ms": round(history_ms, 1), **metrics}
+                "current_read_ms": round(current_ms, 1), "history_50_ms": round(history_ms, 1), **metrics, **detail_metrics}
     finally:
         with psycopg.connect(dsn, autocommit=True) as connection:
             connection.execute(sql.SQL("DROP SCHEMA {} CASCADE").format(sql.Identifier(schema)))

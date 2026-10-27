@@ -1,7 +1,7 @@
 import hmac
 import os
 from fastapi import Depends, FastAPI, Header, HTTPException
-from fastapi.responses import HTMLResponse, FileResponse
+from fastapi.responses import HTMLResponse, FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi import Request, Query
 from pathlib import Path
@@ -194,6 +194,16 @@ def player_map(campaign_id: str, level: str=Query(default="galactic"), node_id: 
 def player_systems(campaign_id: str, section: str=Query(...), snapshot_id: str|None=None,authorization: str|None=Header(default=None)):
     _require_campaign_access(campaign_id,authorization)
     try: return store.systems(campaign_id,section,snapshot_id)
+    except Exception as e: translate_error(e)
+
+
+@app.get("/api/player/campaigns/{campaign_id}/detail")
+def player_planet_detail(campaign_id: str, planet_id: str=Query(...), snapshot_id: str|None=None,
+                         authorization: str|None=Header(default=None)):
+    _require_campaign_access(campaign_id, authorization)
+    try:
+        return JSONResponse(store.planet_detail(campaign_id, planet_id, snapshot_id),
+                            headers={"Cache-Control":"no-store"})
     except Exception as e: translate_error(e)
 
 

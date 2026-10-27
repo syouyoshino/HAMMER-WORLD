@@ -9,12 +9,13 @@ import heapq
 import math
 
 VERSION = "planet-v2"
-SURFACE_VERSIONS = (VERSION, "planet-v3", "planet-v4", "planet-v5", "planet-v6", "planet-v7", "planet-v8", "planet-v9")
+SURFACE_VERSIONS = (VERSION, "planet-v3", "planet-v4", "planet-v5", "planet-v6", "planet-v7", "planet-v8", "planet-v9", "planet-v10")
 WIDTH, HEIGHT, SEA_LEVEL = 64, 40, 400
 V5_WIDTH, V5_HEIGHT = 128, 80
 V6_WIDTH, V6_HEIGHT = 128, 80
 FIELDS = ("elevation", "temperature", "moisture", "drainage", "accumulation")
 SURFACE_KEYS = {"version", "sea_level", *FIELDS, "rivers"}
+V10_SURFACE_KEYS = {"version", "preset", "topology", "hydrology", "sea_level", "geology", "lake_material", "polar_caps"}
 PRESETS = ("continental", "archipelago", "oceanic", "arid", "barren", "frozen")
 PLANET_CLASSES = {"continental":"terrestrial", "archipelago":"oceanic", "oceanic":"oceanic",
                   "arid":"arid", "barren":"barren", "frozen":"ice"}
@@ -625,6 +626,8 @@ def project_surface(geometry):
     surface = geometry.get("surface")
     if not isinstance(surface, dict) or surface.get("version") not in SURFACE_VERSIONS:
         return {}
+    if surface["version"] == "planet-v10":
+        return {"surface":{key:surface[key] for key in V10_SURFACE_KEYS}}
     projected={"version":surface["version"],"sea_level":surface["sea_level"],
                **{key:list(surface[key]) for key in FIELDS},
                "rivers":[{"id":r["id"],"points":[[p[0],p[1]] for p in r["points"]]} for r in surface["rivers"]]}
@@ -651,6 +654,9 @@ def validate_surface(geometry):
         return
     surface = geometry["surface"]
     version = surface.get("version") if isinstance(surface,dict) else None
+    if version == "planet-v10":
+        _validate_v10_summary(geometry)
+        return
     expected_keys = SURFACE_KEYS | {"preset","hydrology"} if version in ("planet-v4","planet-v5") else SURFACE_KEYS
     if version=="planet-v6": expected_keys=SURFACE_KEYS|{"preset","hydrology","topology"}
     if version=="planet-v7": expected_keys=SURFACE_KEYS|{"preset","hydrology","topology","geology","craters"}
@@ -762,3 +768,40 @@ def validate_surface(geometry):
             raise ValueError("planet river must follow drainage to ocean")
     if version == "planet-v9":
         validate_hydrography(geometry, surface["hydrography"], surface["hydrography"].get("naming") if isinstance(surface["hydrography"], dict) else None)
+
+
+def _validate_v10_summary(geometry):
+    """V10 snapshots hold strategic summaries, never their canonical fine arrays."""
+    surface = geometry["surface"]
+    if set(surface) != V10_SURFACE_KEYS or surface.get("preset") not in PRESETS or surface.get("topology") != "cylinder-x":
+        raise ValueError("invalid V10 strategic surface metadata")
+    dry = surface["preset"] in ("arid", "barren", "frozen")
+    if (surface.get("hydrology") != ("none" if dry else "ocean-draining")
+            or (surface.get("sea_level") is not None if dry else
+                type(surface.get("sea_level")) is not int or surface["sea_level"] != SEA_LEVEL)
+            or surface.get("geology") not in GEOLOGIES
+            or surface["geology"] == "cratered" and not dry):
+        raise ValueError("invalid V10 strategic hydrology or geology")
+    from .planet_materials import validate_choices
+    validate_choices(surface["preset"], surface.get("lake_material"), surface.get("polar_caps"))
+    planet, provinces, terrain = geometry.get("planet", {}), geometry.get("provinces"), geometry.get("terrain_grid")
+    if (not isinstance(planet,dict) or (planet.get("width"), planet.get("height")) != (128, 80)
+            or type(planet.get("width")) is not int or type(planet.get("height")) is not int
+            or not isinstance(terrain, str) or len(terrain) != 128*80 or set(terrain) - set("ocprfm")
+            or not isinstance(provinces, list) or len(provinces) != 40):
+        raise ValueError("invalid V10 strategic dimensions")
+    allowed = {"barren":set("r"), "arid":set("pr"), "frozen":set("pr")}.get(surface["preset"], set("ocprfm"))
+    # A dry planet may have a strategic water cell only when its fine material
+    # covers all physical land in that cell; numerical eligibility still uses o.
+    if surface["lake_material"] != "none": allowed.add("o")
+    if set(terrain) - allowed:
+        raise ValueError("invalid V10 strategic terrain classes")
+    identities = set()
+    for i, province in enumerate(provinces):
+        if (not isinstance(province, dict) or set(province) != {"id","name","x","y","width","height"}
+                or not isinstance(province.get("id"), str) or not province["id"] or province["id"] in identities
+                or not isinstance(province.get("name"), str)
+                or any(type(province.get(key)) is not int for key in ("x","y","width","height"))
+                or tuple(province[key] for key in ("x","y","width","height")) != ((i%8)*16,(i//8)*16,16,16)):
+            raise ValueError("invalid V10 strategic province coverage")
+        identities.add(province["id"])
