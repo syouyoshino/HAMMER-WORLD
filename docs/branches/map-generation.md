@@ -491,3 +491,54 @@ largest state75,232B; current read12.0ms; history50 290.1ms. These shared2-CPU l
 measurements are not disk usage or production performance. Original cloud data
 has not been recovered or replaced. No merge/deploy. Frontend completion remains
 pending the same independent critic's dry/ice relief reassessment.
+
+## Orbital navigation release candidate — 27 October 2026
+
+User priority is “Globe to surface: orbit a planet, then smoothly zoom into
+strategic terrain.” New V10 worlds open a genuine rotatable sphere over the same
+saved geography. Wheel/+descent and outward zoom return between globe and the
+existing strategic surface, retaining geographic focus. A short projection
+dissolve has matched vertical scale and a native-detail endpoint; it is not an
+exact geometric unwrap. Orbit/Surface is always explicit; reduced motion and
+WebGL-unavailable/context-loss surface fallback are supported. Surface selection,
+feature search, force targeting, management return, history and authentication
+retain their existing authority. Light/dark remains toggleable.
+
+Native surface quality corrections include fine anchors, searchable recorded
+features, exact-sea coast colors, background-normal filtering with separate
+craters, and readable frozen/ice contrast. Independent review rejected additive
+detail, dry grid artifacts, ice washout, stale orbital picking and polar spokes
+before accepting the final scoped candidate. The final globe exports unlit
+composition and uses spherical lighting; Surface retains detailed relief and
+Survey contours. Do not reuse Cartesian chart normals on the globe. Full
+findings, reference pins, comparison record and evidence are in the
+[scale review](../reviews/planet-scale.md).
+
+Verified:147 backend tests,264 legacy private/public hashes and the frozen
+10,000-turn persisted gate described above; five relevant native/legacy renderer
+checks; protected Chromium settlement→Economy→Construction→Map, feature search,
+canonical movement preview/commit, read-only history, campaign/logout stale-work
+rejection and persistent canvas/handlers; read-only globe controls, rotation,
+context preservation and explicit fallback. No exercised JavaScript page errors.
+Actual Chromium154 Settings zoom100/125/150/200% passes1280×960 and1920×1280
+physical desktops. WebKit absent; native macOS Safari unverified. Desktop only.
+
+Final shared2-CPU Linux1440×1024 measurements: cached Surface ten-draw means
+2.19–15.90ms across four native families/two styles; not cold or GPU/FPS evidence.
+Loopback map reads77.91–103.76ms, detail1067.59–1670.77ms. Twenty warmed workspace
+cycles keep one canvas,2602nodes,369listeners and7canvas listeners; collected heap
+33.74→33.89MB is reported, not proof of indefinite leak freedom. Native generation
+sample23.762s/182MiB. Full source-hashed evidence remains ignored under
+`data/planet-scale/`. Backend10,000-turn fixture metrics are not production scale.
+
+Limits: globe is an albedo navigation sphere without displaced terrain or
+orbital crater relief; rock worlds may be sparse. Polar material distortion,
+stepped/soft native enlargement and synthetic ridge/climate ribbons remain.
+There are no physical kilometre units or additional streaming detail. No Google
+Earth, atlas/optical accuracy or whole-game commercial parity claim. Original
+cloud cartography/private data remain unrecovered; no data reset/merge/deploy or
+character-relationships branch change. Integrate recovered work through explicit
+generator/asset versions and surveyed allowlists; retain the existing Characters
+management entry. The observed inherited startup migration/writer deadlock
+needs separate operational work before concurrent deployment. This is an
+interface release candidate, not operational security/backup certification.

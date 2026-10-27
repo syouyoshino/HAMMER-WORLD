@@ -4,8 +4,9 @@ Read `AGENTS.md`, `plan.md` and `docs/decisions.md`, then inspect actual source/
 
 ## Active native planetary-scale continuation
 
-Native V10 backend is verified; frontend delivery is pending final dry-world
-visual review. Read `docs/reviews/planet-scale.md`. Independent critique twice
+Native V10 backend is verified and pushed as `128a45a`; native surface review
+has accepted the dry/ice corrections. The true navigation globe and strategic Surface workflow have independent
+scoped acceptance; final delivery references are in the branch document. Read `docs/reviews/planet-scale.md`. Independent critique twice
 rejected additive V9-detail treatments, leading to canonical1024×640 generation
 and compact128×80 strategic summaries. Old V1–V9 maps/defaults remain exact.
 
@@ -23,8 +24,17 @@ canonical map-target movement preview/commit; read-only history; late actual
 asset rejection after campaign switch/logout; no stored tokens or page errors.
 Replay used previously generated fictional fixtures with exact backend hashes and
 creation-option checks, then actual SQL/auth/turn operations. See ignored
-`data/planet-scale/browser-final/workflow.json`. Water's scoped visual review is
-accepted; dry/ice relief revision awaits the SAME critic's final fresh captures.
+`data/planet-scale/browser-orbit-final/workflow.json`. Water's scoped visual review is
+accepted; continuation review accepted dry/caps filtering and frozen/ice contrast.
+Final orbital acceptance follows a lighting separation: unlit saved surface
+composition on the sphere, detailed relief on Surface. Prior HIGH polar spokes
+are resolved. The same critic accepts the bounded navigation globe, not optical
+accuracy or Google Earth fidelity. Sparse rock landmarks and polar distortion
+remain limitations. Final read-only orbit controls/fallback and actual Chrome
+Settings zoom100–200% pass both desktop sizes; no exercised page errors. WebKit
+is unavailable; native Safari is unverified. Cached Surface warm-draw means
+2.19–15.90ms on a shared2-CPU Linux fixture;20warm workspace cycles keep the same
+canvas/DOM/listeners. See the source-hashed final performance supplement.
 
 QA exposed an inherited concurrent startup-DDL/writer deadlock; rollback left no
 orphan assets/jobs or failed campaign head. Serialize setup after readiness;

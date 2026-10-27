@@ -1,10 +1,27 @@
 (() => {
   "use strict";
   const cache = new WeakMap();
+  const detailRasterCache = new WeakMap();
+  const dryLightingCache = new WeakMap();
   const featureCellCache = new WeakMap();
   const provinceCache = new WeakMap();
+  const provinceAnchorSource = new WeakMap();
   // Geometry records are immutable; index recorded land once per response.
   function provinceLand(geometry) {
+    if(geometry.surface?.version==="planet-v10"){
+      const grid=geometry.province_anchor_grid,source=provinceAnchorSource.get(geometry),
+        width=grid?.width,height=grid?.height;
+      if(provinceCache.has(geometry)&&source?.anchors===geometry.province_anchors&&source.width===width&&source.height===height)return provinceCache.get(geometry);
+      const index=new Map();
+      if(width>0&&height>0)for(const record of geometry.province_anchors||[]){
+        if(!Number.isInteger(record.cell))continue;
+        const x=(record.cell%width+.5)*geometry.planet.width/width,y=(Math.floor(record.cell/width)+.5)*geometry.planet.height/height,
+          anchor={x:x-.5,y:y-.5,province_id:record.province_id,terrain:"land"},
+          tiles=(geometry.tiles||[]).filter(t=>t.province_id===record.province_id);
+        index.set(record.province_id,{x,y,anchor,tiles:tiles.length?tiles:[anchor]});
+      }
+      provinceAnchorSource.set(geometry,{anchors:geometry.province_anchors,width,height});provinceCache.set(geometry,index);return index;
+    }
     if (provinceCache.has(geometry)) return provinceCache.get(geometry);
     const index = new Map();
     for (const tile of geometry.tiles || []) {
@@ -53,11 +70,12 @@
   }
   function surfaceFor(geometry) {
     const s = geometry?.surface;
+    if(s?.version==="planet-v10")return s;
     if (!s || !["planet-v2", "planet-v3", "planet-v4", "planet-v5", "planet-v6", "planet-v7", "planet-v8", "planet-v9"].includes(s.version) || !Array.isArray(s.elevation))
       return null;
     return s;
   }
-  const wrapsX = geometry => ["planet-v6", "planet-v7", "planet-v8", "planet-v9"].includes(geometry?.surface?.version) && geometry.surface.topology === "cylinder-x";
+  const wrapsX = geometry => ["planet-v6", "planet-v7", "planet-v8", "planet-v9", "planet-v10"].includes(geometry?.surface?.version) && geometry.surface.topology === "cylinder-x";
   const nearestX = (x, reference, width) => x + Math.round((reference-x)/width)*width;
   function featureAt(geometry,index){
     const surface=geometry?.surface;if(surface?.version!=="planet-v9"||surface.hydrography?.version!=="hydrography-v1"||!Number.isInteger(index))return null;
@@ -128,6 +146,53 @@
       }
     }
     return continuous;
+  }
+  // Lighting alone uses a low-pass background. Recorded heights, colours and
+  // material masks remain authoritative and are never replaced by this field.
+  function dryLightingHeight(heights, craters, cols, rows, cylinder) {
+    const background = Float64Array.from(heights);
+    for (const crater of craters || []) {
+      const support=crater.radius_q*1.25;
+      for(let y=Math.max(0,Math.floor((crater.y_q-support-8)/16));y<=Math.min(rows-1,Math.ceil((crater.y_q+support-8)/16));y++)
+        for(let rawX=Math.floor((crater.x_q-support-8)/16);rawX<=Math.ceil((crater.x_q+support-8)/16);rawX++) {
+          if(!cylinder&&(rawX<0||rawX>=cols))continue;
+          const x=(rawX%cols+cols)%cols,distance=Math.hypot(rawX*16+8-crater.x_q,y*16+8-crater.y_q);
+          background[y*cols+x]-=craterProfile(distance,crater.radius_q,crater.depth,crater.rim_height);
+        }
+    }
+    const gaussian = sigma => {
+      const radius=Math.ceil(sigma*3),weights=[];let sum=0;
+      for(let d=-radius;d<=radius;d++){const weight=Math.exp(-d*d/(2*sigma*sigma));weights.push(weight);sum+=weight;}
+      for(let k=0;k<weights.length;k++)weights[k]/=sum;
+      const horizontal=new Float64Array(cols*rows),result=new Float64Array(cols*rows);
+      for(let y=0;y<rows;y++)for(let x=0;x<cols;x++){
+        let value=0;for(let d=-radius;d<=radius;d++)value+=background[y*cols+(cylinder?((x+d)%cols+cols)%cols:clamp(x+d,0,cols-1))]*weights[d+radius];
+        horizontal[y*cols+x]=value;
+      }
+      for(let y=0;y<rows;y++)for(let x=0;x<cols;x++){
+        let value=0;for(let d=-radius;d<=radius;d++)value+=horizontal[clamp(y+d,0,rows-1)*cols+x]*weights[d+radius];
+        result[y*cols+x]=value;
+      }
+      return result;
+    };
+    const near=gaussian(1.5),broad=gaussian(4);
+    for(let i=0;i<near.length;i++)near[i]=near[i]*.8+broad[i]*.2;
+    return near;
+  }
+  function dryCraterDerivatives(craters, cols, rows, w, h, scale, cylinder) {
+    const dx=new Float32Array(w*h),dy=new Float32Array(w*h);
+    for(const crater of craters||[]){
+      const support=crater.radius_q*1.25+16,
+        firstY=Math.max(0,Math.floor((crater.y_q-support)/16*scale-.5)),lastY=Math.min(h-1,Math.ceil((crater.y_q+support)/16*scale-.5));
+      for(let py=firstY;py<=lastY;py++)for(let rawPx=Math.floor((crater.x_q-support)/16*scale-.5);rawPx<=Math.ceil((crater.x_q+support)/16*scale-.5);rawPx++){
+        if(!cylinder&&(rawPx<0||rawPx>=w))continue;
+        const x=(rawPx+.5)/scale*16-crater.x_q,y=(py+.5)/scale*16-crater.y_q,
+          at=(a,b)=>craterProfile(Math.hypot(a,b),crater.radius_q,crater.depth,crater.rim_height),i=py*w+(rawPx%w+w)%w;
+        // Same two-native-cell stencil as the filtered background derivatives.
+        dx[i]+=at(x+16,y)-at(x-16,y);dy[i]+=at(x,y+16)-at(x,y-16);
+      }
+    }
+    return {dx,dy};
   }
   function lakeInterior(mask, cols, rows) {
     // Distance into the saved mask supplies a shallow shore transition. This
@@ -213,15 +278,23 @@
     }
     return candidates.sort((a,b)=>b.visibleSpan-a.visibleSpan||a.distance-b.distance||a.index-b.index);
   }
-  function baseRaster(geometry, style) {
+  function baseRaster(geometry, style, orbitLighting = false) {
     let map = cache.get(geometry);
     if (!map) { map = new Map(); cache.set(geometry, map); }
-    if (map.has(style)) return map.get(style);
+    const rasterKey=orbitLighting?`${style}:orbit`:style;
+    if (map.has(rasterKey)) return map.get(rasterKey);
     const { width: cols, height: rows } = geometry.planet,
       scale = Math.min(24, 1536 / cols), w = Math.round(cols * scale), h = Math.round(rows * scale),
       surface = surfaceFor(geometry), tiles = geometry.tiles,
       survey = style === "survey",
-      colors = surface?.hydrology === "none" ? Object.fromEntries(Object.entries(terrainPalette(style,surface.preset)).map(([key,value])=>[key,[parseInt(value.slice(1,3),16),parseInt(value.slice(3,5),16),parseInt(value.slice(5,7),16)]])) : survey ? {
+      nativeFrozen = surface?.version === "planet-v10" && surface.hydrology === "none" && surface.preset === "frozen",
+      colors = nativeFrozen ? (survey ? {
+        ocean:[120,138,150],coast:[162,177,187],plains:[173,186,194],
+        rock:[139,152,161],forest:[139,154,164],marsh:[160,175,184],
+      } : {
+        ocean:[91,113,128],coast:[140,159,172],plains:[153,170,181],
+        rock:[105,124,138],forest:[110,130,143],marsh:[138,157,170],
+      }) : surface?.hydrology === "none" ? Object.fromEntries(Object.entries(terrainPalette(style,surface.preset)).map(([key,value])=>[key,[parseInt(value.slice(1,3),16),parseInt(value.slice(3,5),16),parseInt(value.slice(5,7),16)]])) : survey ? {
         ocean: [151,181,185], coast: [187,192,158], plains: [186,180,137],
         rock: [165,155,131], forest: [115,139,104], marsh: [139,159,130],
       } : {
@@ -247,26 +320,29 @@
       }
       return result;
     };
-    const materials = ["planet-v8","planet-v9"].includes(surface?.version) ? surface.materials : null,
+    const materials = ["planet-v8","planet-v9","planet-v10"].includes(surface?.version) ? surface.materials : null,
       lakeField = materials?.lake_material !== "none" && materials?.lake_mask
         ? interpolateRows(Array.from(materials.lake_mask, Number)) : null,
       lakeDepth = lakeField ? interpolateRows(lakeInterior(materials.lake_mask, cols, rows)) : null,
       iceField = materials?.polar_caps !== "none" && materials?.ice_mask
         ? interpolateRows(Array.from(materials.ice_mask, Number)) : null,
       composition = lakeField || iceField ? ctx.createImageData(w, h) : null;
-    const cratered = ["planet-v7", "planet-v8", "planet-v9"].includes(surface?.version) && surface.geology === "cratered" && surface.craters?.length,
-      gradientStep = cratered ? 1 / scale : .35;
+    const cratered = ["planet-v7", "planet-v8", "planet-v9", "planet-v10"].includes(surface?.version) && surface.geology === "cratered" && surface.craters?.length,
+      dryLighting = surface?.version==="planet-v10" && surface.hydrology==="none" && heights,
+      gradientStep = dryLighting ? 1 : cratered ? 1 / scale : .35,
+      lightingHeight = dryLighting ? (dryLightingCache.get(geometry)?.height || dryLightingHeight(heights, cratered ? surface.craters : [], cols, rows, cylinder)) : heights;
     const land = interpolateRows(tiles.map(t => t.terrain === "ocean" ? 0 : 1)),
-      channels = [0,1,2].map(c => interpolateRows(tiles.map(t => (colors[t.terrain] || colors.plains)[c]))),
+      channels = [0,1,2].map(c => interpolateRows(tiles.map(t => surface?.version==="planet-v10"&&t.terrain==="ocean"?0:(colors[t.terrain] || colors.plains)[c]))),
       elevation = heights ? interpolateRows(heights) : null,
-      heightLeft = heights ? interpolateRows(heights,-gradientStep) : null,
-      heightRight = heights ? interpolateRows(heights,gradientStep) : null,
+      heightLeft = heights ? interpolateRows(lightingHeight,-gradientStep) : null,
+      heightRight = heights ? interpolateRows(lightingHeight,gradientStep) : null,
+      lightingElevation = dryLighting ? interpolateRows(lightingHeight) : elevation,
       moisture = surface?.moisture ? interpolateRows(surface.moisture) : null,
       temperature = surface?.temperature ? interpolateRows(surface.temperature) : null,
       shoreColor = survey ? [183,204,197] : [60,102,111],
       deepColor = survey ? [126,161,172] : [12,33,51],
-      highColor = surface?.preset==="frozen"?[224,224,219]:survey ? [204,195,163] : [178,164,132],
-      wetColor = [54,87,61],coldColor=surface?.preset==="frozen"?[218,218,212]:[204,207,192];
+      highColor = nativeFrozen ? [182,196,204] : surface?.preset==="frozen"?[224,224,219]:survey ? [204,195,163] : [178,164,132],
+      wetColor = [54,87,61],coldColor=nativeFrozen ? [180,194,202] : surface?.preset==="frozen"?[218,218,212]:[204,207,192];
     const vertical = (y) => {
       const fy=clamp(y-.5,0,rows-1),iy=Math.floor(fy);
       return [iy*w,Math.min(rows-1,iy+1)*w,fy-iy];
@@ -274,6 +350,8 @@
     const craterResidual = cratered
       ? craterResidualRaster(surface, cols, rows, w, h, scale, interpolateRows, vertical, cylinder)
       : null;
+    const craterNormals = dryLighting && cratered ? (dryLightingCache.get(geometry)?.craters || dryCraterDerivatives(surface.craters, cols, rows, w, h, scale, cylinder)) : null;
+    if(dryLighting)dryLightingCache.set(geometry,{height:lightingHeight,craters:craterNormals});
     for (let py = 0; py < h; py++) {
       const y=(py+.5)/scale,[row0,row1,ty]=vertical(y),
         [up0,up1,upT]=vertical(y-gradientStep),[down0,down1,downT]=vertical(y+gradientStep), inv=1-ty;
@@ -282,9 +360,10 @@
           sampledElevation=elevation?elevation[i]*inv+elevation[j]*ty:sea,
           correction=craterResidual?.[py*w+px]||0,
           elev=sampledElevation+correction,
-          heightContour=["planet-v7","planet-v8","planet-v9"].includes(surface?.version)&&surface.hydrology==="ocean-draining"&&surface.sea_level!==null&&heights,
+          heightContour=["planet-v7","planet-v8","planet-v9","planet-v10"].includes(surface?.version)&&surface.hydrology==="ocean-draining"&&surface.sea_level!==null&&heights,
           cover=heightContour?clamp((elev-sea+18)/36,0,1):land[i]*inv+land[j]*ty,
-          onLand=heightContour?elev>=sea:cover>=.5,
+          terrainCover=land[i]*inv+land[j]*ty,
+          onLand=heightContour?(surface?.version==="planet-v10"?elev>sea+1e-9&&terrainCover>1e-9:elev>=sea):cover>=.5,
           wet=moisture?moisture[i]*inv+moisture[j]*ty:500,
           temp=temperature?temperature[i]*inv+temperature[j]*ty:500;
         let shade=1,high=0,wetMix=0,coldMix=0,depth=0,shore=0;
@@ -293,8 +372,9 @@
           shore=heightContour?clamp((elev-(sea-14))/14,0,1)*.09:clamp(cover*1.2,0,.22);
         } else if(heights) {
           let dx=(heightRight[i]*inv+heightRight[j]*ty)-(heightLeft[i]*inv+heightLeft[j]*ty),
-            dy=(elevation[down0+px]*(1-downT)+elevation[down1+px]*downT)-(elevation[up0+px]*(1-upT)+elevation[up1+px]*upT);
-          if(craterResidual){
+            dy=(lightingElevation[down0+px]*(1-downT)+lightingElevation[down1+px]*downT)-(lightingElevation[up0+px]*(1-upT)+lightingElevation[up1+px]*upT);
+          if(craterNormals){dx+=craterNormals.dx[py*w+px];dy+=craterNormals.dy[py*w+px];}
+          if(craterResidual && !dryLighting){
             const left=craterResidual[py*w+(cylinder?(px+w-1)%w:Math.max(0,px-1))],
               right=craterResidual[py*w+(cylinder?(px+1)%w:Math.min(w-1,px+1))],
               up=craterResidual[Math.max(0,py-1)*w+px],down=craterResidual[Math.min(h-1,py+1)*w+px];
@@ -302,7 +382,15 @@
             // stencil, so the subtracted bilinear crater field cancels.
             dx+=right-left;dy+=down-up;
           }
-          if(craterResidual){
+          if(surface?.version==="planet-v10"&&surface.hydrology==="none"){
+            // Match the filtered background and separate analytic crater stencil.
+            // Normalize native-cell derivatives to the displayed world grid.
+            const reliefScale=surface.renderReliefScale||1,
+              nx=dx*reliefScale/(2*gradientStep*140),ny=dy*reliefScale/(2*gradientStep*140),
+              illumination=(nx*.5+ny*.6+.75)/Math.sqrt(1+nx*nx+ny*ny);
+            shade=(.3+.9*Math.max(0,illumination))/(.3+.9*.75);
+            if(survey)shade=1+(shade-1)*.85;
+          }else if(craterResidual){
             const nx=dx/(2*gradientStep*140),ny=dy/(2*gradientStep*140),
               // Normal (-gx,-gy,1) under northwest light (-.5,-.6,.75).
               illumination=(nx*.5+ny*.6+.75)/Math.sqrt(1+nx*nx+ny*ny);
@@ -313,6 +401,9 @@
           wetMix=surface?.hydrology==="none"?0:clamp((wet-450)/700,0,.24);
           coldMix=clamp((320-temp)/600,0,.3);
         }
+        // The sphere lights its own geometry. Its texture is albedo, without
+        // Cartesian chart hillshade or native dry elevation relief tint.
+        if(orbitLighting){shade=1;if(dryLighting)high=0;}
         const grain=(hash(px,py,3)-.5)*(survey?2.2:7),off=(py*w+px)*4;
         for(let c=0;c<3;c++) {
           let color;
@@ -320,7 +411,12 @@
             color=Math.round(colors.ocean[c]*(1-shore)+shoreColor[c]*shore);
             color=Math.round(color*(1-depth)+deepColor[c]*depth);
           } else {
-            color=(channels[c][i]*inv+channels[c][j]*ty-colors.ocean[c]*(1-cover))/Math.max(.001,cover);
+            // Native channels contain only saved land contributions. Dividing
+            // by their matching coverage avoids cancellation near tiny shores;
+            // exact-sea ocean samples never enter this land branch.
+            const sampledChannel=channels[c][i]*inv+channels[c][j]*ty;
+            color=surface?.version==="planet-v10"?sampledChannel/terrainCover:
+              (sampledChannel-colors.ocean[c]*(1-cover))/Math.max(.001,cover);
             if(heights) {
               color=Math.round(color*(1-high)+highColor[c]*high);
               color=Math.round(color*(1-wetMix)+wetColor[c]*wetMix);
@@ -342,7 +438,9 @@
             lakeT=clamp((lakeCover-.35)/.6,0,1),
             lakeAlpha=lakeT*lakeT*(3-2*lakeT);
           if(iceAlpha>0) {
-            const relief=clamp(1+(shade-1)*.75,.8,1.13), iceColor=survey?[229,237,233]:[217,229,226];
+            // Native ice retains the saved slope contrast with room below white.
+            const relief=dryLighting?clamp(shade,.57,1.18):clamp(1+(shade-1)*.75,.8,1.13),
+              iceColor=dryLighting?(survey?[176,194,204]:[164,185,198]):survey?[229,237,233]:[217,229,226];
             for(let c=0;c<3;c++)composition.data[off+c]=clamp(iceColor[c]*relief+grain*.3,0,255);
             composition.data[off+3]=Math.round(iceAlpha*255);
           } else if(lakeAlpha>0) {
@@ -354,7 +452,7 @@
               innerT=clamp((depth-.4)/1.1,0,1),inner=innerT*innerT*(3-2*innerT),
               body=lava?[153,70,32]:hydrocarbon?[58,45,28]:survey?[61,111,133]:[28,74,99],
               shore=lava?[61,53,44]:hydrocarbon?[91,77,49]:survey?[100,133,130]:[65,103,108],
-              tone=1+clamp((sampledElevation-550)/1800,-.07,.09)-clamp(depth-2,0,6)*.006;
+              tone=1+(orbitLighting&&surface.hydrology==="none"?0:clamp((sampledElevation-550)/1800,-.07,.09))-clamp(depth-2,0,6)*.006;
             for(let c=0;c<3;c++)composition.data[off+c]=
               (shore[c]*(1-inner)+body[c]*inner)*tone+grain*(lava?.9:.65);
             composition.data[off+3]=Math.round(lakeAlpha*255);
@@ -366,7 +464,7 @@
     if (surface) {
       // Contours interpolate the persisted elevation field, without decorative
       // hatching or a synthetic relief field.
-      if (survey && surface.hydrology !== "none") {
+      if (survey && !orbitLighting && surface.hydrology !== "none" && heights) {
         ctx.strokeStyle="rgba(64,76,52,.24)"; ctx.lineWidth=.7;
         for(const level of [sea+100,sea+200,sea+300,sea+400,sea+500])
           for(let y=0;y<rows-1;y++) for(let x=0;x<(cylinder?cols:cols-1);x++) {
@@ -424,7 +522,104 @@
       const layer=document.createElement("canvas");layer.width=w;layer.height=h;
       layer.getContext("2d").putImageData(composition,0,0);ctx.drawImage(layer,0,0);
     }
-    map.set(style,canvas);return canvas;
+    map.set(rasterKey,canvas);return canvas;
+  }
+  // This proxy is a rendering view of the immutable recorded detail, never a
+  // replacement for strategic geometry or an authority for picking/simulation.
+  function fineGeometry(detail, geometry) {
+    let entry=detailRasterCache.get(detail);
+    if(entry)return entry;
+    const cols=detail.width,terrain={o:"ocean",c:"coast",p:"plains",r:"rock",f:"forest",m:"marsh"},
+      metadata=geometry.surface,
+      proxy={planet:{width:cols,height:detail.height},
+        tiles:Array.from(detail.terrain_grid,(c,i)=>({terrain:terrain[c],x:i%cols,y:Math.floor(i/cols)})),
+        surface:{...metadata,elevation:detail.elevation,craters:detail.craters,rivers:[],renderReliefScale:detail.width/geometry.planet.width,
+          materials:{lake_material:metadata.lake_material,polar_caps:metadata.polar_caps,
+            lake_mask:Array.from(detail.materials,c=>"whl".includes(c)?"1":"0").join(""),
+            ice_mask:Array.from(detail.materials,c=>c==="i"?"1":"0").join("")}}},
+      paths=new Map(),owners=new Map();
+    for(const river of detail.rivers){
+      const raw=river.points.map(i=>[i%cols,Math.floor(i/cols)]);
+      paths.set(river.id,[riverShorePoints(proxy.surface,raw,cols,wrapsX(geometry))]);
+      for(const cell of new Set(river.points))owners.set(cell,(owners.get(cell)||0)+1);
+    }
+    entry={geometry:proxy,paths,owners,boundaries:new Map(),rasters:new Map()};detailRasterCache.set(detail,entry);return entry;
+  }
+  function fineFeatureBoundary(detail, geometry, id) {
+    const entry=fineGeometry(detail,geometry);
+    if(entry.boundaries.has(id))return entry.boundaries.get(id);
+    const value=detail.feature_ids.indexOf(id)+1,segments=[],cols=detail.width,rows=detail.height,
+      cylinder=wrapsX(geometry),field=detail.feature_index;
+    if(value>0)for(let y=0;y<rows;y++)for(let x=0;x<cols;x++){
+      const i=y*cols+x;if(field[i]!==value)continue;
+      if((x===0&&!cylinder)||field[y*cols+(x-1+cols)%cols]!==value)segments.push([x,y,x,y+1]);
+      if((x===cols-1&&!cylinder)||field[y*cols+(x+1)%cols]!==value)segments.push([x+1,y,x+1,y+1]);
+      if(y===0||field[i-cols]!==value)segments.push([x,y,x+1,y]);
+      if(y===rows-1||field[i+cols]!==value)segments.push([x,y+1,x+1,y+1]);
+    }
+    entry.boundaries.set(id,segments);return segments;
+  }
+  function fineRaster(detail, geometry, style, orbitLighting = false) {
+    if (!detail || detail.version!=="planet-detail-v2" ||
+        !Number.isInteger(detail.width)||!Number.isInteger(detail.height)||detail.width<1||detail.height<1||detail.width>1024||detail.height>640||
+        typeof detail.terrain_grid !== "string" || detail.terrain_grid.length !== detail.width*detail.height ||
+        !Array.isArray(detail.elevation) || detail.elevation.length !== detail.width*detail.height) return null;
+    const entry=fineGeometry(detail,geometry);
+    const rasterKey=orbitLighting?`${style}:orbit`:style;
+    if(entry.rasters.has(rasterKey))return entry.rasters.get(rasterKey);
+    const canvas=baseRaster(entry.geometry,style,orbitLighting),ctx=canvas.getContext("2d"),scale=canvas.width/detail.width;
+    const survey=style==="survey",inked=new Set();
+    ctx.strokeStyle=survey?"rgba(48,103,124,.87)":"rgba(66,127,149,.86)";
+    ctx.lineCap="round";ctx.lineJoin="round";
+    for(const courses of entry.paths.values())for(const course of courses){
+      const points=projectRiverPoints(course,detail.width,wrapsX(geometry),scale,0,0),
+        middle=(a,b)=>[(a[0]+b[0])/2,(a[1]+b[1])/2],segments=[],
+        support=i=>entry.owners.get(Math.round(course[i][1])*detail.width+((Math.round(course[i][0])%detail.width)+detail.width)%detail.width)||1;
+      if(points.length===2)segments.push({start:points[0],end:points[1],count:Math.min(support(0),support(1))});
+      else if(points.length>2){
+        segments.push({start:points[0],end:middle(points[0],points[1]),count:support(0)});
+        for(let i=1;i<points.length-1;i++)segments.push({start:middle(points[i-1],points[i]),control:points[i],end:middle(points[i],points[i+1]),count:support(i)});
+        segments.push({start:middle(points[points.length-2],points[points.length-1]),end:points[points.length-1],count:support(points.length-1)});
+      }
+      for(const segment of segments){
+        const key=JSON.stringify([segment.start,segment.control,segment.end]);if(inked.has(key))continue;inked.add(key);
+        // Width expresses only distinct saved courses sharing this location;
+        // no physical discharge or simulated flow value is inferred.
+        ctx.lineWidth=clamp((survey?.48:.55)+Math.log2(segment.count)*(survey?.25:.3),survey?.48:.55,survey?1.4:1.65);
+        const draw=shift=>{ctx.save();ctx.translate(shift,0);ctx.beginPath();ctx.moveTo(...segment.start);
+          if(segment.control)ctx.quadraticCurveTo(...segment.control,...segment.end);else ctx.lineTo(...segment.end);
+          ctx.stroke();ctx.restore();};
+        draw(0);if(wrapsX(geometry)){draw(-canvas.width);draw(canvas.width);}
+      }
+    }
+    entry.rasters.set(rasterKey,canvas);return canvas;
+  }
+  function buildOrbitTexture({geometry,detail=null,style="orbital",overlay="terrain",paintOverlay=null}) {
+    const source=fineRaster(detail,geometry,style,true)||baseRaster(geometry,style,true),canvas=document.createElement("canvas");
+    canvas.width=source.width;canvas.height=source.height;
+    const ctx=canvas.getContext("2d");ctx.drawImage(source,0,0);
+    if(paintOverlay)paintOverlay(ctx,{tile:canvas.width/geometry.planet.width,ox:0,oy:0,overlay});
+    return canvas;
+  }
+  function traceRiver(ctx,points) {
+    if(points.length<2)return;
+    const middle=(a,b)=>[(a[0]+b[0])/2,(a[1]+b[1])/2];
+    ctx.beginPath();ctx.moveTo(...points[0]);
+    if(points.length===2)ctx.lineTo(...points[1]);else{
+      ctx.lineTo(...middle(points[0],points[1]));
+      for(let i=1;i<points.length-1;i++)ctx.quadraticCurveTo(...points[i],...middle(points[i],points[i+1]));
+      ctx.lineTo(...points[points.length-1]);
+    }
+  }
+  function detailAt(geometry, detail, x, y) {
+    if (!detail || detail.version!=="planet-detail-v2" || !Number.isFinite(x) || !Number.isFinite(y)) return null;
+    const cols=geometry.planet.width,rows=geometry.planet.height;
+    if(wrapsX(geometry))x=((x%cols)+cols)%cols;else if(x<0||x>=cols)return null;
+    if(y<0||y>=rows)return null;
+    const ix=clamp(Math.floor(x*detail.width/cols),0,detail.width-1),
+      iy=clamp(Math.floor(y*detail.height/rows),0,detail.height-1),i=iy*detail.width+ix,
+      id=detail.feature_ids?.[(detail.feature_index?.[i]||0)-1]||null;
+    return {x:ix,y:iy,terrain:detail.terrain_grid[i],elevation:detail.elevation[i],material:detail.materials?.[i]||"0",featureId:id};
   }
   function drawPlanetCopy(
     ctx,
@@ -449,6 +644,7 @@
       labelObstacles = [],
       featureLabelIds = new Set(),
       copyIndex = 0,
+      detail = null,
       clearCanvas = true,
       renderPhase = "all",
     },
@@ -461,13 +657,14 @@
       ox = (bounds.left + bounds.right - gridW) / 2 + panX + copyIndex*gridW,
       oy = (bounds.top + bounds.bottom - gridH) / 2 + panY;
     const surface=surfaceFor(geometry), preset=surface?.hydrology==="none"?surface.preset:null,
-      cylinder=wrapsX(geometry),v7=["planet-v7","planet-v8","planet-v9"].includes(surface?.version),
+      cylinder=wrapsX(geometry),nativeDetail=detail?.version==="planet-detail-v2",v7=["planet-v7","planet-v8","planet-v9","planet-v10"].includes(surface?.version),
       labelZoom=v7?tile/Math.max(w/cols,h/rows):zoom;
+    const detailImage=nativeDetail?fineRaster(detail,geometry,style):null;
     const tiles = geometry.tiles, provinces = geometry.provinces;
     if (renderPhase !== "labels") {
     if(clearCanvas){ctx.fillStyle = preset?terrainPalette(style,preset).ocean:style === "survey" ? "#a6bfc1" : "#142f40";ctx.fillRect(0, 0, w, h);}
     ctx.imageSmoothingEnabled = true;
-    ctx.drawImage(baseRaster(geometry, style, theme), ox, oy, gridW, gridH);
+    ctx.drawImage(detailImage || baseRaster(geometry, style), ox, oy, gridW, gridH);
     if (paintOverlay) paintOverlay(ctx, { tile, ox, oy });
     if (overlay === "provinces") {
       const colors = preset === "arid" ? ["#c0a06c","#ab8b59","#d0b783","#987b53","#c6aa75","#a88e64","#d5c091","#b69b6a"] :
@@ -594,19 +791,30 @@
       safeTop = (safe?.top ?? 0) + 8,
       safeBottom = Math.min(h - 92, (safe?.bottom ?? h) - 8),
       placed = labelObstacles.map(rect=>({...rect})), provinceTargets = [];
-    const clipAnnotations=["planet-v8","planet-v9"].includes(surface?.version);
+    const clipAnnotations=["planet-v8","planet-v9","planet-v10"].includes(surface?.version);
     if(clipAnnotations){ctx.save();ctx.beginPath();ctx.rect(safeLeft,safeTop,safeRight-safeLeft,Math.max(0,safeBottom-safeTop));ctx.clip();}
-    const features=surface?.version==="planet-v9"&&surface.hydrography?.version==="hydrography-v1"
+    const features=nativeDetail?detail.hydrography.features:surface?.version==="planet-v9"&&surface.hydrography?.version==="hydrography-v1"
       ?surface.hydrography.features:[], selectedFeature=features.find(item=>item.id===selectedFeatureId);
     const riverFor=feature=>surface?.rivers?.find(item=>item.id===feature?.id);
-    const riverScreenPoints=feature=>{
-      const river=riverFor(feature);if(!river)return [];
-      return projectRiverPoints(riverShorePoints(surface,river.points||[],cols,cylinder),cols,cylinder,tile,ox,oy);
-    };
+    const fineEntry=detailImage?fineGeometry(detail,geometry):null,
+      riverGridCols=fineEntry?detail.width:cols,
+      riverScreenPaths=feature=>{
+        if(fineEntry)return (fineEntry.paths.get(feature.id)||[]).map(raw=>({raw,points:projectRiverPoints(raw,detail.width,cylinder,tile*cols/detail.width,ox,oy)
+          .map(([x],i)=>[x,oy+(raw[i][1]+.5)*tile*rows/detail.height])}));
+        const river=riverFor(feature);if(!river)return [];
+        const raw=riverShorePoints(surface,river.points||[],cols,cylinder);
+        return [{raw,points:projectRiverPoints(raw,cols,cylinder,tile,ox,oy)}];
+      };
     if(selectedFeature){
       if(selectedFeature.kind==="river"){
-        const points=riverScreenPoints(selectedFeature);
-        if(points.length>1){ctx.save();ctx.strokeStyle="rgba(43,137,194,.92)";ctx.lineWidth=Math.max(1.9,Math.min(3,tile*.13));ctx.lineCap="round";ctx.lineJoin="round";ctx.beginPath();ctx.moveTo(...points[0]);if(points.length===2)ctx.lineTo(...points[1]);else{const midpoint=(a,b)=>[(a[0]+b[0])/2,(a[1]+b[1])/2];ctx.lineTo(...midpoint(points[0],points[1]));for(let i=1;i<points.length-1;i++)ctx.quadraticCurveTo(...points[i],...midpoint(points[i],points[i+1]));ctx.lineTo(...points[points.length-1]);}ctx.stroke();ctx.restore();}
+        for(const {points} of riverScreenPaths(selectedFeature))if(points.length>1){ctx.save();ctx.strokeStyle="rgba(43,137,194,.92)";ctx.lineWidth=Math.max(1.9,Math.min(3,tile*.13));ctx.lineCap="round";ctx.lineJoin="round";traceRiver(ctx,points);ctx.stroke();ctx.restore();}
+      }else if(fineEntry){
+        ctx.save();ctx.strokeStyle="rgba(54,142,198,.92)";ctx.lineWidth=Math.max(1.6,tile*.13);ctx.beginPath();
+        const fineTile=tile*cols/detail.width,fineTileY=tile*rows/detail.height;
+        for(const [x1,y1,x2,y2] of fineFeatureBoundary(detail,geometry,selectedFeature.id)){
+          ctx.moveTo(ox+x1*fineTile,oy+y1*fineTileY);ctx.lineTo(ox+x2*fineTile,oy+y2*fineTileY);
+        }
+        ctx.stroke();ctx.restore();
       }else{
         const cells=new Set(selectedFeature.cells);ctx.save();ctx.strokeStyle="rgba(54,142,198,.92)";ctx.lineWidth=Math.max(1.6,tile*.13);ctx.beginPath();
         for(const index of selectedFeature.cells){const x=index%cols,y=Math.floor(index/cols),left=ox+x*tile,top=oy+y*tile;
@@ -620,27 +828,37 @@
     const featureTargets=[];
     if(featureNamesVisible&&features.length){
       const ordered=[...features].filter(item=>typeof item.name==="string"&&item.name.length)
-        .sort((a,b)=>Number(b.id===selectedFeatureId)-Number(a.id===selectedFeatureId)||Number(a.kind==="river")-Number(b.kind==="river")||a.cells[0]-b.cells[0]);
-      const riverOwners=new Map();for(const item of features)if(item.kind==="river")for(const cell of item.cells)riverOwners.set(cell,(riverOwners.get(cell)||0)+1);
+        .sort((a,b)=>Number(b.id===selectedFeatureId)-Number(a.id===selectedFeatureId)||Number(a.kind==="river")-Number(b.kind==="river")||(nativeDetail?a.anchor-b.anchor:a.cells[0]-b.cells[0]));
+      const riverOwners=fineEntry?.owners||new Map();
+      if(!fineEntry)for(const item of features)if(item.kind==="river")for(const cell of item.cells)riverOwners.set(cell,(riverOwners.get(cell)||0)+1);
       for(const feature of ordered){
         if(featureLabelIds.has(feature.id))continue;
-        const anchorIndex=feature.anchor,anchorX=anchorIndex%cols,anchorY=Math.floor(anchorIndex/cols),cellSet=feature.kind==="river"?null:new Set(feature.cells),
+        const anchorIndex=feature.anchor,anchorCols=nativeDetail?detail.width:cols,anchorTile=nativeDetail?tile*cols/detail.width:tile,anchorTileY=nativeDetail?tile*rows/detail.height:tile,
+          anchorX=anchorIndex%anchorCols,anchorY=Math.floor(anchorIndex/anchorCols),cellSet=feature.kind==="river"||nativeDetail?null:new Set(feature.cells),
           font=feature.kind==="river"?11:Math.max(11,Math.min(13,tile*.92));
         ctx.save();ctx.font=`${feature.id===selectedFeatureId?700:500} ${font}px "Noto Instrument Mono",monospace`;
         const textWidth=ctx.measureText(feature.name).width,boxHeight=font+4,
-          plans=feature.kind==="river"?riverLabelCandidates(riverScreenPoints(feature),riverFor(feature)?.points||[],riverOwners,cols,
-            {left:safeLeft+3,right:safeRight-3,top:safeTop+3,bottom:safeBottom-3},textWidth):[{x:ox+(anchorX+.5)*tile,y:oy+(anchorY+.5)*tile,angle:0}];
+          plans=feature.kind==="river"?riverScreenPaths(feature).flatMap(({points,raw})=>riverLabelCandidates(points,raw,riverOwners,riverGridCols,
+            {left:safeLeft+3,right:safeRight-3,top:safeTop+3,bottom:safeBottom-3},textWidth)):[{x:ox+(anchorX+.5)*anchorTile,y:oy+(anchorY+.5)*anchorTileY,angle:0}];
         for(const {x,y,angle} of plans){
           const cos=Math.abs(Math.cos(angle)),sin=Math.abs(Math.sin(angle)),aabbWidth=cos*textWidth+sin*boxHeight,aabbHeight=sin*textWidth+cos*boxHeight;
           if(feature.kind!=="river"){
+            let fits=true;
+            if(!nativeDetail){
             let runX=1,runY=1;for(let d=1;d<cols&&cellSet.has(anchorY*cols+((anchorX+d)%cols));d++)runX++;for(let d=1;d<cols&&cellSet.has(anchorY*cols+((anchorX-d+cols)%cols));d++)runX++;
             for(let d=1;d<rows&&anchorY+d<rows&&cellSet.has((anchorY+d)*cols+anchorX);d++)runY++;for(let d=1;d<rows&&anchorY-d>=0&&cellSet.has((anchorY-d)*cols+anchorX);d++)runY++;
             if(runX*tile<textWidth+8||runY*tile<boxHeight+4){continue;}
             // Every cell under the complete body label must belong to its saved mask.
-            let fits=true;
             for(let cy=Math.floor((y-boxHeight/2-2-oy)/tile);cy<=Math.floor((y+boxHeight/2+2-oy)/tile)&&fits;cy++)
               for(let cx=Math.floor((x-textWidth/2-4-ox)/tile);cx<=Math.floor((x+textWidth/2+4-ox)/tile);cx++)
                 if(cy<0||cy>=rows||!cylinder&&(cx<0||cx>=cols)||!cellSet.has(cy*cols+((cx%cols)+cols)%cols)){fits=false;break;}
+            }
+            if(fits&&fineEntry){
+              const fineTile=tile*cols/detail.width,fineTileY=tile*rows/detail.height,owner=detail.feature_ids.indexOf(feature.id)+1;
+              for(let fy=Math.floor((y-boxHeight/2-2-oy)/fineTileY);fy<=Math.floor((y+boxHeight/2+2-oy)/fineTileY)&&fits;fy++)
+                for(let fx=Math.floor((x-textWidth/2-4-ox)/fineTile);fx<=Math.floor((x+textWidth/2+4-ox)/fineTile);fx++)
+                  if(fy<0||fy>=detail.height||!cylinder&&(fx<0||fx>=detail.width)||detail.feature_index[fy*detail.width+((fx%detail.width)+detail.width)%detail.width]!==owner){fits=false;break;}
+            }
             if(!fits){continue;}
           }
           const box={left:x-aabbWidth/2-2,right:x+aabbWidth/2+2,top:y-aabbHeight/2-2,bottom:y+aabbHeight/2+2};
@@ -669,6 +887,7 @@
             (site) =>
               site.planet_id === planetId && site.province_id === province.id,
           );
+        if(surface?.version==="planet-v10"&&overlay!=="provinces"&&!holdings.length&&province.id!==selectedProvince)return null;
         if (overlay !== "provinces" && (compact || labelZoom < (v7?2.5:1.65)) && !holdings.length && province.id !== selectedProvince)
           return null;
         const names = holdings.map((site) => site.name || "Settlement"),
@@ -782,7 +1001,7 @@
       ctx.fillText(label, chosen.x, chosen.y);
     }
     if(clipAnnotations)ctx.restore();
-    return { tile, ox, oy, cols, rows, safeRect:safe||bounds, gridW, gridH, viewportWidth:w, viewportHeight:h, forceObstacles: placed, provinceTargets, featureTargets };
+    return { tile, ox, oy, cols, rows, safeRect:safe||bounds, gridW, gridH, viewportWidth:w, viewportHeight:h, forceObstacles: placed, provinceTargets, featureTargets, detailActive:Boolean(detailImage) };
   }
   function drawPlanet(ctx, options) {
     const {geometry,w,h,zoom,panX,panY}=options;
@@ -809,11 +1028,11 @@
       featureTargets:results.flatMap(result=>result.featureTargets||[]),
       forceObstacles:results.flatMap(result=>result.forceObstacles||[])};
   }
-  function drawOverview(ctx,{geometry,w,h,transform,style="orbital"}) {
+  function drawOverview(ctx,{geometry,w,h,transform,style="orbital",detail=null}) {
     const {width:cols,height:rows}=geometry.planet,scale=Math.min(w/cols,h/rows),drawW=cols*scale,drawH=rows*scale,
       left=(w-drawW)/2,top=(h-drawH)/2;
     ctx.clearRect(0,0,w,h);ctx.fillStyle="#142f40";ctx.fillRect(0,0,w,h);
-    ctx.imageSmoothingEnabled=true;ctx.drawImage(baseRaster(geometry,style),left,top,drawW,drawH);
+    ctx.imageSmoothingEnabled=true;ctx.drawImage(fineRaster(detail,geometry,style)||baseRaster(geometry,style),left,top,drawW,drawH);
     if(transform&&transform.tile>0){
       const rawLeft=(0-transform.ox)/transform.tile,rawRight=(transform.viewportWidth-transform.ox)/transform.tile,
         rect={left:clamp(rawLeft,0,cols),
@@ -1082,6 +1301,7 @@
   }
   window.HWMapRenderer = {
     drawPlanet,
+    buildOrbitTexture,
     provinceLand,
     drawHierarchy,
     drawOverview,
@@ -1092,5 +1312,6 @@
     wrapsX,
     nearestX,
     featureAt,
+    detailAt,
   };
 })();

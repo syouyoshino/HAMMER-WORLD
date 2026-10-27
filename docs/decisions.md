@@ -271,3 +271,29 @@ coordinates out of orders, and invalidates stale detail after context changes.
 Fine geometry is periodic east/west and bounded north/south; it remains a2D chart.
 The initial V9-refinement approaches and failed candidates are preserved in
 [planet scale review](reviews/planet-scale.md), along with verification and limits.
+
+## ADR-015: orbit to strategic surface
+
+The user clarified the Google Earth reference as orbital navigation followed by
+smooth descent to strategic terrain. Sol high reviewed the existing renderer,
+input and force integration. Add a bounded offscreen WebGL sphere over the same
+saved chart, composited into the persistent 2D map canvas. Keep the existing flat
+renderer authoritative for strategic selection and commands. Orbit clicks
+navigate/descent; feature selection and movement targeting explicitly enter the
+surface. Reset camera animations and texture identity on campaign, planet,
+snapshot and login context changes; preserve them through ordinary management
+navigation. Cache texture uploads and retain an explicit surface fallback.
+
+Use a geographically anchored projection dissolve with approximately matched
+vertical scale. The square-cell chart and spherical longitude/latitude projection
+cannot match both axes at every latitude; do not claim exact unfolding, optical
+planet accuracy or Google Earth fidelity. No backend, physics, radius, travel or
+generation change follows from this camera decision.
+
+Final orbital lighting decision: use an unlit albedo export plus spherical
+illumination. Wrapping Cartesian chart normals caused polar spokes; two local
+corrections failed independent review before the lighting separation. Keep
+strategic relief, contours, masks and coordinates unchanged. Row-mean and angular
+footprint filtering define the navigation globe's pole reconstruction without
+claiming a physically spherical terrain model. Detailed orbital height normals
+are separate future work, not approximated by flat-map shadows.
