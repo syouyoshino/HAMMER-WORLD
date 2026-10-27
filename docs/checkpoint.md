@@ -2,9 +2,10 @@
 
 Read `AGENTS.md`, `plan.md` and `docs/decisions.md`, then inspect actual source/tests and Git state. The existing repository is accessible and the scheduled continuation resumed the same work. Preserve the existing implementation. Do not duplicate completed acceptance runs without a relevant change.
 
-## Active native planetary-scale continuation
+## Native planetary-scale release candidate
 
-Native V10 backend is verified and pushed as `128a45a`; native surface review
+Native V10 backend `128a45a` and interface `34a9f25` are verified and pushed
+to `origin/map-generation`; native surface review
 has accepted the dry/ice corrections. The true navigation globe and strategic Surface workflow have independent
 scoped acceptance; final delivery references are in the branch document. Read `docs/reviews/planet-scale.md`. Independent critique twice
 rejected additive V9-detail treatments, leading to canonical1024×640 generation

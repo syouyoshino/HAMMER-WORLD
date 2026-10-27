@@ -542,3 +542,18 @@ generator/asset versions and surveyed allowlists; retain the existing Characters
 management entry. The observed inherited startup migration/writer deadlock
 needs separate operational work before concurrent deployment. This is an
 interface release candidate, not operational security/backup certification.
+
+Delivery: native backend [`128a45a`](https://github.com/syouyoshino/HAMMER-WORLD/commit/128a45a94d260557c0a5b25f79a73492b27554e4)
+and interface/tests [`34a9f25`](https://github.com/syouyoshino/HAMMER-WORLD/commit/34a9f25329701989828dc8114694031f0cdbf1ac)
+are committed and pushed to `origin/map-generation`; remote refs were checked.
+No merge or deployment.
+
+Continuation: keep the frozen backend and existing saves intact. For a new
+isolated preview, use `python -m app.cli init-v2 --campaign-id NEW_ID
+--planet-generator planet-v10 --preset continental --feature-names generated`
+with the configured PostgreSQL environment; never reuse a real campaign ID.
+Run the committed native/orbit browser regressions against isolated fixtures.
+Further globe detail should use proper spherical height normals and real LOD
+assets, with separate architecture/persistence review; do not restore baked
+planar shadows. Address startup migration/writer coordination separately before
+operational deployment. Native Safari and remote performance remain unverified.

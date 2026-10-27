@@ -377,3 +377,8 @@ creation choices; uncached generation is the default. The final protected
 journey used this cache for setup, then real SQL, HTTP authorization and turn
 operations. Runtime evidence, assets, cache, snapshots and screenshots remain
 ignored and are not distributed as campaign data.
+
+Delivery verified: backend `128a45a` and frontend `34a9f25` are pushed to
+`origin/map-generation`. Both frozen source sets matched before delivery. The
+review record, rejected candidates and remaining limits accompany the source;
+runtime records and generated captures are excluded from Git.
