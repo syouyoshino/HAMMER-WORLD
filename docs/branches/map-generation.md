@@ -557,3 +557,36 @@ Further globe detail should use proper spherical height normals and real LOD
 assets, with separate architecture/persistence review; do not restore baked
 planar shadows. Address startup migration/writer coordination separately before
 operational deployment. Native Safari and remote performance remain unverified.
+
+## Orbital settlement orientation — 27 October 2026
+
+New recorded settlement markers make the previously sparse navigation globe
+useful for finding places. Symbols, short leaders and compact square labels
+project exact saved province anchors; front-visible labels prioritize selection
+and ownership, group shared anchors, avoid panels/collisions and cap at12.
+Activate a symbol/name with mouse, touch, Enter or Space to descend to that
+province and open its inspector. North-up is visible and Hydro names explicitly
+controls sea/lake/river labels. Selected symbols use the existing Apple system
+blue in both themes. No new terrain, physics, campaign fields or persistence.
+
+Independent blind A/B review identified orientation, anchor pairing and label
+state ambiguity; follow-up review accepts the corrected annotation workflow.
+Root checks also fixed focus loss on resize, cap-before-visibility filtering and
+inactive DOM accumulation. Full findings and preserved evidence are in the
+[orientation review](../reviews/orbital-orientation.md). Minor Surface/orbital
+glyph inconsistency, natural-rock sparsity and physical polar material distortion
+remain documented; no whole-game or optical-fidelity comparison is implied.
+
+Verified: focused Node layout/projection/hydro-label checks; read-only saved-anchor
+selection, keyboard/touch, resize focus, backside/old-hit behavior, management
+return, campaign/fallback clearing and unchanged campaign records; protected
+real preview/commit/history/auth/stale-request regression. Actual Chromium154
+Settings zoom100–200% passes1280×960 and1920×1280 physical windows. No exercised
+page errors. WebKit/native Safari unverified; desktop scope only.
+
+Twenty warmed map/management cycles keep the same canvas,1302DOM nodes,130JS
+listeners and two visible annotations. Small-fixture layout mean0.043ms/max0.300ms
+excludes DOM/GPU and is not production FPS. Backend and terrain/sphere renderer
+hashes are unchanged; prior147/264-hash/10,000-turn gates were not repeated for
+this frontend change. Original cloud data remains unrecovered. No merge, deploy
+or data reset; character-relationships work remains untouched.

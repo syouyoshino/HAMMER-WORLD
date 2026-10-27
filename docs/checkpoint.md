@@ -2,6 +2,23 @@
 
 Read `AGENTS.md`, `plan.md` and `docs/decisions.md`, then inspect actual source/tests and Git state. The existing repository is accessible and the scheduled continuation resumed the same work. Preserve the existing implementation. Do not duplicate completed acceptance runs without a relevant change.
 
+## Orbital settlement orientation continuation
+
+Recorded settlement annotations now make rocky globes navigable. Independent
+blind A/B review and follow-up interaction review accept the bounded task after
+fixing focus loss, visibility-cap ordering, directional cues and label/anchor
+clarity. Markers use public settlements and exact saved province anchors;
+activation descends to the corresponding province inspector. North-up, building
+glyphs/leaders, explicit Hydro names, keyboard/touch input and bounded DOM cache
+are verified. Read `docs/reviews/orbital-orientation.md` and the latest branch
+section for findings, evidence, delivery references and limits.
+
+Protected campaign/auth/history/movement regression passes; actual Chromium
+desktop tab zoom100–200% passes both physical sizes. Twenty warmed cycles retain
+one canvas and stable DOM/listeners. Backend and terrain/sphere renderer hashes
+match the prior accepted release; no repeat simulation gate was warranted.
+Physical polar distortion and sparse natural rock relief remain limitations.
+
 ## Native planetary-scale release candidate
 
 Native V10 backend `128a45a` and interface `34a9f25` are verified and pushed

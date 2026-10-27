@@ -313,6 +313,7 @@ def main():
                 assert page.locator('#map-placeholder').is_visible()
                 assert page.locator('#feature-list-button').is_disabled()
                 assert page.locator('.hydro-feature-row').count()==0
+                assert page.locator('.orbit-landmark').count()==0
                 assert not errors,errors
                 report={'browser':browser.version,'viewport':[1440,1024],'fixtures':list(fixtures),
                         'detail_dimensions':[1024,640],'fixture_source':source_kind,'pointer_zoom_preserves_point':True,

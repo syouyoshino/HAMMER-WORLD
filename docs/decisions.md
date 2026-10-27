@@ -297,3 +297,11 @@ strategic relief, contours, masks and coordinates unchanged. Row-mean and angula
 footprint filtering define the navigation globe's pole reconstruction without
 claiming a physically spherical terrain model. Detailed orbital height normals
 are separate future work, not approximated by flat-map shadows.
+
+Orbital orientation follow-up: show current public settlements at saved province
+anchors using the existing perspective projection. Group shared anchors, cap
+successful visible labels after horizon rejection, and preserve active native
+button identity through redraw. Annotation activation passes the canonical anchor
+to descent rather than inverse-projecting an offset label. Clear context/fallback
+and evict inactive nodes; keep the accepted albedo renderer and backend intact.
+North-up is an explicit camera cue, not a new simulation parameter.
