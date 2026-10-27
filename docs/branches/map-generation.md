@@ -596,3 +596,38 @@ is committed and pushed to `origin/map-generation`; the remote branch reference
 was verified. No merge or deployment. Continue through the existing versioned
 asset integration boundary if adding spherical terrain/LOD; keep annotations
 derived from public records and retain exact province-anchor semantics.
+
+
+## Desktop quality-control follow-up — 27 October 2026
+
+Fresh current-run screenshots and interactions exposed contradictory initial
+campaign state, terrain behind report text, missing/stale pressed semantics and
+an unnamed campaign dialog. Bounded Luna implementation and localized Sol medium
+correction resolve these findings. Persistent settlement context, known units,
+grouped identical facilities preserving IDs and an explicit project empty state
+complete the representative settlement journey. The same independent Sol medium
+critic accepts the scoped corrected visual candidate; no major finding remains.
+See `docs/reviews/quality-control.md` for step health, evidence, tests and limits.
+
+All generation/backend, native map, sphere and annotation module hashes remain
+unchanged. Preserve these boundaries when integrating unrecovered cartography;
+UI scope/context changes introduce no campaign data migration. Native Chromium
+protected campaign/auth/history/movement regression passes. This is an interface
+release candidate, not deployment or commercial/Google Earth parity. Prior
+references remain recorded above; no new commercial comparison is claimed.
+
+
+Desktop checks: actual Chromium154 tab zoom100–200% at1280×960 and1920×1280;
+additional1280/200% Recenter center hit-testing after a narrow-toolbar overlap fix.
+Independent review accepts the correction; extreme shortheight minimap/footer
+proximity remains minor. Twenty warmed panel cycles retain1302 nodes,130 listeners,
+two landmark nodes and one canvas; annotation-layout mean0.045ms/max0.200ms is not a
+renderer/frame-rate benchmark. Linux two-CPU quota; WebKit and native Safari were
+not tested in this pass. Keep the detail/albedo contracts intact for later globe
+LOD work; no campaign records or generation profiles were modified.
+
+Final focused `tests/browser_quality_control.py` passes: keyboard modal cycle,
+truthful startup/pregame state, canonical settlement selection, both scopes in
+both reports, nine facility IDs retained, light/dark screenshots and exact map
+return. Public demo/pregame records stay unchanged and no page errors occur.
+Delivery code/docs/test commit is recorded in the next delivery note.

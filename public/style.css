@@ -624,6 +624,19 @@ select, input, textarea, .economy-metric { color: var(--ink); background-color: 
 #command-workspace .workspace-content, #command-inspector > header,
 #command-inspector footer { background: transparent; }
 #command-inspector .inspector-holder { background: transparent; }
+#desktop-shell #command-inspector #inspector-content { background: var(--paper); padding: 10px 12px; }
+#command-workspace .workspace-content > .view-panel,
+#command-workspace .workspace-content .scope-pane,
+#command-workspace .workspace-content .report-group,
+#command-workspace .workspace-content .local-record-group,
+#command-workspace .workspace-content .chart-box {
+  background: color-mix(in srgb, var(--paper) 94%, transparent);
+}
+#command-workspace .workspace-content > .view-panel { padding: 10px 12px 14px; }
+#command-workspace .workspace-content .scope-pane,
+#command-workspace .workspace-content .report-group,
+#command-workspace .workspace-content .local-record-group,
+#command-workspace .workspace-content .chart-box { padding: 8px 10px; }
 
 @media (max-width: 780px) {
   body { font-size: 12px; }
@@ -811,9 +824,10 @@ select, input, textarea, .economy-metric { color: var(--ink); background-color: 
   .force-map-panels { top: 344px; }
   #live-banner { top: 306px; }
 }
+/* The ten narrow toolbar controls fill four rows; keep context below Recenter. */
 @media (max-width: 780px) and (max-height: 550px) {
-  #map-breadcrumbs { top: 224px; }
-  .force-map-controls { top: 254px; }
-  .force-map-panels { top: 292px; }
-  #live-banner { top: 250px; }
+  #map-breadcrumbs { top: 254px; }
+  .force-map-controls { top: 284px; }
+  .force-map-panels { top: 322px; }
+  #live-banner { top: 280px; }
 }

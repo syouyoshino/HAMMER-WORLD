@@ -2,6 +2,18 @@
 
 Read `AGENTS.md`, `plan.md` and `docs/decisions.md`, then inspect actual source/tests and Git state. The existing repository is accessible and the scheduled continuation resumed the same work. Preserve the existing implementation. Do not duplicate completed acceptance runs without a relevant change.
 
+## Desktop quality-control follow-up
+
+The current-run audit and correction are recorded in
+`docs/reviews/quality-control.md`. Truthful startup/pregame state, stable report
+reading surfaces, active scope semantics, campaign-dialog naming/focus, settlement
+context, units and project empty-state hierarchy are corrected. One independent
+Sol medium critic accepted the scoped final visual candidate. Protected native
+Chromium regression passed, including auth/stale responses, historical read-only
+and movement preview/commit. Backend and map/sphere/annotation hashes remain
+unchanged; prior simulation gates remain applicable. See the review for final
+browser/performance evidence and limitations. No merge or deployment.
+
 ## Orbital settlement orientation continuation
 
 Implementation `61f19a8` is committed and pushed to `origin/map-generation`.

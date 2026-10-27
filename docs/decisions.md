@@ -305,3 +305,12 @@ button identity through redraw. Annotation activation passes the canonical ancho
 to descent rather than inverse-projecting an offset label. Clear context/fallback
 and evict inactive nodes; keep the accepted albedo renderer and backend intact.
 North-up is an explicit camera cue, not a new simulation parameter.
+
+
+Desktop quality control (27 October 2026): keep translucent command chrome but
+provide neutral stable reading surfaces inside inspector and management reports.
+Empty map controls follow recorded geography availability. Related views and
+local/campaign scope expose pressed state on every activation. Preserve selected
+settlement identity in the workspace heading rather than introducing a docking
+rewrite. Group facilities only when all non-ID recorded fields agree; retain
+all IDs. Missing economic outcomes remain unknown, never an invented diagnosis.
