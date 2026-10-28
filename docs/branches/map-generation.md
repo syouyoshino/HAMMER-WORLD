@@ -704,5 +704,5 @@ Integration: retain the new script immediately after `planet-orbit.js`; its
 projection consumes the existing camera basis and safe rect. Do not entangle
 this decoration with campaign state, hidden seeds, renderer assets or auth tokens.
 No backend/numeric source changed and no simulation stress rerun was warranted.
-Keep runtime media and database context out of Git. Delivery references follow
-the implementation commit; no merge or deployment.
+Keep runtime media and database context out of Git. Delivery implementation/tests/review `9a78a627effded1f3ab57e9e06512db53062ebaa`
+is committed and pushed to `origin/map-generation`; no merge or deployment.

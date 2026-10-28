@@ -4,13 +4,14 @@ Read `AGENTS.md`, `plan.md` and `docs/decisions.md`, then inspect actual source/
 
 ## Adaptive orbital background continuation
 
+Implementation `9a78a62` is verified, committed and pushed to `origin/map-generation`.
+
 Read `docs/reviews/adaptive-space-background.md` and the latest branch note.
 The camera-responsive near-black/slate haze and sparse sky are independently
 accepted within scope. Browser pixel/idle/transition/resource/fallback checks and
 protected auth/history/movement regression pass; no backend or terrain/shader
 module changed. Input pacing and GPU/native-rate smoothness limits remain
-explicit. Keep generic decoration separate from campaign astronomy. Delivery
-commit reference follows after the implementation commit.
+explicit. Keep generic decoration separate from campaign astronomy. Delivery evidence and limits remain in that review.
 
 ## All-environment quality-control continuation
 

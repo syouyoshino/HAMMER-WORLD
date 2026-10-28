@@ -96,6 +96,7 @@ node tests/check_orbit_background.cjs
 WOLD_QC_BASE=http://127.0.0.1:4203 WOLD_QC_CAMPAIGN=material-caps \
 .venv/bin/python tests/browser_orbit_background.py
 ```
-Delivery commit references are recorded after the implementation commit.
+Implementation/tests/review `9a78a627effded1f3ab57e9e06512db53062ebaa` is committed and pushed
+to `origin/map-generation`; the remote reference was verified.
 Keep generated media, runtime databases and connection files out of Git. This
 remains an interface release candidate, without merge or deployment.
