@@ -678,3 +678,31 @@ primary/material frames and was visually checked through a loopback-only preview
 Keep generated captures, databases, test schemas and connection context out of
 Git. Replay commands and continuation paths are in the review. Delivery implementation/tests/review: `2c918fd9ddacde764d203288e3dc2486f8e9701f`,
 committed and pushed to `origin/map-generation`; remote reference verified.
+
+
+## Adaptive orbital space — 28 October 2026
+
+The supplied space image informs a near-black/slate haze and sparse star pins,
+with no copied or invented ships. New `orbit-background.js` follows the orbital
+camera basis and bounded zoom response using generic fixed directions. It is
+visual decoration, not generated campaign astronomy. Both UI themes share the
+same physical backdrop. The existing globe/shader, surface engine and geography
+remain unchanged. Minimal app compositing flattens sky+globe once during fades
+using a capped/released temporary canvas; optional-code failure falls back cleanly.
+
+Fresh anonymous comparison rejected the first flat-looking navy candidate. One
+localized correction made the haze perceptible and fixed alpha compositing. The
+same independent Sol medium critic accepts the scoped revised appearance and
+camera/transition/resource evidence. Node sky/projection/landmark contracts,
+actual Chromium drag/zoom/background-pixel/idle/Surface-Orbit-cycle checks and the
+protected auth/history/movement/stale-response/logout suite pass with no page
+errors. See `docs/reviews/adaptive-space-background.md` for source boundaries,
+full-frame captures, unretimed motion records and performance limits. No native
+FPS, GPU, WebKit or macOS Safari claim; inherited terrain/globe quality is separate.
+
+Integration: retain the new script immediately after `planet-orbit.js`; its
+projection consumes the existing camera basis and safe rect. Do not entangle
+this decoration with campaign state, hidden seeds, renderer assets or auth tokens.
+No backend/numeric source changed and no simulation stress rerun was warranted.
+Keep runtime media and database context out of Git. Delivery references follow
+the implementation commit; no merge or deployment.

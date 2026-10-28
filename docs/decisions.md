@@ -324,3 +324,11 @@ Legacy camera limits, horizontal wrapping, renderer assets and recorded geograph
 stay intact. Feature reveal targets avoid current DOM rectangles for inspector,
 overview and force controls/panels; renderer label reservations are not UI boxes.
 Empty hydrography catalogues omit unused search/filter-failure controls.
+
+
+Adaptive space (28 October 2026): use a deterministic decorative sky projected
+from the orbital camera, with bounded zoom response and no free-running motion.
+Keep it separate from recorded astronomy and units. Sparse fixed stars and broad
+slate haze support the supplied reference without proprietary assets. Preserve
+sphere/surface renderers. Flatten sky and globe before applying transition alpha
+once; cap/reuse/release the temporary composite. Theme changes affect UI, not sky.

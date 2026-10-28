@@ -11,6 +11,7 @@
     overlay: 'terrain', mapStyle: 'orbital', showFeatureNames:savedFeatureNamesVisible,featureListOpen:false,featureListQuery:'',selectedFeatureId:null,selectedFeaturePlanetId:null,selectedFeatureReturnProvince:null,selectedComposition:null,
     gmToken: '', previewText: null, previewProposal: null, historyCompare:null, toastTimer: null, managementPanels:new Map(), managementRequests:new Map(), managementContexts:new Map(), managementLoading:new Map(), economyLoading:null};
   let forceMap;
+  let orbitComposite=null;
   let movementIntent=null;
   const movementRequests=[];
   const detailCountsCache=new WeakMap();
@@ -383,9 +384,22 @@
   function orbitRect(){const frame=$('#planet-map').parentElement;return hierarchySafeRect(frame,frame.clientWidth,frame.clientHeight);}
   function renderOrbitControl(){const button=$('#orbit-toggle'),status=$('#planet-orbit-status'),shown=orbitSupported(),hasMap=Boolean(liveState()&&state.mapRecord);if(!button)return;const reset=$('#zoom-reset');text(reset,state.orbitActive?`Orbit ${state.orbitView.distance.toFixed(2)}R`:hasMap?zoomPercent():'—');reset.title=state.orbitActive?'Reset orbital distance':'Reset surface zoom';reset.setAttribute('aria-label',reset.title);$('#zoom-in').title=state.orbitActive?'Descend toward surface':'Zoom in';$('#zoom-out').title=state.orbitActive?'Pull back from surface':'Zoom out';button.hidden=!shown;button.disabled=!state.detailAsset||!state.mapRecord?.geometry?.detail_ref;button.textContent=state.orbitActive?'Surface':'Orbit';button.setAttribute('aria-pressed',String(state.orbitActive));if(status){status.textContent=!hasMap?'Map controls unavailable until recorded geography is selected':state.orbitActive?'Drag to orbit · wheel or +/− to descend or pull back · click terrain to descend':state.orbitUnavailable?'Orbit view unavailable · strategic surface remains available':'Drag to pan · wheel or buttons to zoom · Recenter preserves scale';status.dataset.mode=hasMap?(state.orbitActive?'orbit':'surface'):'unavailable';const hint=document.querySelector('.map-footer span:last-child');if(hint)text(hint,!hasMap?(state.campaign?'This campaign has no recorded geography':'Select a campaign to view recorded geography'):status.textContent);}}
   function ensureOrbitRenderer(){if(state.orbitRenderer)return state.orbitRenderer;if(state.orbitUnavailable||!window.HWPlanetOrbit)return null;try{state.orbitCanvas=document.createElement('canvas');state.orbitRenderer=window.HWPlanetOrbit.create(state.orbitCanvas);if(state.orbitRenderer)state.orbitCanvas.addEventListener('webglcontextlost',()=>{state.orbitUnavailable=true;state.orbitActive=false;state.orbitTexture=null;state.orbitTextureKey=null;cancelOrbitFrames();renderOrbitControl();drawMap();});}catch{}if(!state.orbitRenderer)state.orbitUnavailable=true;return state.orbitRenderer;}
+  function releaseOrbitComposite(){if(orbitComposite){orbitComposite.width=orbitComposite.height=1;orbitComposite=null;}}
+  function paintOrbit(ctx,w,h,rect,alpha=1){
+    if(w<=0||h<=0){releaseOrbitComposite();return;}
+    const paint=target=>{if(window.HWOrbitBackground?.draw)window.HWOrbitBackground.draw(target,w,h,state.orbitView,rect);else{target.fillStyle='#070b10';target.fillRect(0,0,w,h);}target.drawImage(state.orbitCanvas,0,0,w,h);};
+    if(alpha>=1){releaseOrbitComposite();paint(ctx);return;}
+    if(alpha<=0)return;
+    // Flatten the opaque backdrop and transparent globe before blending with the chart.
+    const scale=Math.min(2,window.devicePixelRatio||1,2048/Math.max(1,w,h),Math.sqrt(2097152/Math.max(1,w*h))),cw=Math.max(1,Math.floor(w*scale)),ch=Math.max(1,Math.floor(h*scale));
+    if(!orbitComposite)orbitComposite=document.createElement('canvas');
+    if(orbitComposite.width!==cw||orbitComposite.height!==ch){orbitComposite.width=cw;orbitComposite.height=ch;}
+    const target=orbitComposite.getContext('2d');target.setTransform(cw/w,0,0,ch/h,0,0);paint(target);
+    ctx.save();ctx.globalAlpha=alpha;ctx.drawImage(orbitComposite,0,0,w,h);ctx.restore();
+  }
   function orbitFocus(){const t=state.transform,g=state.mapRecord?.geometry;if(!t||!g?.planet)return {latitude:0,longitude:0};const rect=orbitRect(),y=((rect.top+rect.bottom)/2-t.oy)/t.tile,x=((rect.left+rect.right)/2-t.ox)/t.tile;return {latitude:Math.PI*(.5-y/g.planet.height),longitude:x/g.planet.width*2*Math.PI-Math.PI};}
   function scheduleOrbitDraw(){if(state.orbitFrame)return;state.orbitFrame=requestAnimationFrame(()=>{state.orbitFrame=null;if(state.orbitFade)drawMap();});}
-  function cancelOrbitFrames(){if(state.orbitFrame)cancelAnimationFrame(state.orbitFrame);state.orbitFrame=null;state.orbitFade=null;}
+  function cancelOrbitFrames(){if(state.orbitFrame)cancelAnimationFrame(state.orbitFrame);state.orbitFrame=null;state.orbitFade=null;releaseOrbitComposite();}
   function startOrbitTransition(from){cancelOrbitFrames();if(matchMedia('(prefers-reduced-motion: reduce)').matches){state.orbitFade=null;return;}state.orbitFade={from,start:performance.now(),duration:420};}
   function enterInitialOrbit(initial){if(!initial||initial.inputSeq!==state.mapInputSeq||initial.selection!==state.selectedProvince||initial.entity!==state.selectedEntity)return;const key=`${state.campaignId}:${state.snapshot?.id}:${state.mapRecord?.selected_planet?.id}`;if(state.orbitInitialKey===key)return;state.orbitInitialKey=key;enterOrbit();}
   function orbitDescentDistance(){const g=state.mapRecord.geometry,frame=$('#planet-map').parentElement,base=Math.min(frame.clientWidth/g.planet.width,frame.clientHeight/g.planet.height),maximum=Math.max(minPlanetZoom(g,frame.clientWidth,frame.clientHeight),12/(base*g.planet.width/state.detailAsset.width));return window.HWPlanetOrbit.distanceForTile(orbitRect(),g.planet.height,base*maximum);}
@@ -404,7 +418,7 @@
   function clampPlanetPan(geometry,w,h,safe){const cols=geometry.planet.width,rows=geometry.planet.height;state.zoom=Math.max(minPlanetZoom(geometry,w,h),state.zoom);const tile=Math.min(w/cols,h/rows)*state.zoom,gridW=tile*cols,gridH=tile*rows,maxX=Math.max(0,(gridW-w)/2),maxY=Math.max(0,(gridH-h)/2);if(window.HWMapRenderer.wrapsX(geometry))state.panX=((state.panX+gridW/2)%gridW+gridW)%gridW-gridW/2;else state.panX=Math.max(-maxX,Math.min(maxX,state.panX));
     // Native detail maps can pan beneath HUD padding so polar features remain reachable.
     const minY=isFineFirst(geometry)?-maxY-(h-safe.bottom):-maxY,maxYAllowed=isFineFirst(geometry)?maxY+safe.top:maxY;state.panY=Math.max(minY,Math.min(maxYAllowed,state.panY));}
-  function drawMap(){if(forceMap?.targeting())clearOrbitLandmarks(true);else if(!state.orbitActive)clearOrbitLandmarks();const canvas=$('#planet-map'),ctx=canvas.getContext('2d'),frame=canvas.parentElement,s=liveState(),placeholder=$('#map-placeholder'),overviewButton=$('#map-overview-button');renderOrbitControl();canvas.classList.toggle('is-targeting',Boolean(forceMap?.targeting()));const dpr=window.devicePixelRatio||1;const w=frame.clientWidth,h=frame.clientHeight;canvas.width=Math.round(w*dpr);canvas.height=Math.round(h*dpr);ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,w,h);placeholder.hidden=Boolean(s&&state.mapRecord);if(!s||!state.mapRecord){clearOrbitLandmarks(true);state.transform=null;overviewButton.hidden=true;$('#detail-status').hidden=true;renderForceMap();return;}
+  function drawMap(){if(!state.orbitFade||!state.mapRecord?.geometry||state.mapRecord.level!=='planet')releaseOrbitComposite();if(forceMap?.targeting())clearOrbitLandmarks(true);else if(!state.orbitActive)clearOrbitLandmarks();const canvas=$('#planet-map'),ctx=canvas.getContext('2d'),frame=canvas.parentElement,s=liveState(),placeholder=$('#map-placeholder'),overviewButton=$('#map-overview-button');renderOrbitControl();canvas.classList.toggle('is-targeting',Boolean(forceMap?.targeting()));const dpr=window.devicePixelRatio||1;const w=frame.clientWidth,h=frame.clientHeight;canvas.width=Math.round(w*dpr);canvas.height=Math.round(h*dpr);ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,w,h);placeholder.hidden=Boolean(s&&state.mapRecord);if(!s||!state.mapRecord){clearOrbitLandmarks(true);state.transform=null;overviewButton.hidden=true;$('#detail-status').hidden=true;renderForceMap();return;}
     const theme='light';
     if(state.mapRecord.level!=='planet'){clearOrbitLandmarks(true);$('#detail-status').hidden=true;text($('#zoom-reset'),zoomPercent());state.orbitActive=false;state.orbitFade=null;renderOrbitControl();state.transform=window.HWMapRenderer.drawHierarchy(ctx,{w,h,record:state.mapRecord,safe:hierarchySafeRect(frame,w,h),zoom:state.zoom,panX:state.panX,panY:state.panY,theme:'dark',forceControlRect:hierarchyForceControlRect(frame)});overviewButton.hidden=true;renderForceMap();return;}
     const geometry=state.mapRecord.geometry;if(!geometry){clearOrbitLandmarks(true);placeholder.hidden=false;state.transform=null;overviewButton.hidden=true;renderOrbitControl();renderForceMap();return;}
@@ -416,14 +430,13 @@
       if(!draw){state.orbitActive=false;state.orbitUnavailable=true;state.orbitFade=null;renderOrbitControl();drawMap();return;}
       else{
         const now=performance.now(),fade=state.orbitFade,progress=fade?Math.min(1,(now-fade.start)/fade.duration):1;
-        if(!fade||progress>=1){state.orbitFade=null;ctx.fillStyle='#0a1720';ctx.fillRect(0,0,w,h);ctx.drawImage(state.orbitCanvas,0,0,w,h);}
-        else if(fade.from==='surface'){ctx.globalAlpha=progress;ctx.drawImage(state.orbitCanvas,0,0,w,h);ctx.globalAlpha=1;}
-        else{ctx.globalAlpha=1-progress;ctx.drawImage(state.orbitCanvas,0,0,w,h);ctx.globalAlpha=1;}
+        if(!fade||progress>=1){state.orbitFade=null;paintOrbit(ctx,w,h,safe);}
+        else paintOrbit(ctx,w,h,safe,fade.from==='surface'?progress:1-progress);
         drawOrbitLandmarks(geometry,planetId,orbitRect(),safe,labelObstacles);overviewButton.hidden=true;$('#detail-status').hidden=true;renderOrbitControl();renderForceMap();if(state.orbitFade)scheduleOrbitDraw();return;
       }
     }
     if(state.orbitFade?.from==='orbit'){
-      const progress=Math.min(1,(performance.now()-state.orbitFade.start)/state.orbitFade.duration);if(state.orbitCanvas&&progress<1){ctx.globalAlpha=1-progress;ctx.drawImage(state.orbitCanvas,0,0,w,h);ctx.globalAlpha=1;scheduleOrbitDraw();}else state.orbitFade=null;
+      const progress=Math.min(1,(performance.now()-state.orbitFade.start)/state.orbitFade.duration);if(state.orbitCanvas&&progress<1){paintOrbit(ctx,w,h,safe,1-progress);scheduleOrbitDraw();}else{state.orbitFade=null;releaseOrbitComposite();}
     }
     if(detailStatus){
       detailStatus.hidden=!geometry.detail_ref;

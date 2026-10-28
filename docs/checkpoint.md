@@ -2,6 +2,16 @@
 
 Read `AGENTS.md`, `plan.md` and `docs/decisions.md`, then inspect actual source/tests and Git state. The existing repository is accessible and the scheduled continuation resumed the same work. Preserve the existing implementation. Do not duplicate completed acceptance runs without a relevant change.
 
+## Adaptive orbital background continuation
+
+Read `docs/reviews/adaptive-space-background.md` and the latest branch note.
+The camera-responsive near-black/slate haze and sparse sky are independently
+accepted within scope. Browser pixel/idle/transition/resource/fallback checks and
+protected auth/history/movement regression pass; no backend or terrain/shader
+module changed. Input pacing and GPU/native-rate smoothness limits remain
+explicit. Keep generic decoration separate from campaign astronomy. Delivery
+commit reference follows after the implementation commit.
+
 ## All-environment quality-control continuation
 
 Implementation `2c918fd` is verified, committed and pushed to `origin/map-generation`.
