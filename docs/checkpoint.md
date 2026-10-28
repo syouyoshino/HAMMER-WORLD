@@ -4,6 +4,8 @@ Read `AGENTS.md`, `plan.md` and `docs/decisions.md`, then inspect actual source/
 
 ## All-environment quality-control continuation
 
+Implementation `2c918fd` is verified, committed and pushed to `origin/map-generation`.
+
 Read `docs/reviews/environment-quality.md` and the latest map-generation branch
 section. Current scope covers nine representative profiles, all six presets and
 all implemented liquid/ice choices, both desktop themes. New QA fixtures are

@@ -203,6 +203,7 @@ backend files and map/sphere/landmark modules remain unchanged. Retained10,000-t
 simulation results apply; no UI-only simulation rerun was warranted. WebKit and
 native macOS Safari remain unverified in this pass.
 
-Delivery references follow the implementation commit. This is an interface
+Implementation/tests/review: `2c918fd9ddacde764d203288e3dc2486f8e9701f`, committed and
+pushed to `origin/map-generation`. This is an interface
 release candidate; no merge, deployment or operational backup/recovery
 certification was performed.

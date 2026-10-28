@@ -676,5 +676,5 @@ coverage is Chromium154 desktop1440×1024; WebKit/native Safari unverified here.
 The ignored gallery at `data/environment-quality/final/gallery.html` contains126
 primary/material frames and was visually checked through a loopback-only preview.
 Keep generated captures, databases, test schemas and connection context out of
-Git. Replay commands and continuation paths are in the review. Commit references
-are recorded in the delivery note after the implementation commit.
+Git. Replay commands and continuation paths are in the review. Delivery implementation/tests/review: `2c918fd9ddacde764d203288e3dc2486f8e9701f`,
+committed and pushed to `origin/map-generation`; remote reference verified.
