@@ -314,3 +314,13 @@ local/campaign scope expose pressed state on every activation. Preserve selected
 settlement identity in the workspace heading rather than introducing a docking
 rewrite. Group facilities only when all non-ID recorded fields agree; retain
 all IDs. Missing economic outcomes remain unknown, never an invented diagnosis.
+
+
+Environment quality control (28 October 2026): keep status text at normal reading
+contrast and use Apple system green as a supplementary square marker. For native
+V10 camera bounds, reserve the existing HUD-safe top/bottom area; world edges may
+move under reserved chrome but leave no blank region inside the safe map area.
+Legacy camera limits, horizontal wrapping, renderer assets and recorded geography
+stay intact. Feature reveal targets avoid current DOM rectangles for inspector,
+overview and force controls/panels; renderer label reservations are not UI boxes.
+Empty hydrography catalogues omit unused search/filter-failure controls.

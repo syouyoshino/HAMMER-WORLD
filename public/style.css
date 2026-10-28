@@ -408,7 +408,8 @@ button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-
 .local-record-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 8px; min-height: 31px; padding: 4px 0; border-top: 1px solid var(--line); font-size: 12px; }
 .local-record-row > strong { color: var(--ink); font-weight: 500; }
 .local-record-status { color: var(--muted); font-size: 11px; }
-.local-record-status.is-complete { color: var(--apple-system-green-contrast); }
+.local-record-status.is-complete { display: inline-flex; align-items: center; gap: 5px; color: var(--ink); }
+.local-record-status.is-complete::before { width: 4px; height: 4px; flex: 0 0 4px; background: var(--apple-system-green); content: ""; }
 .local-record-status.is-in-progress { color: var(--apple-system-orange-contrast); }
 .local-record-row .record-identifiers { grid-column: auto; margin: 0; justify-self: end; }
 .local-record-row .record-identifiers[open] { grid-column: 1 / -1; justify-self: stretch; }

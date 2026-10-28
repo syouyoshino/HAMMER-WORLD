@@ -631,3 +631,50 @@ truthful startup/pregame state, canonical settlement selection, both scopes in
 both reports, nine facility IDs retained, light/dark screenshots and exact map
 return. Public demo/pregame records stay unchanged and no page errors occur.
 Delivery code/docs/test commit: `917fb6af3e979804ff8dca72f2d10c1fdf2703b4`, pushed to `origin/map-generation`.
+
+
+## All-environment quality control — 28 October 2026
+
+Expanded the same desktop settlement journey to all six terrain presets and the
+implemented water/lava/hydrocarbon and polar-ice choices: nine representative
+profiles, both themes. Four existing fictional fixtures remain unchanged; five
+missing variants were generated in a separate disposable QA schema. This is not
+an exhaustive seed/option-combination certification. Read
+`docs/reviews/environment-quality.md` for per-step evidence and limits.
+
+Fresh review corrected faint Complete labels, an obscured northern lava anchor,
+a minimap-obscured southern anchor and redundant empty-catalog search copy.
+Neutral status labels retain Apple-green square accents. Native-only vertical
+pan limits use the existing safe viewport; feature reveal candidates avoid live
+inspector/overview/force DOM rectangles. This is app camera/presentation work:
+no backend, schema, terrain engine, assets, geography/IDs or relationship-branch
+change. Preserve these small app/style boundaries when integrating unrecovered
+cartography. The full map, sphere and landmark module hashes remain unchanged.
+
+The critic rejected early transition screenshots despite passing functional
+assertions; final primary captures explicitly wait beyond the420ms transition.
+Ninety settled primary frames are in the ignored local screenshot gallery. The
+same critic accepts all nine primary placements and corrected demonstrated lava
+selection. Latest feature-material edge checks and final delivery references are
+recorded in the review. No merge, deployment or real campaign recovery is claimed.
+
+
+Final environment matrix: all9primary + all9material checks pass. Forty-five
+saved-feature anchor samples cover north/south/chosen records at regional,
+minimum and maximum detail. Empty catalogues remain empty on caps/arid/dry-rock/
+frozen; no fake water or rivers. Public fixture records stay unchanged; no page
+errors. The single Sol medium critic accepts all nine tested profiles after the
+corrections; inherited low terrain/legend/ice-outline limits are documented.
+The protected private native suite passes, including refined open-water picking,
+legacy switching, stale work, movement preview/commit/history and logout. Its
+fixed picking harness now uses actual safe bounds and excludes ice from its
+open-water test. Primary/auth evidence precedes only the final feature-only DOM
+obstacle correction; latest-source materials tests cover that callback directly.
+No production performance or commercial-game parity claim follows. Current
+coverage is Chromium154 desktop1440×1024; WebKit/native Safari unverified here.
+
+The ignored gallery at `data/environment-quality/final/gallery.html` contains126
+primary/material frames and was visually checked through a loopback-only preview.
+Keep generated captures, databases, test schemas and connection context out of
+Git. Replay commands and continuation paths are in the review. Commit references
+are recorded in the delivery note after the implementation commit.

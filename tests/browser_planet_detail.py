@@ -16,7 +16,7 @@ import uuid
 import httpx
 import psycopg
 from psycopg import sql
-from playwright.sync_api import sync_playwright
+from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeoutError
 from contextlib import nullcontext
 from unittest.mock import patch
 
@@ -231,22 +231,36 @@ def main():
                 page.keyboard.press('Escape')
                 # Fine natural shores may cross a coarse cell edge. Picking must
                 # follow what is drawn while retaining saved province IDs.
-                fine_pick = page.evaluate("""()=>{const {o,t}=window.__detailAudit,g=o.geometry,d=o.detail;
+                fine_pick = page.evaluate("""()=>{const {o,t}=window.__detailAudit,g=o.geometry,d=o.detail,
+                  canvas=document.querySelector('#planet-map'),rect=canvas.getBoundingClientRect(),safe=t.safeRect;
                   for(let i=0;i<d.terrain_grid.length;i++){
                     const x=(i%d.width+.5)/8,y=(Math.floor(i/d.width)+.5)/8,parent=Math.floor(y)*128+Math.floor(x),base=g.tiles[parent];
-                    if(d.terrain_grid[i]!=='o'||base.terrain==='ocean')continue;
+                    if(d.terrain_grid[i]!=='o'||d.materials[i]==='i'||base.terrain==='ocean')continue;
                     const id=d.feature_ids[d.feature_index[i]-1],f=g.detailHydrography.features.find(f=>f.id===id);
                     if(!f||!['ocean','sea'].includes(f.kind))continue;
-                    const wx=window.HWMapRenderer.nearestX(x,(720-t.ox)/t.tile,128),sx=t.ox+wx*t.tile,sy=t.oy+y*t.tile;
-                    if(sx<220||sx>1050||sy<280||sy>780||document.elementFromPoint(sx,sy)?.id!=='planet-map')continue;
+                    const wx=window.HWMapRenderer.nearestX(x,(rect.width/2-t.ox)/t.tile,128),sx=t.ox+wx*t.tile,sy=t.oy+y*t.tile;
+                    if(sx<Math.max(8,safe.left+8)||sx>Math.min(rect.width-8,safe.right-8)||sy<Math.max(8,safe.top+8)||sy>Math.min(rect.height-8,safe.bottom-8)||document.elementFromPoint(rect.left+sx,rect.top+sy)!==canvas)continue;
                     if([...(t.featureTargets||[]),...(t.provinceTargets||[])].some(r=>sx>=r.left&&sx<=r.right&&sy>=r.top&&sy<=r.bottom))continue;
-                    return {x:sx,y:sy,id,name:f.name};
+                    return {x:rect.left+sx,y:rect.top+sy,id,name:f.name,index:i,material:d.materials[i]};
                   }return null;}""")
                 assert fine_pick,'Fixture lacks a visible refined water cell'
                 page.mouse.move(fine_pick['x'],fine_pick['y']);page.wait_for_selector('#map-tooltip:not([hidden])')
                 assert fine_pick['name'] in page.locator('#map-tooltip').inner_text()
                 page.mouse.click(fine_pick['x'],fine_pick['y'])
-                page.wait_for_function('id=>document.querySelector("#inspector-content").dataset.selectedHydroFeature===id',arg=fine_pick['id'])
+                def selection_diagnostic():
+                    return {'pick': fine_pick, 'observed': page.evaluate('''()=>{
+                      const root=document.querySelector('#inspector-content'),a=window.__detailAudit;
+                      return {dataset:{...root.dataset},selectedFeatureId:a.o.selectedFeatureId,
+                        selectedProvince:a.o.selectedProvince,camera:{ox:a.t.ox,oy:a.t.oy,tile:a.t.tile}};
+                    }''')}
+                try:
+                    page.wait_for_function('id=>document.querySelector("#inspector-content").dataset.selectedHydroFeature===id',arg=fine_pick['id'])
+                except PlaywrightTimeoutError as error:
+                    diagnostic = selection_diagnostic()
+                    (out/'fine-coast-selection.json').write_text(json.dumps(diagnostic,indent=2)+'\n')
+                    page.screenshot(path=str(out/'01a-fine-coast-selection-failed.png'))
+                    raise AssertionError(f'Open refined water cell did not select its saved feature: {diagnostic}') from error
+                (out/'fine-coast-selection.json').write_text(json.dumps(selection_diagnostic(),indent=2)+'\n')
                 page.screenshot(path=str(out/'01a-fine-coast-selection.png'))
                 page.keyboard.press('Escape')
                 page.locator('#zoom-reset').click();page.screenshot(path=str(out/'02-water-overview.png'))

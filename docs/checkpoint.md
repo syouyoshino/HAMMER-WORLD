@@ -2,6 +2,17 @@
 
 Read `AGENTS.md`, `plan.md` and `docs/decisions.md`, then inspect actual source/tests and Git state. The existing repository is accessible and the scheduled continuation resumed the same work. Preserve the existing implementation. Do not duplicate completed acceptance runs without a relevant change.
 
+## All-environment quality-control continuation
+
+Read `docs/reviews/environment-quality.md` and the latest map-generation branch
+section. Current scope covers nine representative profiles, all six presets and
+all implemented liquid/ice choices, both desktop themes. New QA fixtures are
+isolated, existing records stay unchanged. Shared status contrast and native
+feature camera visibility defects are corrected; no renderer/backend changed.
+The audit retains rejected early transition captures separately. See the review
+for final matrix results, source-hash scope, remaining inherited limits and
+continuation evidence. This remains an interface release candidate.
+
 ## Desktop quality-control follow-up
 
 Implementation `917fb6a` is verified, committed and pushed to `origin/map-generation`.

@@ -32,6 +32,45 @@ def act(page, out, label, operation):
     operation()
 
 
+def stable_paint(page):
+    page.evaluate('''async () => {
+      if (document.fonts?.ready) await document.fonts.ready;
+      await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    }''')
+
+
+def capture_theme_pair(page, out, stage, captures, filenames=None):
+    """Capture one loaded screen and its accessibility tree in both themes."""
+    # Controls update before the 420 ms native orbit fade and deferred surface
+    # labels finish. Settle the stage before taking either theme's evidence.
+    page.wait_for_timeout(600)
+    stable_paint(page)
+    theme_control = page.evaluate('''() => ({present:typeof window.HWTheme?.set==='function',
+      previous:document.documentElement.getAttribute('data-theme'),
+      preference:window.HWTheme?.preference})''')
+    assert theme_control['present'], 'Theme control is unavailable'
+    names = filenames or {theme: f'{stage}-{theme}' for theme in ('light', 'dark')}
+    for theme in ('light', 'dark'):
+        act(page, out, f'{stage}-theme-{theme}',
+            lambda value=theme: page.evaluate('v=>window.HWTheme.set(v)', value))
+        assert page.locator('html').get_attribute('data-theme') == theme
+        stable_paint(page)
+        name = names[theme]
+        page.screenshot(path=str(out / f'{name}.png'))
+        (out / f'{name}-aria.txt').write_text(page.locator('body').aria_snapshot(), encoding='utf-8')
+        captures.append({'stage': stage, 'theme': theme, 'png': f'{name}.png',
+                         'aria': f'{name}-aria.txt'})
+    restore = theme_control['preference']
+    assert restore in ('system', 'light', 'dark'), 'Theme preference is unavailable'
+    act(page, out, f'{stage}-theme-restore',
+        lambda: page.evaluate('v=>window.HWTheme.set(v)', restore))
+    stable_paint(page)
+    assert page.evaluate('window.HWTheme.preference') == restore
+    assert page.locator('html').get_attribute('data-theme') == theme_control['previous']
+    return {'previous': theme_control['previous'], 'preference': restore,
+            'restored': page.locator('html').get_attribute('data-theme')}
+
+
 def api_json(page, url):
     response = page.request.get(url)
     assert response.ok, f'Public read failed: {url} ({response.status})'
@@ -93,6 +132,8 @@ def main():
     out.mkdir(parents=True, exist_ok=True)
     before_hashes = source_hashes()
     page_errors = []
+    captures = []
+    theme_restorations = {}
 
     with sync_playwright() as pw:
         browser = pw.chromium.launch(executable_path='/usr/bin/chromium',
@@ -165,15 +206,28 @@ def main():
           const b=document.querySelector('#orbit-toggle');
           return b && !b.hidden && !b.disabled && (b.textContent.trim()==='Surface' || b.textContent.trim()==='Orbit');
         }''', timeout=90000)
+        if page.locator('#orbit-toggle').inner_text().strip() == 'Orbit':
+            act(page, out, '07-enter-orbit-for-capture', lambda: page.locator('#orbit-toggle').click())
+            page.wait_for_function('document.querySelector("#orbit-toggle")?.textContent.trim()==="Surface"')
+        page.wait_for_selector('.orbit-landmark:visible', timeout=90000)
+        assert page.locator('.orbit-landmark:visible').count() > 0, 'Loaded orbit has no visible settlement landmarks'
+        theme_restorations['orbit'] = capture_theme_pair(page, out, '01-orbit', captures)
         selected_province = select_settlement_province(page, out, settlement)
-        page.screenshot(path=str(out / '08-selected-settlement.png'))
+        inspector_settlement = page.locator('#inspector-content .inspector-settlement').filter(
+            has=page.get_by_text(settlement['name'], exact=True))
+        assert inspector_settlement.count() == 1
+        assert inspector_settlement.get_by_text(settlement['name'], exact=True).is_visible()
+        identifiers = inspector_settlement.locator('details.record-identifiers .inspector-row').evaluate_all(
+            "rows=>Object.fromEntries(rows.map(r=>[r.children[0]?.textContent.trim(),r.children[1]?.textContent.trim()]))")
+        assert identifiers['Province ID'] == selected_province
+        assert identifiers['Settlement ID'] == settlement['id']
+        assert identifiers['Planet ID'] == settlement['planet_id']
+        theme_restorations['inspector'] = capture_theme_pair(page, out, '02-inspector', captures)
         if page.locator('#command-inspector').is_visible():
             act(page, out, '11-close-selection-inspector',
                 lambda: page.locator('[data-inspector-close]').click())
             page.wait_for_timeout(100)
         camera = page.evaluate('''() => {const t=window.__surfaceAudit.t;return {ox:t.ox,oy:t.oy,tile:t.tile};}''')
-        assert settlement['name'] in page.locator('#inspector-content').inner_text()
-        assert selected_province in page.locator('#inspector-content').inner_text()
 
         open_workspace(page, out, 'economy', '08-economy')
         page.wait_for_selector('#economy-panel .scope-tabs [data-scope="local"]')
@@ -189,11 +243,9 @@ def main():
             assert 'Housing capacity (people)' in economy_text
         if settlement.get('unrest') is not None:
             assert 'Unrest (0–100 scale)' in economy_text
-        for theme in ('light', 'dark'):
-            act(page, out, f'09-economy-theme-{theme}',
-                lambda value=theme: page.evaluate('v=>window.HWTheme.set(v)', value))
-            assert page.locator('html').get_attribute('data-theme') == theme
-            page.screenshot(path=str(out / f'economy-{theme}.png'))
+        theme_restorations['economy'] = capture_theme_pair(
+            page, out, '03-economy', captures,
+            {'light': 'economy-light', 'dark': 'economy-dark'})
         act(page, out, '09-economy-campaign-scope', lambda: campaign_button.click())
         assert campaign_button.get_attribute('aria-pressed') == 'true'
         assert page.locator('#economy-panel .campaign-scope').is_visible()
@@ -240,6 +292,7 @@ def main():
             assert selected_group.get_by_text('No recorded projects for this settlement.', exact=True).is_visible()
         else:
             assert expected_project_ids <= rendered_project_ids
+        theme_restorations['construction'] = capture_theme_pair(page, out, '04-construction', captures)
 
         local_construction = page.locator('#management-construction [data-scope="local"]')
         campaign_construction = page.locator('#management-construction [data-scope="campaign"]')
@@ -255,6 +308,7 @@ def main():
         act(page, out, '14-return-map', lambda: page.locator('[data-return-map]:visible').click())
         assert page.evaluate('''() => {const t=window.__surfaceAudit?.t;return t?{ox:t.ox,oy:t.oy,tile:t.tile}:null;}''') == camera
         assert page.evaluate('window.__surfaceAudit.o.selectedProvince') == selected_province
+        theme_restorations['return_map'] = capture_theme_pair(page, out, '05-return-map', captures)
 
         pregame_before = campaign_state(page, base, pregame)
         enter_campaign_from_dialog(page, out, pregame, '15-pregame')
@@ -291,6 +345,7 @@ def main():
                   'facility_ids_preserved': sorted(expected_ids), 'project_ids': sorted(expected_project_ids),
                   'dialog_focus_contained_and_restored': True, 'initial_empty_map_truthful': True,
                   'pre_game_unknown_and_controls_disabled': True, 'camera_and_selection_preserved': True,
+                  'captures': captures, 'theme_restorations': theme_restorations,
                   'campaign_state_unchanged': True, 'page_errors': page_errors,
                   'source_hashes': after_hashes, 'source_hashes_unchanged': True}
         (out / 'workflow.json').write_text(json.dumps(report, indent=2) + '\n', encoding='utf-8')
