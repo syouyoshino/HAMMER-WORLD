@@ -332,3 +332,11 @@ Keep it separate from recorded astronomy and units. Sparse fixed stars and broad
 slate haze support the supplied reference without proprietary assets. Preserve
 sphere/surface renderers. Flatten sky and globe before applying transition alpha
 once; cap/reuse/release the temporary composite. Theme changes affect UI, not sky.
+
+
+Orbital background depth (29 October 2026): replace recognizable gradient splats
+with a continuous decorative 3D-noise field sampled along the existing camera's
+world rays. Keep a single 128-side bitmap and last-pose cache, plus a 32 KiB public
+noise lattice. Multiple spatial scales and independent dark channels add depth
+without directional brush bands or campaign astronomy. No globe shader changes.
+The small retained sky scratch bitmap is separate from released app composites.

@@ -1,7 +1,16 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
-global.window = {};
+let canvasCount=0,uploadCount=0;
+global.window = {document:{createElement(type){
+  assert.equal(type,'canvas');canvasCount++;
+  const canvas={width:0,height:0};
+  canvas.getContext=()=>({
+    createImageData(width,height){return {width,height,data:new Uint8ClampedArray(width*height*4)};},
+    putImageData(pixels){canvas.pixels=pixels;uploadCount++;}
+  });
+  return canvas;
+}}};
 for (const file of ['public/planet-orbit.js', 'public/orbit-background.js']) {
   vm.runInThisContext(fs.readFileSync(file, 'utf8'), { filename: file });
 }
@@ -37,3 +46,44 @@ const zoomed = projectDirection(unit, { ...view, distance: 1.7 }, rect);
 assert(Math.hypot(point.x - zoomed.x, point.y - zoomed.y) > .1, 'Zoom response must be perceptible');
 assert.deepEqual(projectDirection(unit, view, rect), point, 'Projection cannot depend on elapsed time');
 console.log('Sky orientation, poles, seam continuity, zoom response and deterministic return passed');
+
+// Exercise actual ray sampling through a bounded fake canvas, without a test API.
+function capture(pose) {
+  const operations=[];
+  const ctx=new Proxy({}, {
+    get(_,name) {
+      if(name==='drawImage')return (canvas,...args)=>{
+        assert(canvas.width<=128&&canvas.height<=128, 'Scratch bitmap must stay bounded');
+        const pixels=Array.from(canvas.pixels.data);
+        assert(pixels.some((v,i)=>i%4===0&&v>10), 'Sky must contain visible clouds');
+        assert(pixels.every((v,i)=>i%4!==3||v===255), 'Sky bitmap must be opaque');
+        operations.push(['bitmap',pixels],['drawImage',...args]);
+      };
+      return (...args)=>{assert(args.every(v=>typeof v!=='number'||Number.isFinite(v)));operations.push([name,...args]);};
+    },
+    set(_,name,value){operations.push([name,value]);return true;}
+  });
+  window.HWOrbitBackground.draw(ctx,1440,1024,pose,rect);
+  assert(operations.some(op=>op[0]==='bitmap'));
+  return operations;
+}
+function near(a,b) {
+  assert.equal(a.length,b.length);
+  for(let i=0;i<a.length;i++) {
+    if(Array.isArray(a[i]))near(a[i],b[i]);
+    else if(typeof a[i]==='number')assert(Math.abs(a[i]-b[i])<1e-6);
+    else assert.equal(a[i],b[i]);
+  }
+}
+for(const latitude of [-Math.PI/2,-.9,0,.9,Math.PI/2]) {
+  const pose={...view,latitude};
+  const drawn=capture(pose),uploads=uploadCount;
+  assert.deepEqual(capture(pose),drawn, 'Drawing must be deterministic');
+  assert.equal(uploadCount,uploads, 'Unchanged pose must reuse its bitmap');
+  near(drawn,capture({...pose,longitude:pose.longitude+2*Math.PI}));
+  capture({...pose,longitude:pose.longitude+.2});
+  assert.deepEqual(capture(pose),drawn, 'Returning to a pose must reconstruct identical pixels');
+}
+near(capture({...view,longitude:Math.PI-1e-12}),capture({...view,longitude:-Math.PI+1e-12}));
+assert.equal(canvasCount,1, 'Only one scratch bitmap may be retained');
+console.log('Actual sky pixels: bounded canvas, visible clouds, cache, deterministic return, poles and yaw seam passed');

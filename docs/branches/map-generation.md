@@ -706,3 +706,20 @@ this decoration with campaign state, hidden seeds, renderer assets or auth token
 No backend/numeric source changed and no simulation stress rerun was warranted.
 Keep runtime media and database context out of Git. Delivery implementation/tests/review `9a78a627effded1f3ab57e9e06512db53062ebaa`
 is committed and pushed to `origin/map-generation`; no merge or deployment.
+
+
+## Orbital background depth — 29 October 2026
+
+The user's flatness critique prompted a new comparison and correction. Layered
+curves and then elliptical dust bands failed for visible tubes/streaks; those
+findings remain documented. One bounded Sol high diagnosis led to continuous
+world-ray noise instead of another cosmetic pass. The final 128-side cached bitmap
+adds irregular slate cloud masses, dark gaps and restrained varied stars while
+preserving camera orientation, theme consistency and existing renderer modules.
+
+Read `docs/reviews/orbital-background-depth.md` for the independent comparison,
+actual browser evidence, performance costs and retained softness/globe limits.
+Integrate only the small background module and its tests; keep unrecovered
+cartography, campaign records and authentication independent. No schema, geography,
+shader, map-renderer or app-navigation source changes. Generated evidence remains
+ignored. This is an interface release candidate, without merge or deployment.

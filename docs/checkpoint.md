@@ -2,6 +2,14 @@
 
 Read `AGENTS.md`, `plan.md` and `docs/decisions.md`, then inspect actual source/tests and Git state. The existing repository is accessible and the scheduled continuation resumed the same work. Preserve the existing implementation. Do not duplicate completed acceptance runs without a relevant change.
 
+## Orbital background depth continuation
+
+Read `docs/reviews/orbital-background-depth.md` and the latest branch note.
+The decorative sky now uses continuous world-ray noise in one bounded 128-side
+cached bitmap rather than recognizable clouds/strokes. Preserve the documented
+rejected candidates, independent findings and performance limits. Globe relief
+remains separate; no campaign astronomy or units were invented.
+
 ## Adaptive orbital background continuation
 
 Implementation `9a78a62` is verified, committed and pushed to `origin/map-generation`.
@@ -105,7 +113,7 @@ On `map-generation`, the optional V9 names/catalog/feature inspector and renderi
 corrections are implemented and independently accepted within the documented
 scope. Read `docs/reviews/hydrography-names.md` and the latest branch section.
 132 Python tests, 240 exact legacy hashes, focused renderer checks, complete
-protected V9 and legacy cartography/strategic browsers pass. Chromium154 actual
+protected V9 and legacy cartography/strategic browsers pass. Chromium 154 actual
 native zoom100–200% passes both physical desktop window sizes; WebKit absent,
 native Safari unverified. Existing maps/defaults/history/rules remain unchanged.
 
