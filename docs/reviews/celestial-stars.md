@@ -174,3 +174,5 @@ The ignored QA preview uses a newly created isolated schema on loopback port 420
 the original preview on 4203 retains all its original records. A separate CLI demo
 also verifies opt-in creation. These are local fictional QA data, not deployment
 or recovered campaign databases.
+
+Delivery implementation/tests/review: `1887986` on `map-generation`.

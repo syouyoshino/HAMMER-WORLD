@@ -4,6 +4,8 @@ Read `AGENTS.md`, `plan.md` and `docs/decisions.md`, then inspect actual source/
 
 ## Saved stellar astronomy continuation
 
+Implementation/tests/review: `1887986` on `map-generation`.
+
 Read `docs/reviews/celestial-stars.md` and the latest branch note.
 Opt-in new demos now save static-v1 astronomy; existing records/default digests
 remain intact. Native Orbit shows the public host star from those records with

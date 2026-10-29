@@ -772,3 +772,5 @@ cartography is integrated. The surface generator/renderer, province IDs and
 character-relationships branch are untouched. Dynamic orbits or additional body
 classes require a future explicit version; do not reinterpret frozen epoch0 as a
 live ephemeris. Runtime evidence/databases remain ignored. No merge/deployment.
+
+Delivery implementation/tests/review: `1887986` on `map-generation`.
