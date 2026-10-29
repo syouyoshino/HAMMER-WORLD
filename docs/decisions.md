@@ -350,3 +350,23 @@ recorded rock/ice. Accurate neighbouring-body sky placement is blocked by absent
 3D positions/ephemeris, units/frame/epoch and planetary orientation. Never turn
 schematic chart coordinates into claimed sky bearings; retain public filtering
 and existing system breadcrumb access. See the scoped review and continuation.
+
+
+## ADR-016: opt-in saved static astronomy
+
+The user explicitly chose generated astronomy for new demo systems. Add optional
+`static-v1` records at creation, not fabricated bearings for existing snapshots.
+Persist local-system integer micro-AU positions, physical km radii, epoch0 frozen
+motion and explicit aligned planet axes. Separate streams preserve legacy defaults.
+Require one origin host star per system, exact entity sets and nonintersecting
+bodies; whitelist surveyed systems/bodies in public snapshots and map responses.
+No schema migration, old-record rewrite or change to turn rules.
+
+The orbital marker uses the globe's exact perspective and finite camera origin;
+decorative sky projection remains independent. Its saved source direction controls
+globe illumination. Marker size is explicitly symbolic. Preserve initial terrain
+context; Locate star is an explicit navigational action. Historical records remain
+read only; old native snapshots expose Star unlocated instead of invented data.
+This first model is a frozen single-star layout without orbital motion, moon/belt
+positions, cross-system astronomy or photometric simulation. See
+`docs/reviews/celestial-stars.md` for reviews, corrections, tests and limitations.

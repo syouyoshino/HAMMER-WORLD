@@ -13,6 +13,24 @@
     return [c*Math.sin(l),Math.sin(p),c*Math.cos(l)];
   }
   function dot(a,b) { return a[0]*b[0]+a[1]*b[1]+a[2]*b[2]; }
+  // Recorded bodies share the globe's perspective camera, rather than the
+  // decorative sky's wider field of view. The camera looks along -N.
+  function projectRecordedDirection(direction,view,rect) {
+    if(!direction||direction.length!==3||!direction.every(Number.isFinite)||!Number.isFinite(view.latitude)||!Number.isFinite(view.longitude))return null;
+    const D=view.distance??2.45,short=Math.min(rect.width,rect.height);
+    if(!Number.isFinite(D)||D<=1||!Number.isFinite(short)||short<=0)return null;
+    const frame=basis(view.latitude,view.longitude),depth=-dot(direction,frame.N);
+    if(depth<=Math.hypot(...direction)*1e-8)return null;
+    const focal=short*.36*D,x=rect.left+rect.width/2+focal*dot(direction,frame.E)/depth,y=rect.top+rect.height/2-focal*dot(direction,frame.U)/depth;
+    return Number.isFinite(x)&&Number.isFinite(y)?{x,y,depth}:null;
+  }
+  function projectRecordedStar(star,view,rect) {
+    if(!star)return null;
+    const frame=basis(view.latitude,view.longitude),D=view.distance??2.45;
+    const ray=star.offsetKm?.length===3&&star.offsetKm.every(Number.isFinite)&&Number.isFinite(star.planetRadiusKm)&&star.planetRadiusKm>0
+      ?star.offsetKm.map((value,i)=>value-D*star.planetRadiusKm*frame.N[i]):star.direction;
+    return projectRecordedDirection(ray,view,rect);
+  }
   function screenPoint(latitude, longitude, view, rect) {
     const b=basis(view.latitude,view.longitude), d=unit(latitude,longitude), z=dot(d,b.N), D=view.distance??2.45;
     if(D*z<=1)return null;
@@ -69,6 +87,7 @@ uniform sampler2D tex,poleMean;
 uniform vec3 N,E,U;
 uniform vec2 viewSize,textureSize;
 uniform float D,pixelAngle;
+uniform vec3 lightDirection;
 vec4 linearPremul(vec4 c){return vec4(pow(c.rgb,vec3(2.2))*c.a,c.a);}
 void main(){
  vec2 q=(v-.5)*viewSize*2.777777777777778;
@@ -96,7 +115,7 @@ void main(){
  vec4 filtered=mix(sum,mean,meanWeight);
  vec4 color=vec4(pow(filtered.rgb/max(filtered.a,.000001),vec3(1./2.2)),filtered.a);
  vec3 normal=normalize(hit);
- float incidence=dot(normal,normalize(vec3(-.42,.5,.76)));
+ float incidence=dot(normal,normalize(lightDirection));
  float diffuse=pow(max(0.,incidence),.72)*smoothstep(-.10,.12,incidence);
  float light=.30+.70*diffuse;
  float limb=smoothstep(-.2,.3,normal.z);
@@ -110,13 +129,13 @@ void main(){
       const poleMean=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,poleMean);for(const axis of [gl.TEXTURE_WRAP_S,gl.TEXTURE_WRAP_T])gl.texParameteri(gl.TEXTURE_2D,axis,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
       const loc=name=>gl.getUniformLocation(program,name),lostState={value:false};
       canvas.addEventListener?.("webglcontextlost",event=>{event.preventDefault();lostState.value=true;});canvas.addEventListener?.("webglcontextrestored",()=>{lostState.value=true;});
-      return {canvas,gl,program,buffer,texture,poleMean,locations:{p:gl.getAttribLocation(program,"p"),N:loc("N"),E:loc("E"),U:loc("U"),viewSize:loc("viewSize"),D:loc("D"),tex:loc("tex"),poleMean:loc("poleMean"),textureSize:loc("textureSize"),pixelAngle:loc("pixelAngle")}, uploaded:null, lostState,
-        render(source,revision,width,height,view,rect={left:0,top:0,width,height}){if(this.lostState.value||gl.isContextLost()||!source)return false;const dims=powerOfTwoSize(source.width,source.height);if(this.uploaded!==revision){let image=source;if(dims.width!==source.width||dims.height!==source.height){const tmp=document.createElement("canvas");tmp.width=dims.width;tmp.height=dims.height;tmp.getContext("2d").drawImage(source,0,0,dims.width,dims.height);image=tmp;}
+      return {canvas,gl,program,buffer,texture,poleMean,locations:{p:gl.getAttribLocation(program,"p"),N:loc("N"),E:loc("E"),U:loc("U"),lightDirection:loc("lightDirection"),viewSize:loc("viewSize"),D:loc("D"),tex:loc("tex"),poleMean:loc("poleMean"),textureSize:loc("textureSize"),pixelAngle:loc("pixelAngle")}, uploaded:null, lostState,
+        render(source,revision,width,height,view,rect={left:0,top:0,width,height},starDirection=null){if(this.lostState.value||gl.isContextLost()||!source)return false;const dims=powerOfTwoSize(source.width,source.height);if(this.uploaded!==revision){let image=source;if(dims.width!==source.width||dims.height!==source.height){const tmp=document.createElement("canvas");tmp.width=dims.width;tmp.height=dims.height;tmp.getContext("2d").drawImage(source,0,0,dims.width,dims.height);image=tmp;}
             gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,texture);gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,true);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,image);gl.generateMipmap(gl.TEXTURE_2D);
             const meanCanvas=document.createElement("canvas");meanCanvas.width=1;meanCanvas.height=dims.height;const meanContext=meanCanvas.getContext("2d"),data=meanContext.createImageData(1,dims.height);data.data.set(rowMeans(image.getContext("2d").getImageData(0,0,dims.width,dims.height).data,dims.width,dims.height));meanContext.putImageData(data,0,0);gl.bindTexture(gl.TEXTURE_2D,poleMean);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,meanCanvas);this.uploaded=revision;}
-          const dpr=Math.min(2,window.devicePixelRatio||1),targetW=Math.max(1,Math.round(width*dpr)),targetH=Math.max(1,Math.round(height*dpr));if(canvas.width!==targetW||canvas.height!==targetH){canvas.width=targetW;canvas.height=targetH;}if(this.lostState.value){this.lostState.value=false;this.uploaded=null;return false;}gl.clearColor(0,0,0,0);gl.clear(gl.COLOR_BUFFER_BIT);gl.viewport(Math.round(rect.left*dpr),Math.round((height-rect.top-rect.height)*dpr),Math.round(rect.width*dpr),Math.round(rect.height*dpr));gl.useProgram(program);gl.bindBuffer(gl.ARRAY_BUFFER,buffer);gl.enableVertexAttribArray(this.locations.p);gl.vertexAttribPointer(this.locations.p,2,gl.FLOAT,false,0,0);const f=basis(view.latitude,view.longitude),short=Math.max(1,Math.min(rect.width,rect.height));
-          gl.uniform3fv(this.locations.N,f.N);gl.uniform3fv(this.locations.E,f.E);gl.uniform3fv(this.locations.U,f.U);gl.uniform2f(this.locations.viewSize,rect.width/short,rect.height/short);gl.uniform1f(this.locations.D,view.distance??2.45);gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,texture);gl.uniform1i(this.locations.tex,0);gl.activeTexture(gl.TEXTURE1);gl.bindTexture(gl.TEXTURE_2D,poleMean);gl.uniform1i(this.locations.poleMean,1);gl.uniform2f(this.locations.textureSize,dims.width,dims.height);gl.uniform1f(this.locations.pixelAngle,Math.max(.000001,(view.distance-1)/(short*.36*view.distance*dpr)));gl.drawArrays(gl.TRIANGLES,0,6);return !gl.isContextLost();}};
+          const dpr=Math.min(2,window.devicePixelRatio||1),targetW=Math.max(1,Math.round(width*dpr)),targetH=Math.max(1,Math.round(height*dpr));if(canvas.width!==targetW||canvas.height!==targetH){canvas.width=targetW;canvas.height=targetH;}if(this.lostState.value){this.lostState.value=false;this.uploaded=null;return false;}gl.clearColor(0,0,0,0);gl.clear(gl.COLOR_BUFFER_BIT);gl.viewport(Math.round(rect.left*dpr),Math.round((height-rect.top-rect.height)*dpr),Math.round(rect.width*dpr),Math.round(rect.height*dpr));gl.useProgram(program);gl.bindBuffer(gl.ARRAY_BUFFER,buffer);gl.enableVertexAttribArray(this.locations.p);gl.vertexAttribPointer(this.locations.p,2,gl.FLOAT,false,0,0);const f=basis(view.latitude,view.longitude),short=Math.max(1,Math.min(rect.width,rect.height)),light=starDirection?[dot(starDirection,f.E),dot(starDirection,f.U),dot(starDirection,f.N)]:[-.42,.5,.76];
+          gl.uniform3fv(this.locations.N,f.N);gl.uniform3fv(this.locations.E,f.E);gl.uniform3fv(this.locations.U,f.U);gl.uniform3fv(this.locations.lightDirection,light);gl.uniform2f(this.locations.viewSize,rect.width/short,rect.height/short);gl.uniform1f(this.locations.D,view.distance??2.45);gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,texture);gl.uniform1i(this.locations.tex,0);gl.activeTexture(gl.TEXTURE1);gl.bindTexture(gl.TEXTURE_2D,poleMean);gl.uniform1i(this.locations.poleMean,1);gl.uniform2f(this.locations.textureSize,dims.width,dims.height);gl.uniform1f(this.locations.pixelAngle,Math.max(.000001,(view.distance-1)/(short*.36*view.distance*dpr)));gl.drawArrays(gl.TRIANGLES,0,6);return !gl.isContextLost();}};
     } catch { return null; }
   }
-  window.HWPlanetOrbit={basis,unit,screenPoint,inversePoint,focusFlatCamera,distanceForTile,powerOfTwoSize,rowMeans,create};
+  window.HWPlanetOrbit={basis,unit,screenPoint,projectRecordedDirection,projectRecordedStar,inversePoint,focusFlatCamera,distanceForTile,powerOfTwoSize,rowMeans,create};
 })();

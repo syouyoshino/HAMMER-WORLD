@@ -44,3 +44,31 @@ for(const viewport of [rect,inset,{left:0,top:190.5,width:1440,height:735}]){
 const averaged=orbit.rowMeans(new Uint8ClampedArray([0,0,0,255,255,255,255,255,255,0,0,0,0,255,0,255]),2,2);
 assert(averaged[0]>180&&averaged[0]<190,'pole mean averaged gamma-encoded bytes');
 assert.strictEqual(averaged[4],0);assert.strictEqual(averaged[5],255);assert.strictEqual(averaged[7],128);
+
+// The named-body camera must agree with the shader/globe, not decorative sky FOV.
+const viewport=inset;
+for(const latitude of [-Math.PI/2,-.5,0,.7,Math.PI/2])for(const longitude of [-Math.PI,0,Math.PI])for(const distance of [1.3,2.45,4.2]){
+ const pose={latitude,longitude,distance},frame=orbit.basis(latitude,longitude);
+ const ray=frame.N.map((v,i)=>-v+.31*frame.E[i]+.12*frame.U[i]);
+ const star={offsetKm:ray.map(v=>v*90_000_000),planetRadiusKm:6371};
+ const point=orbit.projectRecordedStar(star,pose,viewport);
+ assert(point&&Number.isFinite(point.x)&&Number.isFinite(point.y));
+ const focal=Math.min(viewport.width,viewport.height)*.36*distance;
+ const x=(point.x-viewport.left-viewport.width/2)/focal,y=-(point.y-viewport.top-viewport.height/2)/focal;
+ const reconstructed=frame.E.map((v,i)=>v*x+frame.U[i]*y-frame.N[i]);
+ const expected=star.offsetKm.map((v,i)=>v-distance*star.planetRadiusKm*frame.N[i]);
+ for(let i=0;i<3;i++)near(reconstructed[i]/Math.hypot(...reconstructed),expected[i]/Math.hypot(...expected),1e-12);
+ const surfaceLatitude=latitude*.7,surfaceLongitude=longitude+.1;
+ const surface=orbit.screenPoint(surfaceLatitude,surfaceLongitude,pose,viewport);
+ if(surface){
+  const source={offsetKm:orbit.unit(surfaceLatitude,surfaceLongitude).map(v=>v*6371),planetRadiusKm:6371};
+  const projected=orbit.projectRecordedStar(source,pose,viewport);
+  near(projected.x,surface.x,1e-8);near(projected.y,surface.y,1e-8);
+ }
+ const repeated=orbit.projectRecordedStar(star,{...pose,longitude:longitude+2*Math.PI},viewport);
+ near(point.x,repeated.x,1e-8);near(point.y,repeated.y,1e-8);
+ assert.equal(orbit.projectRecordedDirection(frame.N,pose,viewport),null);
+}
+assert.equal(orbit.projectRecordedDirection([NaN,0,1],view,viewport),null);
+assert.equal(orbit.projectRecordedDirection([0,0,0],view,viewport),null);
+console.log('Recorded-star finite camera rays, globe agreement, poles, yaw continuity and clipping passed');

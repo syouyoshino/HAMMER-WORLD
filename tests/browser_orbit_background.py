@@ -13,9 +13,9 @@ from tests.browser_quality_control import act
 
 SKY_HOOK = '''(()=>{const timer=setInterval(()=>{const sky=window.HWOrbitBackground;if(!sky)return;
  clearInterval(timer);const draw=sky.draw,a=window.__skyAudit={calls:0,times:[],targets:new Set(),peak:0,original:draw};
- sky.draw=function(ctx,w,h,view,rect){const start=performance.now();a.calls++;a.targets.add(ctx.canvas);
+ sky.draw=function(ctx,w,h,view,rect,star){const start=performance.now();a.calls++;a.targets.add(ctx.canvas);
  if(!ctx.canvas.isConnected)a.peak=Math.max(a.peak,ctx.canvas.width*ctx.canvas.height);
- a.last={w,h,view:{...view},rect:{...rect}};const r=draw(ctx,w,h,view,rect);a.times.push(performance.now()-start);return r;};},5)})()'''
+ a.last={w,h,view:{...view},rect:{...rect},star:star?{...star}:null};const r=draw(ctx,w,h,view,rect,star);a.point=r;a.times.push(performance.now()-start);return r;};},5)})()'''
 
 
 def main():

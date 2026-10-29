@@ -2,6 +2,17 @@
 
 Read `AGENTS.md`, `plan.md` and `docs/decisions.md`, then inspect actual source/tests and Git state. The existing repository is accessible and the scheduled continuation resumed the same work. Preserve the existing implementation. Do not duplicate completed acceptance runs without a relevant change.
 
+## Saved stellar astronomy continuation
+
+Read `docs/reviews/celestial-stars.md` and the latest branch note.
+Opt-in new demos now save static-v1 astronomy; existing records/default digests
+remain intact. Native Orbit shows the public host star from those records with
+exact camera perspective/parallax, directional light and explicit Locate.
+Historical sky remains read only; legacy native views show Star unlocated.
+Independent backend and visual/interaction reviews accept the scoped feature;
+240 legacy hashes and 10,000 connected astronomy-retention turns pass. Preserve
+the documented frozen-epoch/night-survey/browser/performance limitations.
+
 ## Globe lighting and celestial-data continuation
 
 Implementation/review: `4335f6f` on `map-generation`.

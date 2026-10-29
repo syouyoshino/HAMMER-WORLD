@@ -62,7 +62,22 @@
     const frame=root.HWPlanetOrbit?.basis(view.latitude,view.longitude);
     return frame?project(direction,projection(view,rect,frame)):null;
   }
-  function draw(ctx,w,h,view,rect={left:0,top:0,width:w,height:h}){
+  function drawRecordedStar(ctx,star,p,view,rect,w,h){
+    if(!star?.direction)return null;
+    const point=root.HWPlanetOrbit?.projectRecordedStar(star,view,rect);
+    if(!point||point.x<0||point.x>w||point.y<0||point.y>h)return null;
+    const orbit=root.HWPlanetOrbit;
+    if(orbit?.inversePoint&&orbit.inversePoint(point.x,point.y,view,rect))return null;
+    const x=point.x,y=point.y;
+    ctx.save();
+    const halo=ctx.createRadialGradient?ctx.createRadialGradient(x,y,2,x,y,24):null;
+    if(halo){halo.addColorStop(0,'rgba(255,204,131,.32)');halo.addColorStop(.34,'rgba(255,174,91,.12)');halo.addColorStop(1,'rgba(255,174,91,0)');ctx.fillStyle=halo;ctx.beginPath();ctx.arc(x,y,24,0,TAU);ctx.fill();}
+    ctx.fillStyle='rgba(255,198,121,.28)';ctx.beginPath();ctx.arc(x,y,7,0,TAU);ctx.fill();
+    ctx.fillStyle='#ffd59a';ctx.beginPath();ctx.arc(x,y,3.2,0,TAU);ctx.fill();
+    ctx.restore();
+    return point;
+  }
+  function draw(ctx,w,h,view,rect={left:0,top:0,width:w,height:h},star=null){
     ctx.save();ctx.fillStyle="#070b10";ctx.fillRect(0,0,w,h);
     const frame=root.HWPlanetOrbit?.basis(view.latitude,view.longitude);
     if(!frame){ctx.restore();return;}
@@ -73,7 +88,9 @@
       if(!point||point.x< -star.radius||point.x>w+star.radius||point.y< -star.radius||point.y>h+star.radius)continue;
       ctx.fillStyle=star.color;ctx.beginPath();ctx.arc(point.x,point.y,star.radius,0,TAU);ctx.fill();
     }
+    const point=drawRecordedStar(ctx,star,p,view,rect,w,h);
     ctx.restore();
+    return point;
   }
   root.HWOrbitBackground={draw,projectDirection};
   if(typeof module!=='undefined'&&module.exports)module.exports=root.HWOrbitBackground;

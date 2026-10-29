@@ -47,6 +47,12 @@ Build one planet with persistent provinces, terrain, settlements, facilities and
 
 Generation follows Universe -> Galactic region -> Sector -> System -> Planet -> Geography. Derive versioned sub-seeds using stable parent IDs and domain labels, independently of traversal order. Persist IDs, configuration, generator version and initial geography. Never regenerate established data during loading. Construction, warfare, exploration and other changes create recorded revisions. Keep campaign seeds and undiscovered output server-side.
 
+New demo creation may explicitly opt into saved `static-v1` astronomy. Record a
+frozen epoch, local-system frame/units, physical star/planet positions and radii,
+and planet orientation; never backfill existing campaigns from chart coordinates.
+Public projection remains surveyed-only. Native Orbit uses recorded host-star
+bearings/light and an explicit Locate control. See `docs/reviews/celestial-stars.md`.
+
 ## 5. Atomic saves, recovery and safe archives
 
 One database transaction checks the base revision, validates/calculates the turn, stores inputs/outcomes/events and an immutable full snapshot, advances current state and enqueues a Drive archive job. Commit all or none.

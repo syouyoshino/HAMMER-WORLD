@@ -3,6 +3,7 @@ import hashlib
 import random
 
 from .detail_assets import detail_reference, project_detail_reference
+from . import astronomy as astronomy_records
 
 from .engine import generate_planet
 from .planet_generation import (PRESETS, GEOLOGIES, PLANET_CLASSES, generate_planet_v2, generate_planet_v3,
@@ -18,7 +19,7 @@ def _seed(seed, parent, domain, ordinal=0):
     return int.from_bytes(hashlib.sha256(raw).digest()[:8], "big")
 
 
-def build_universe(campaign_id, seed, *, planet_generator="planet-v1", preset=None, planet_presets=None, geology="none", planet_geologies=None, lake_material=None, polar_caps=None, planet_lake_materials=None, planet_polar_caps=None, feature_names=None, feature_name_overrides=None, detail_assets=None):
+def build_universe(campaign_id, seed, *, planet_generator="planet-v1", preset=None, planet_presets=None, geology="none", planet_geologies=None, lake_material=None, polar_caps=None, planet_lake_materials=None, planet_polar_caps=None, feature_names=None, feature_name_overrides=None, detail_assets=None, astronomy=None):
     """Build the approved compact node hierarchy, settlements and fixture accounts."""
     if planet_generator not in ("planet-v1", "planet-v2", "planet-v3", "planet-v4", "planet-v5", "planet-v6", "planet-v7", "planet-v8", "planet-v9","planet-v10"):
         raise ValueError("unsupported planet generator")
@@ -27,6 +28,8 @@ def build_universe(campaign_id, seed, *, planet_generator="planet-v1", preset=No
     if planet_generator not in ("planet-v8","planet-v9","planet-v10") and (lake_material is not None or polar_caps is not None or planet_lake_materials is not None or planet_polar_caps is not None): raise ValueError("surface materials require planet-v8 or later")
     if planet_generator not in ("planet-v9","planet-v10") and (feature_names is not None or feature_name_overrides is not None):
         raise ValueError("feature naming requires planet-v9")
+    if astronomy not in (None, "static-v1"):
+        raise ValueError("unsupported astronomy version")
     if feature_names is None:
         feature_names = "none"
     if feature_names not in ("none", "generated"):
@@ -197,14 +200,18 @@ def build_universe(campaign_id, seed, *, planet_generator="planet-v1", preset=No
                                    **({"planet_presets":dict(resolved_presets)} if planet_generator in ("planet-v4","planet-v5","planet-v6","planet-v7","planet-v8","planet-v9","planet-v10") else {}),
                                    **({"planet_geologies":dict(resolved_geologies)} if planet_generator in ("planet-v7","planet-v8","planet-v9","planet-v10") else {}),
                                    **({"planet_lake_materials":dict(lakes), "planet_polar_caps":dict(caps)} if planet_generator in ("planet-v8","planet-v9","planet-v10") else {}),
-                                   **({"feature_names":feature_names} if planet_generator in ("planet-v9","planet-v10") else {})},
+                                   **({"feature_names":feature_names} if planet_generator in ("planet-v9","planet-v10") else {}),
+                                   **({"astronomy":astronomy} if astronomy else {})},
                "enemy_allocations":{"farmers":14,"technicians":2}, "adjacency":[[hsys,gsys],[gsys,dsys]],
                "generation_nonce":rng.randrange(1, 2**31)}
-    return {"turn":0,"nodes":nodes,"links":[{"a":hsys,"b":gsys},{"a":gsys,"b":dsys}],
+    state={"turn":0,"nodes":nodes,"links":[{"a":hsys,"b":gsys},{"a":gsys,"b":dsys}],
         "geography":geography,"settlements":settlements,"facilities":facilities,"projects":[],
         "units":units,"fleets":fleets,"shipments":[],"factions":factions,"expeditions":[],
         "characters":characters,"technologies":[],"discoveries":[],"latest_outcome":None,
         "latest_budget":None,"latest_production":None,"narrative":"","_private":private}
+    if astronomy:
+        state["astronomy"]=astronomy_records.generate(nodes,seed)
+    return state
 
 
 def owned_humans(state):
@@ -388,7 +395,7 @@ def public_state_v2(state):
             tiles.append({"x":x,"y":y,"terrain":codes[code],"province_id":province})
         return {"planet":planet,"provinces":provinces,"tiles":tiles,**project_surface(geo),
                 **({"detail_ref":project_detail_reference(geo["detail_ref"])} if "detail_ref" in geo else {})}
-    return {"turn":state["turn"],"owned_totals":{"population":owned_humans(state),"resources":owned_resources(state)},"nodes":nodes,"links":links,"settlements":settlements,"facilities":facilities,
+    result={"turn":state["turn"],"owned_totals":{"population":owned_humans(state),"resources":owned_resources(state)},"nodes":nodes,"links":links,"settlements":settlements,"facilities":facilities,
         "projects":projects,"units":units,"fleets":fleets,"shipments":shipments,"factions":factions,
         "expeditions":expeditions,"characters":characters,"technologies":list(state["technologies"]),"discoveries":discoveries,
         "latest_outcome":outcomes,"latest_budget":budget,
@@ -396,3 +403,6 @@ def public_state_v2(state):
             for sid,values in state["latest_production"].items() if sid in {s["id"] for s in state["settlements"] if s["owned"]} and isinstance(values,dict)} if state["latest_production"] else None,
         "narrative":state["narrative"],"geography":{pid:project_geometry(geo) for pid,geo in state["geography"].items()
             if pid in visible_ids and next((n for n in visible if n["id"]==pid),{}).get("knowledge")=="surveyed"}}
+    projected_astronomy=astronomy_records.project(state.get("astronomy"),nodes)
+    if projected_astronomy is not None:result["astronomy"]=projected_astronomy
+    return result

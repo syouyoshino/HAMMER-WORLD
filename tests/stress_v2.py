@@ -94,6 +94,8 @@ def run(turns=10000):
         db = Store(dsn, schema=schema)
         planet_generator = os.environ.get("WOLD_TEST_PLANET_GENERATOR", "planet-v1")
         creation = {}
+        if "WOLD_STRESS_ASTRONOMY" in os.environ:
+            creation["astronomy"] = os.environ["WOLD_STRESS_ASTRONOMY"]
         if "WOLD_TEST_PLANET_PRESET" in os.environ:
             creation["preset"] = os.environ["WOLD_TEST_PLANET_PRESET"]
         if "WOLD_TEST_PLANET_PRESETS" in os.environ:
@@ -112,6 +114,7 @@ def run(turns=10000):
             creation["feature_names"] = os.environ["WOLD_TEST_FEATURE_NAMES"]
         initial_id = db.create_demo_v2("long-run", seed=4242, planet_generator=planet_generator, **creation)
         current = db.current("long-run")["snapshot"]
+        saved_astronomy = current["state"].get("astronomy")
         detail_metrics = {}
         if planet_generator == "planet-v10":
             with db.connect() as connection:
@@ -136,6 +139,8 @@ def run(turns=10000):
             current = db.current("long-run")["snapshot"]
             state = current["state"]
             assert current["turn"] == turn
+            if saved_astronomy is not None:
+                assert state.get("astronomy") == saved_astronomy, (turn, "saved astronomy changed")
             losses = sum(item["count"] for item in committed["outcome"]["deaths"])
             assert owned_humans(state) == before_people - losses, (turn, "population conservation")
             assert owned_humans(state) > 1000, (turn, "fixture collapsed")
@@ -164,6 +169,8 @@ def run(turns=10000):
         for turn, (snapshot_id, checksum) in checkpoints.items():
             snapshot = db.snapshot(snapshot_id)
             assert snapshot["turn"] == turn and snapshot["state_hash"] == checksum
+            if saved_astronomy is not None:
+                assert snapshot["state"].get("astronomy") == saved_astronomy
         restored = db.restore("long-run", initial_id, "restored-initial")
         branch = db.snapshot(restored)
         original = db.snapshot(initial_id)
@@ -193,6 +200,7 @@ def run(turns=10000):
         assert total == turns + 1 and page[-1]["turn"] == turns
         return {"connected_stress": "PASS", "planet_generator": planet_generator, "creation_options": creation, "turns": turns, "seconds": round(time.monotonic() - started, 2),
                 "geography_hash": geography_hash,
+                **({"astronomy_hash": hashlib.sha256(json.dumps(saved_astronomy, sort_keys=True).encode()).hexdigest()} if saved_astronomy is not None else {}),
                 "population": owned_humans(state), "largest_state_bytes": largest,
                 "current_read_ms": round(current_ms, 1), "history_50_ms": round(history_ms, 1), **metrics, **detail_metrics}
     finally:

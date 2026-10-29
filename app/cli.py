@@ -36,6 +36,8 @@ def main():
     q.add_argument("--planet-polar-caps", action="append", default=[], metavar="PLANET_ID=CHOICE")
     q.add_argument("--feature-names", choices=("none", "generated"), default=None)
     q.add_argument("--feature-names-file", default=None, metavar="JSON")
+    q.add_argument("--astronomy", choices=("static-v1",), default=None,
+                   help="save deterministic frozen system coordinates for this new demo only")
     q.add_argument("--catalog", action="store_true", help="validate in memory and print a hydrography authoring catalog without opening the database")
     q=sub.add_parser("packet"); q.add_argument("campaign_id")
     q=sub.add_parser("preview"); q.add_argument("campaign_id"); q.add_argument("proposal")
@@ -106,7 +108,8 @@ def main():
                     preset=args.preset, planet_presets=args.planet_presets, geology=args.geology or "none",
                     planet_geologies=args.planet_geologies, lake_material=args.lake_material, polar_caps=args.polar_caps,
                     planet_lake_materials=args.planet_lake_materials, planet_polar_caps=args.planet_polar_caps_map,
-                    feature_names=args.feature_names, feature_name_overrides=args.feature_name_overrides, detail_assets=detail_assets)
+                    feature_names=args.feature_names, feature_name_overrides=args.feature_name_overrides, detail_assets=detail_assets,
+                    astronomy=args.astronomy)
                 Store.validate_state(V2_SCHEMA, V2_RULES, 0, state)
             except (ValueError, TypeError) as exc:
                 p.error(str(exc))
@@ -140,7 +143,8 @@ def main():
                               geology=args.geology or "none",planet_geologies=args.planet_geologies,
                               lake_material=args.lake_material, polar_caps=args.polar_caps,
                               planet_lake_materials=args.planet_lake_materials, planet_polar_caps=args.planet_polar_caps_map,
-                              feature_names=args.feature_names, feature_name_overrides=args.feature_name_overrides)
+                              feature_names=args.feature_names, feature_name_overrides=args.feature_name_overrides,
+                              astronomy=args.astronomy)
         out={"campaign_id":args.campaign_id,"snapshot_id":sid,"campaigns":db.campaigns()}
     elif args.command=="packet": out=db.packet(args.campaign_id)
     elif args.command in ("preview","import-turn"):

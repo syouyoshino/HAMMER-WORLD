@@ -7,7 +7,7 @@ import json,time,hashlib,math,os
 from pathlib import Path
 from playwright.sync_api import sync_playwright
 ROOT=Path(__file__).resolve().parents[1]
-HOOK='''(()=>{const id=setInterval(()=>{if(!window.HWPlanetOrbit||!window.HWMapRenderer)return;clearInterval(id);const m=window.HWPlanetOrbit,create=m.create;m.create=function(...args){const r=create(...args);if(r){window.__orbitEngine=r;const render=r.render;r.render=function(source,revision,w,h,view,rect){const start=performance.now();const result=render.call(this,source,revision,w,h,view,rect);window.__orbitAudit={view:{...view},rect,w,h,revision,ms:performance.now()-start,result};return result;};}return r;};const r=window.HWMapRenderer,draw=r.drawPlanet;r.drawPlanet=function(ctx,o){const t=draw(ctx,o);window.__surfaceAudit={o,t};return t;};},5);})()'''
+HOOK='''(()=>{const id=setInterval(()=>{if(!window.HWPlanetOrbit||!window.HWMapRenderer)return;clearInterval(id);const m=window.HWPlanetOrbit,create=m.create;m.create=function(...args){const r=create(...args);if(r){window.__orbitEngine=r;const render=r.render;r.render=function(source,revision,w,h,view,rect,starDirection){const start=performance.now();const result=render.call(this,source,revision,w,h,view,rect,starDirection);window.__orbitAudit={view:{...view},starDirection:starDirection?[...starDirection]:null,rect,w,h,revision,ms:performance.now()-start,result};return result;};}return r;};const r=window.HWMapRenderer,draw=r.drawPlanet;r.drawPlanet=function(ctx,o){const t=draw(ctx,o);window.__surfaceAudit={o,t};return t;};},5);})()'''
 def wait_mode(page,mode):
  page.wait_for_function('mode=>document.querySelector("#orbit-toggle")?.textContent.trim()===mode',arg=mode,timeout=90000);page.wait_for_timeout(600)
 def open_campaign(page,cid):
@@ -24,6 +24,10 @@ def main():
      page.goto(BASE);page.wait_for_selector(f'#campaign-select option[value="{CAMPAIGN}"]',state='attached')
      if page.locator('[data-dialog-close]').is_visible():page.locator('[data-dialog-close]').click()
      open_campaign(page,CAMPAIGN);page.screenshot(path=str(OUT/'01-globe.png'));initial=view(page)
+     saved_astronomy=page.request.get(f'{BASE}/api/player/campaigns/{CAMPAIGN}').json()['state'].get('astronomy')
+     if not saved_astronomy:
+      assert page.locator('#orbit-star-locate').is_visible() and page.locator('#orbit-star-locate').is_disabled()
+      assert page.locator('#orbit-star-locate').inner_text()=='Star unlocated'
      page.locator('#zoom-in').click();after_in=view(page);assert after_in['distance']<initial['distance'],'Orbit zoom-in button did not descend'
      page.locator('#zoom-out').click();assert view(page)['distance']>after_in['distance'],'Orbit zoom-out button did not pull back'
      page.locator('#zoom-reset').click();assert abs(view(page)['distance']-2.45)<1e-8,'Orbit reset failed'

@@ -745,3 +745,30 @@ change product code; unrecovered cartography and the character branch are untouc
 This remains an interface release candidate without merge or deployment.
 
 Delivery implementation/review: `4335f6f` on `map-generation`.
+
+
+## Saved stellar astronomy — 29 October 2026
+
+The user's chosen direction is opt-in generated astronomy for NEW demos.
+`init-v2 --astronomy static-v1` persists frozen epoch0 system positions/radii and
+aligned planet frames without altering existing campaigns/default outputs.
+Survey knowledge filtering applies before player serialization. In native Orbit,
+the recorded host star drives its named marker and directional globe light;
+Locate star explicitly navigates to it. Marker scale is disclosed; old native
+records show Star unlocated. Initial home and Surface/management context remain.
+
+Read `docs/reviews/celestial-stars.md` for the exact creation command, field
+contract, independent high/medium acceptances and rejected camera-projection
+candidate. Final tests include private API/persistence/history/restore, 240 legacy
+hashes, 10,000 connected turns preserving astronomy, actual Chromium star-camera
+ray/lighting/occlusion/touch/history/fallback checks and desktop sizing/resource
+observations. Native macOS Safari/WebKit and production FPS remain unverified.
+Night-side terrain surveying stays a medium, nonblocking stellar-view limitation.
+
+Integration: retain optional fields unchanged in old snapshots; never infer a
+bearing from topological chart x/y. Keep saved-body camera projection separate
+from decorative sky projection, and preserve the public allowlist if unrecovered
+cartography is integrated. The surface generator/renderer, province IDs and
+character-relationships branch are untouched. Dynamic orbits or additional body
+classes require a future explicit version; do not reinterpret frozen epoch0 as a
+live ephemeris. Runtime evidence/databases remain ignored. No merge/deployment.

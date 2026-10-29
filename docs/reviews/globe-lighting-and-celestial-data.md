@@ -89,3 +89,8 @@ already separates unlocated bodies. No duplicate locator panel or invented sky
 positions were added. This is a precise feature blocker, not claimed completion.
 
 Delivery implementation/review: `4335f6f` on `map-generation`.
+
+
+Continuation: `celestial-stars.md` records the subsequently authorized opt-in
+static astronomy model for NEW demos. The missing-data findings above still apply
+to existing snapshots; no old records were converted or assigned false bearings.

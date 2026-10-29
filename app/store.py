@@ -18,6 +18,7 @@ from .engine import (RULES_VERSION, SCHEMA_VERSION, advance, canonical_json, dig
 from . import engine_v2
 from .detail_assets import asset_bytes, detail_reference, validate_detail_reference, project_detail_reference
 from .universe import V2_RULES, V2_SCHEMA, RESOURCES, owned_humans, public_state_v2
+from . import astronomy as astronomy_records
 from .universe import build_universe
 from .planet_generation import GEOLOGIES, PLANET_CLASSES, PRESETS, resolve_planet_presets, validate_surface
 
@@ -210,6 +211,7 @@ class Store:
                    (n.get("kind") in parent_kind and ((parent_kind[n["kind"]] is None and n.get("parent_id") is not None) or (parent_kind[n["kind"]] is not None and (n.get("parent_id") is None or nodes[n["parent_id"]].get("kind")!=parent_kind[n["kind"]])))) or
                    (n.get("knowledge")!="hidden" and n.get("parent_id") is not None and nodes[n["parent_id"]].get("knowledge")=="hidden") for n in state["nodes"]):
                 raise ValueError("snapshot v2 hierarchy invariant failed")
+            astronomy_records.validate(state)
             planet_ids={nid for nid,node in nodes.items() if node.get("kind")=="planet"}
             geography=state.get("geography")
             if not isinstance(geography,dict) or set(geography)!=planet_ids:
@@ -379,7 +381,7 @@ class Store:
             c.execute("INSERT INTO outbox(snapshot_id,status) VALUES(%s,'pending')", (sid,))
             return sid
 
-    def create_demo_v2(self, campaign_id="demo-v2", seed=741903, *, planet_generator="planet-v1", preset=None, planet_presets=None, geology="none", planet_geologies=None, lake_material=None, polar_caps=None, planet_lake_materials=None, planet_polar_caps=None, feature_names=None, feature_name_overrides=None):
+    def create_demo_v2(self, campaign_id="demo-v2", seed=741903, *, planet_generator="planet-v1", preset=None, planet_presets=None, geology="none", planet_geologies=None, lake_material=None, polar_caps=None, planet_lake_materials=None, planet_polar_caps=None, feature_names=None, feature_name_overrides=None, astronomy=None):
         if planet_generator not in ("planet-v4","planet-v5","planet-v6","planet-v7","planet-v8","planet-v9","planet-v10") and (preset is not None or planet_presets is not None or planet_geologies is not None):
             raise ValueError("planet presets require planet-v4 or later")
         if planet_generator in ("planet-v4","planet-v5","planet-v6","planet-v7","planet-v8","planet-v9","planet-v10"):
@@ -399,7 +401,7 @@ class Store:
             state=build_universe(campaign_id,seed,planet_generator=planet_generator,preset=preset,planet_presets=planet_presets,geology=geology,planet_geologies=planet_geologies,
                                  lake_material=lake_material, polar_caps=polar_caps,
                                  planet_lake_materials=planet_lake_materials, planet_polar_caps=planet_polar_caps,
-                                 feature_names=feature_names, feature_name_overrides=feature_name_overrides, detail_assets=detail_assets)
+                                 feature_names=feature_names, feature_name_overrides=feature_name_overrides, detail_assets=detail_assets, astronomy=astronomy)
             self.validate_state(V2_SCHEMA,V2_RULES,0,state)
             self._persist_detail_assets(c, state, detail_assets)
             sid=str(uuid.uuid4()); h=self.snapshot_hash(campaign_id,0,state,V2_SCHEMA,V2_RULES)
@@ -484,6 +486,10 @@ class Store:
         if not snap: raise ValueError("pre-game campaign has no map")
         if (snap["schema_version"],snap["rules_version"])!=(V2_SCHEMA,V2_RULES): raise ValueError("hierarchy maps are available in demo-v2")
         projected=public_state_v2(snap["state"]); visible={n["id"]:n for n in projected["nodes"]}
+        def add_astronomy(payload, system_id):
+            saved=astronomy_records.project(snap["state"].get("astronomy"),projected["nodes"],system_id)
+            if saved is not None:payload["astronomy"]=saved
+            return payload
         regions=[n for n in projected["nodes"] if n["kind"]=="region"]
         if level=="galactic":
             groups=[]; sectors=[]
@@ -505,8 +511,8 @@ class Store:
             bodies=[n for n in projected["nodes"] if n["kind"] in ("star","belt") and n["parent_id"]==parent["id"]]
             for planet in planets:
                 planet["moons"]=[n for n in projected["nodes"] if n["kind"]=="moon" and n["parent_id"]==planet["id"]]
-            return {"campaign_id":campaign_id,"snapshot_id":snap["id"],"turn":snap["turn"],"level":level,
-                "parent":parent,"nodes":planets,"bodies":bodies,"links":[],"overlay":overlay,"records":[]}
+            return add_astronomy({"campaign_id":campaign_id,"snapshot_id":snap["id"],"turn":snap["turn"],"level":level,
+                "parent":parent,"nodes":planets,"bodies":bodies,"links":[],"overlay":overlay,"records":[]},parent["id"])
         selected=parent
         geometry=projected["geography"].get(selected["id"])
         moons=[n for n in projected["nodes"] if n["kind"]=="moon" and n["parent_id"]==selected["id"]]
@@ -535,8 +541,8 @@ class Store:
                 else:
                     record={"province_id":province["id"],"ownership":"owned" if any(s.get("owned") for s in owners) else ("foreign" if owners else "unknown")}
                 records.append(record)
-        return {"campaign_id":campaign_id,"snapshot_id":snap["id"],"turn":snap["turn"],"level":"planet",
-                "parent":selected,"selected_planet":selected,"moons":moons,"geometry":geometry,"overlay":overlay,"records":records,"links":[]}
+        return add_astronomy({"campaign_id":campaign_id,"snapshot_id":snap["id"],"turn":snap["turn"],"level":"planet",
+                "parent":selected,"selected_planet":selected,"moons":moons,"geometry":geometry,"overlay":overlay,"records":records,"links":[]},selected.get("parent_id"))
 
     def _snapshot_for_campaign(self,campaign_id,snapshot_id):
         with self.connect() as c:
