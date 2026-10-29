@@ -774,3 +774,33 @@ classes require a future explicit version; do not reinterpret frozen epoch0 as a
 live ephemeris. Runtime evidence/databases remain ignored. No merge/deployment.
 
 Delivery implementation/tests/review: `1887986` on `map-generation`.
+
+## Explicit planet radius and celestial destinations — 29 October 2026
+
+New `planet-v11` demos require explicit metre radii globally/per planet; there is no
+Earth-sized default. Size changes actual terrain wavelengths, coast/island grain,
+crater/lake sampling and resolution disclosure, while preserving independent
+water/lava/hydrocarbon/no-liquid/ice choices. Exact decimal strings support very
+small/large fictional sizes within documented representation limits. The fixed
+1024×640 overview does not promise unlimited local detail. Existing records remain
+unchanged. Optional static-v1 astronomy has its own exact whole-kilometre range.
+
+Stars/moons/known planets now have main-area destinations; surveyed planets use real
+maps. Unknown details stay unknown. A context-bound return ticket restores original
+camera, selection and overlay across body changes, and clears on history/campaign/
+auth changes. Focused stellar glow respects reduced motion; no ring/flare data is
+invented. Light/dark remain available. Desktop scope retained.
+
+Read `docs/reviews/physical-scale-and-body-focus.md` for the final contract, creation
+example, independent critique/resolutions, browser/performance evidence, research
+limits and continuation. Luna's popup and regular large-world terrain candidates
+were rejected, then corrected by bounded Sol medium work; Sol high approved numeric
+and authority contracts and final kernel. The same critic accepted scoped quality,
+with minor coast stepping, occasional square islands and weak directional relief.
+
+Integrate recovered work through optional V11 metadata and immutable detail hashes;
+keep old versions unchanged, public allowlists and context-epoch guards intact.
+The character-relationships branch is untouched. Future deep zoom requires bounded
+real detail tiles; future rings/dynamic orbits require recorded versioned data.
+This is an interface release candidate, without merge, deployment or canonical-data
+recovery claims. Verified delivery reference follows after final checks.

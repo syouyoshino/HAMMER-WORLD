@@ -9,13 +9,14 @@ import heapq
 import math
 
 VERSION = "planet-v2"
-SURFACE_VERSIONS = (VERSION, "planet-v3", "planet-v4", "planet-v5", "planet-v6", "planet-v7", "planet-v8", "planet-v9", "planet-v10")
+SURFACE_VERSIONS = (VERSION, "planet-v3", "planet-v4", "planet-v5", "planet-v6", "planet-v7", "planet-v8", "planet-v9", "planet-v10", "planet-v11")
 WIDTH, HEIGHT, SEA_LEVEL = 64, 40, 400
 V5_WIDTH, V5_HEIGHT = 128, 80
 V6_WIDTH, V6_HEIGHT = 128, 80
 FIELDS = ("elevation", "temperature", "moisture", "drainage", "accumulation")
 SURFACE_KEYS = {"version", "sea_level", *FIELDS, "rivers"}
 V10_SURFACE_KEYS = {"version", "preset", "topology", "hydrology", "sea_level", "geology", "lake_material", "polar_caps"}
+V11_SURFACE_KEYS = V10_SURFACE_KEYS | {"radius_m", "equatorial_circumference_m_approx", "equatorial_sample_m_approx", "circumference_factor_approx", "detail_width_px", "detail_height_px", "physical_bands", "physical_octaves", "scale_model"}
 PRESETS = ("continental", "archipelago", "oceanic", "arid", "barren", "frozen")
 PLANET_CLASSES = {"continental":"terrestrial", "archipelago":"oceanic", "oceanic":"oceanic",
                   "arid":"arid", "barren":"barren", "frozen":"ice"}
@@ -626,8 +627,18 @@ def project_surface(geometry):
     surface = geometry.get("surface")
     if not isinstance(surface, dict) or surface.get("version") not in SURFACE_VERSIONS:
         return {}
-    if surface["version"] == "planet-v10":
-        return {"surface":{key:surface[key] for key in V10_SURFACE_KEYS}}
+    if surface["version"] in ("planet-v10", "planet-v11"):
+        if surface["version"] == "planet-v10":
+            return {"surface":{key:surface[key] for key in V10_SURFACE_KEYS}}
+        from .planet_scale import PHYSICAL_WAVELENGTHS_M
+        projected={key:surface[key] for key in (V10_SURFACE_KEYS-{"version"})}
+        projected.update({key:surface[key] for key in ("version","radius_m","equatorial_circumference_m_approx","equatorial_sample_m_approx","circumference_factor_approx","detail_width_px","detail_height_px","scale_model")})
+        bands=surface.get("physical_bands",{})
+        projected["physical_bands"]={name:bands.get(name) for name in PHYSICAL_WAVELENGTHS_M}
+        octaves=surface.get("physical_octaves",{})
+        projected["physical_octaves"]={name:{field:octaves.get(name,{}).get(field) for field in ("wavelength_m","sample_period_px","status")}
+                                        for name in PHYSICAL_WAVELENGTHS_M}
+        return {"surface":projected}
     projected={"version":surface["version"],"sea_level":surface["sea_level"],
                **{key:list(surface[key]) for key in FIELDS},
                "rivers":[{"id":r["id"],"points":[[p[0],p[1]] for p in r["points"]]} for r in surface["rivers"]]}
@@ -654,7 +665,7 @@ def validate_surface(geometry):
         return
     surface = geometry["surface"]
     version = surface.get("version") if isinstance(surface,dict) else None
-    if version == "planet-v10":
+    if version in ("planet-v10", "planet-v11"):
         _validate_v10_summary(geometry)
         return
     expected_keys = SURFACE_KEYS | {"preset","hydrology"} if version in ("planet-v4","planet-v5") else SURFACE_KEYS
@@ -773,7 +784,22 @@ def validate_surface(geometry):
 def _validate_v10_summary(geometry):
     """V10 snapshots hold strategic summaries, never their canonical fine arrays."""
     surface = geometry["surface"]
-    if set(surface) != V10_SURFACE_KEYS or surface.get("preset") not in PRESETS or surface.get("topology") != "cylinder-x":
+    version = surface.get("version")
+    if version == "planet-v11":
+        from .planet_scale import canonical_radius, metadata, physical_octave_periods
+        from .planet_v11 import scale_bands
+        if set(surface) != V11_SURFACE_KEYS:
+            raise ValueError("invalid V11 physical scale metadata")
+        canonical = canonical_radius(surface.get("radius_m"))
+        if canonical != surface.get("radius_m") or any(surface.get(k) != v for k,v in metadata(canonical).items()):
+            raise ValueError("invalid V11 physical scale metadata")
+        if (surface.get("scale_model") != "fictional-wavelengths-v1"
+                or surface.get("physical_bands") != scale_bands(canonical)
+                or surface.get("physical_octaves") != physical_octave_periods(canonical)):
+            raise ValueError("invalid V11 physical scale bands")
+    elif set(surface) != V10_SURFACE_KEYS:
+        raise ValueError("invalid V10 strategic surface metadata")
+    if surface.get("preset") not in PRESETS or surface.get("topology") != "cylinder-x":
         raise ValueError("invalid V10 strategic surface metadata")
     dry = surface["preset"] in ("arid", "barren", "frozen")
     if (surface.get("hydrology") != ("none" if dry else "ocean-draining")

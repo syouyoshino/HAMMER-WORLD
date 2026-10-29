@@ -280,3 +280,13 @@ On separate `map-generation`, implementation `c5e9516` adds opt-in V3 saved terr
 ## Temporary local QA environment
 
 PostgreSQL 17 QA runs in Docker on loopback port 55432. Protected connection values are in `/tmp/hammer-app.env`; never print or commit them. Psycopg dependencies are under `/tmp/hammer-python-deps`; PostgreSQL client tools and WebKit Linux dependencies are under `/tmp/hammer-webkit-deps/root`; Caddy is `/tmp/hammer-caddy`; Playwright browsers are `/tmp/hammer-world-browsers`. These temporary tools are not deployment configuration. Tests use disposable schemas and recovery databases. Credentials, databases, dumps and generated captures/reports are ignored by Git.
+
+## 29 October 2026 — map-generation interface candidate
+
+Explicit-radius V11 generation and context-preserving star/planet/moon destinations
+are implemented on `map-generation`; old versions/campaigns remain unchanged.
+There is no Earth-size default. The finite overview reports unresolved detail.
+Read `docs/reviews/physical-scale-and-body-focus.md` and the branch notes for numeric
+contracts, independent critique corrections, browser/resource evidence, final
+stress results and remaining minor limits. No merge/deployment or unrecovered
+cartography/real-campaign recovery is implied. Light/dark and desktop scope remain.

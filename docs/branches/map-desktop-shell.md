@@ -170,3 +170,11 @@ The separate [V8 surface-material continuation](../reviews/surface-materials.md)
 adds new-campaign lake/cap options and reviews annotation/material clarity. Its
 own persistence gate status and scoped limitations are recorded there; it does
 not extend this shell's acceptance to operational deployment or physical realism.
+
+### Continuation on map-generation — 29 October 2026
+
+Physical-scale generation and celestial focus navigation continue on the separate
+`map-generation` branch. See `docs/reviews/physical-scale-and-body-focus.md` and
+`docs/branches/map-generation.md`. Preserve the command shell, appearance toggle,
+context invalidation and public projections when integrating; this work does not
+merge the character branch or unrecovered cartography.

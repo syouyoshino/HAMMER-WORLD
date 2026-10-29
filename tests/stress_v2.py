@@ -96,6 +96,10 @@ def run(turns=10000):
         creation = {}
         if "WOLD_STRESS_ASTRONOMY" in os.environ:
             creation["astronomy"] = os.environ["WOLD_STRESS_ASTRONOMY"]
+        if "WOLD_TEST_RADIUS_M" in os.environ:
+            creation["radius_m"] = os.environ["WOLD_TEST_RADIUS_M"]
+        if "WOLD_TEST_PLANET_RADII_M" in os.environ:
+            creation["planet_radii_m"] = json.loads(os.environ["WOLD_TEST_PLANET_RADII_M"])
         if "WOLD_TEST_PLANET_PRESET" in os.environ:
             creation["preset"] = os.environ["WOLD_TEST_PLANET_PRESET"]
         if "WOLD_TEST_PLANET_PRESETS" in os.environ:
@@ -116,7 +120,7 @@ def run(turns=10000):
         current = db.current("long-run")["snapshot"]
         saved_astronomy = current["state"].get("astronomy")
         detail_metrics = {}
-        if planet_generator == "planet-v10":
+        if planet_generator in ("planet-v10", "planet-v11"):
             with db.connect() as connection:
                 row = connection.execute("SELECT count(*) AS detail_assets, sum(byte_length) AS detail_bytes FROM planet_detail_assets").fetchone()
             detail_metrics = dict(row)
@@ -179,7 +183,7 @@ def run(turns=10000):
         branch_state["_private"]["campaign_id"] = "long-run"
         assert branch_state == original["state"]
         assert db.current("long-run")["snapshot"]["turn"] == turns
-        if planet_generator == "planet-v10":
+        if planet_generator in ("planet-v10", "planet-v11"):
             for cid, sid in (("long-run", None), ("long-run", initial_id), ("restored-initial", restored)):
                 detail = db.planet_detail(cid, "long-run-planet-reach", sid)
                 assert hashlib.sha256(json.dumps(detail["detail"], sort_keys=True).encode()).hexdigest() == initial_detail_hash

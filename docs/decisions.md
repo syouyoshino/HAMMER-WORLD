@@ -370,3 +370,20 @@ read only; old native snapshots expose Star unlocated instead of invented data.
 This first model is a frozen single-star layout without orbital motion, moon/belt
 positions, cross-system astronomy or photometric simulation. See
 `docs/reviews/celestial-stars.md` for reviews, corrections, tests and limitations.
+
+## 29 October 2026 — Explicit physical scale and context-bound body destinations
+
+Opt-in `planet-v11` requires a physical radius for every new demo planet, with no
+Earth-size default. Decimal text with bounded representation keeps enormous/small
+fictional sizes out of JS float arithmetic and radius-sized allocations. Terrain
+uses scale-dependent bands over a fixed overview; unresolved detail is disclosed.
+Broad warped land probability is separate from physical wavelengths to avoid a
+large-world checkerboard. Existing V1–V10 records are not regenerated. Static-v1
+astronomy retains its whole-kilometre format; incompatible combinations reject.
+
+Celestial selections use the main map area and actual recorded maps when surveyed,
+with honest unknown silhouettes otherwise. One campaign/snapshot/epoch-bound memory
+ticket restores map context; invalidation removes identity and references. Motion
+is illustrative and reduced-motion aware, without invented rings or flare events.
+Read `docs/reviews/physical-scale-and-body-focus.md` for independent rejected
+candidates, corrections, evidence and finite-detail limits. No deployment/merge.

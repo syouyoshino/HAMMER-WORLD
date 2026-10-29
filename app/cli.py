@@ -5,6 +5,8 @@ from .sqlite_migration import import_sqlite
 from .store import Store
 from .planet_generation import GEOLOGIES, PRESETS, LAKE_MATERIALS, POLAR_CAPS
 from .universe import build_universe, V2_SCHEMA, V2_RULES
+from .planet_scale import radius_for_planet
+from decimal import Decimal
 
 
 def _unique_object(pairs):
@@ -21,7 +23,7 @@ def main():
     sub=p.add_subparsers(dest="command",required=True)
     sub.add_parser("init")
     q=sub.add_parser("init-v2"); q.add_argument("--campaign-id",default="demo-v2"); q.add_argument("--seed",type=int,default=741903)
-    q.add_argument("--planet-generator",choices=("planet-v1","planet-v2","planet-v3","planet-v4","planet-v5","planet-v6","planet-v7","planet-v8","planet-v9","planet-v10"),default="planet-v1",
+    q.add_argument("--planet-generator",choices=("planet-v1","planet-v2","planet-v3","planet-v4","planet-v5","planet-v6","planet-v7","planet-v8","planet-v9","planet-v10","planet-v11"),default="planet-v1",
                    help="generator for a new isolated demo; existing campaigns are never regenerated")
     q.add_argument("--preset",choices=("auto",*PRESETS),default=None,
                    help="planet-v4 through v10 water/surface preset applied to every planet unless overridden")
@@ -38,6 +40,8 @@ def main():
     q.add_argument("--feature-names-file", default=None, metavar="JSON")
     q.add_argument("--astronomy", choices=("static-v1",), default=None,
                    help="save deterministic frozen system coordinates for this new demo only")
+    q.add_argument("--radius-m", default=None, metavar="DECIMAL", help="planet-v11 physical radius in metres; positive decimal string")
+    q.add_argument("--planet-radius-m", action="append", default=[], metavar="PLANET_ID=DECIMAL", help="planet-v11 per-planet radius override; repeat as needed")
     q.add_argument("--catalog", action="store_true", help="validate in memory and print a hydrography authoring catalog without opening the database")
     q=sub.add_parser("packet"); q.add_argument("campaign_id")
     q=sub.add_parser("preview"); q.add_argument("campaign_id"); q.add_argument("proposal")
@@ -67,9 +71,32 @@ def main():
             if choice not in GEOLOGIES: p.error(f"unsupported planet geology: {choice}")
             geologies[planet_id]=choice
         args.planet_geologies=geologies or None
-        if args.planet_generator not in ("planet-v4","planet-v5","planet-v6","planet-v7","planet-v8","planet-v9","planet-v10") and (args.preset is not None or args.planet_presets is not None):
-            p.error("--preset and --planet-preset require planet-v4 through planet-v10")
-        if args.planet_generator not in ("planet-v7","planet-v8","planet-v9","planet-v10") and (args.geology is not None or args.planet_geologies is not None):
+        radius_overrides={}
+        for value in args.planet_radius_m:
+            if "=" not in value: p.error("--planet-radius-m must be PLANET_ID=DECIMAL")
+            planet_id, raw=value.split("=",1)
+            if planet_id in radius_overrides: p.error(f"duplicate --planet-radius-m for {planet_id}")
+            if planet_id not in {f"{args.campaign_id}-planet-{suffix}" for suffix in ("reach","ash","haven","veil")}:
+                p.error(f"unknown planet ID: {planet_id}")
+            radius_overrides[planet_id]=raw
+        args.planet_radii_m=radius_overrides or None
+        if args.planet_generator == "planet-v11":
+            if args.radius_m is None and args.planet_radii_m is None: p.error("planet-v11 requires --radius-m or --planet-radius-m")
+            try:
+                resolved=radius_for_planet(args.radius_m,args.planet_radii_m,
+                    {f"{args.campaign_id}-planet-{suffix}" for suffix in ("reach","ash","haven","veil")})
+            except (ValueError,TypeError) as exc:
+                p.error(str(exc))
+            if args.astronomy == "static-v1":
+                for value in resolved.values():
+                    radius=Decimal(value)
+                    if radius<1_000_000 or radius>100_000_000 or radius%1000!=0:
+                        p.error("static-v1 requires planet-v11 radii from 1,000 to 100,000 whole kilometres; omit --astronomy static-v1")
+        elif args.radius_m is not None or args.planet_radii_m is not None:
+            p.error("physical radius options require --planet-generator planet-v11")
+        if args.planet_generator not in ("planet-v4","planet-v5","planet-v6","planet-v7","planet-v8","planet-v9","planet-v10","planet-v11") and (args.preset is not None or args.planet_presets is not None):
+                p.error("--preset and --planet-preset require planet-v4 through planet-v11")
+        if args.planet_generator not in ("planet-v7","planet-v8","planet-v9","planet-v10","planet-v11") and (args.geology is not None or args.planet_geologies is not None):
             p.error("--geology and --planet-geology require --planet-generator planet-v7 or later")
         for option, destination, choices in (("planet_lake_material", "planet_lake_materials", LAKE_MATERIALS),
                                                ("planet_polar_caps", "planet_polar_caps_map", POLAR_CAPS)):
@@ -85,10 +112,10 @@ def main():
                 overrides[planet_id] = choice
             setattr(args, destination, overrides or None)
         if args.planet_generator != "planet-v8" and (args.lake_material is not None or args.polar_caps is not None or args.planet_lake_materials is not None or args.planet_polar_caps_map is not None):
-            if args.planet_generator not in ("planet-v9","planet-v10"): p.error("surface material options require --planet-generator planet-v8 or later")
+            if args.planet_generator not in ("planet-v9","planet-v10","planet-v11"): p.error("surface material options require --planet-generator planet-v8 or later")
         feature_file = None
         if args.feature_names_file:
-            if args.planet_generator not in ("planet-v9","planet-v10"): p.error("--feature-names-file requires --planet-generator planet-v9")
+            if args.planet_generator not in ("planet-v9","planet-v10","planet-v11"): p.error("--feature-names-file requires --planet-generator planet-v9")
             try:
                 with open(args.feature_names_file, encoding="utf8") as f:
                     feature_file = json.load(f, object_pairs_hook=_unique_object)
@@ -96,10 +123,10 @@ def main():
                 p.error(f"invalid feature names JSON: {exc}")
             if not isinstance(feature_file, dict) or any(not isinstance(k, str) or not isinstance(v, dict) for k, v in feature_file.items()):
                 p.error("feature names file must map planet node IDs to feature ID maps")
-        if args.feature_names is not None and args.planet_generator not in ("planet-v9","planet-v10"):
+        if args.feature_names is not None and args.planet_generator not in ("planet-v9","planet-v10","planet-v11"):
             p.error("--feature-names requires --planet-generator planet-v9")
         args.feature_name_overrides = feature_file
-        if args.catalog and args.planet_generator not in ("planet-v9","planet-v10"):
+        if args.catalog and args.planet_generator not in ("planet-v9","planet-v10","planet-v11"):
             p.error("--catalog requires --planet-generator planet-v9")
         if args.catalog:
             try:
@@ -109,13 +136,13 @@ def main():
                     planet_geologies=args.planet_geologies, lake_material=args.lake_material, polar_caps=args.polar_caps,
                     planet_lake_materials=args.planet_lake_materials, planet_polar_caps=args.planet_polar_caps_map,
                     feature_names=args.feature_names, feature_name_overrides=args.feature_name_overrides, detail_assets=detail_assets,
-                    astronomy=args.astronomy)
+                    astronomy=args.astronomy, radius_m=args.radius_m, planet_radii_m=args.planet_radii_m)
                 Store.validate_state(V2_SCHEMA, V2_RULES, 0, state)
             except (ValueError, TypeError) as exc:
                 p.error(str(exc))
             catalog = []
             for planet_id, geo in state["geography"].items():
-                if args.planet_generator == "planet-v10":
+                if args.planet_generator in ("planet-v10","planet-v11"):
                     from collections import Counter
                     payload = detail_assets[geo["detail_ref"]["sha256"]]
                     counts = Counter(payload["feature_index"])
@@ -144,7 +171,7 @@ def main():
                               lake_material=args.lake_material, polar_caps=args.polar_caps,
                               planet_lake_materials=args.planet_lake_materials, planet_polar_caps=args.planet_polar_caps_map,
                               feature_names=args.feature_names, feature_name_overrides=args.feature_name_overrides,
-                              astronomy=args.astronomy)
+                              astronomy=args.astronomy, radius_m=args.radius_m, planet_radii_m=args.planet_radii_m)
         out={"campaign_id":args.campaign_id,"snapshot_id":sid,"campaigns":db.campaigns()}
     elif args.command=="packet": out=db.packet(args.campaign_id)
     elif args.command in ("preview","import-turn"):

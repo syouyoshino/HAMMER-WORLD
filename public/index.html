@@ -57,7 +57,7 @@
         <div id="live-banner" class="live-banner" hidden></div>
         <section id="map-panel" class="map-panel">
           <div class="map-caption drag-handle" data-drag-pane="map-panel"><span id="map-coordinates">GALACTIC CARTOGRAPHY OFFICE · SURVEY GRID</span><span id="map-scale">64 × 40 GRID</span></div>
-          <div class="map-frame"><canvas id="planet-map" aria-label="Planetary terrain map"></canvas><div id="orbit-north-cue" class="orbit-north-cue" role="img" aria-label="North up: globe orientation" hidden><strong aria-hidden="true">N ↑</strong><span aria-hidden="true">NORTH UP</span></div><div id="orbit-landmark-layer" class="orbit-landmark-layer" aria-label="Visible settlements" hidden></div><button id="map-overview-button" class="map-overview-button" type="button" aria-label="Chart extent overview. Activate to center the map here"><span>CHART EXTENT</span><canvas id="map-overview" aria-hidden="true"></canvas></button><div id="map-placeholder" class="map-placeholder" hidden>Planetary survey unavailable<br><small>No campaign geography has been established.</small></div><div id="map-tooltip" class="map-tooltip" hidden></div></div>
+          <div class="map-frame"><canvas id="planet-map" aria-label="Planetary terrain map"></canvas><div id="orbit-north-cue" class="orbit-north-cue" role="img" aria-label="North up: globe orientation" hidden><strong aria-hidden="true">N ↑</strong><span aria-hidden="true">NORTH UP</span></div><div id="orbit-landmark-layer" class="orbit-landmark-layer" aria-label="Visible settlements" hidden></div><div id="body-focus-view" class="body-focus-view" hidden></div><button id="map-overview-button" class="map-overview-button" type="button" aria-label="Chart extent overview. Activate to center the map here"><span>CHART EXTENT</span><canvas id="map-overview" aria-hidden="true"></canvas></button><div id="map-placeholder" class="map-placeholder" hidden>Planetary survey unavailable<br><small>No campaign geography has been established.</small></div><div id="map-tooltip" class="map-tooltip" hidden></div></div>
           <div class="map-legend" id="map-legend"></div>
           <div class="map-footer"><span>◉ Select a province to inspect</span><span id="detail-status" hidden role="status" aria-live="polite">STRATEGIC SURFACE</span><span id="planet-orbit-status" role="status" aria-live="polite">Drag to pan · wheel or buttons to zoom · Recenter preserves scale</span></div>
         </section>
@@ -82,6 +82,7 @@
   <script src="/static/planet-orbit.js" defer></script>
   <script src="/static/orbit-background.js" defer></script>
   <script src="/static/orbit-landmarks.js" defer></script>
+  <script src="/static/body-focus.js" defer></script>
   <script src="/static/military-map.js" defer></script>
   <script src="/static/app.js" defer></script>
 </body>

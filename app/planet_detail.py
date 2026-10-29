@@ -209,7 +209,7 @@ def _climate_terrain(seed,preset,height,ocean):
     return terrain
 
 
-def _materials(seed,choice,caps,height,terrain):
+def _materials(seed,choice,caps,height,terrain,lake_scale_px=None):
     materials=['0']*SIZE
     if caps!='none':
         for x in range(WIDTH):
@@ -217,19 +217,21 @@ def _materials(seed,choice,caps,height,terrain):
             south=(28+_noise(seed,x,0,107,'south-cap')//55)*RESOLUTION
             for y in range(max(5*RESOLUTION,north)): materials[y*WIDTH+x]='i'
             for y in range(HEIGHT-max(5*RESOLUTION,south),HEIGHT): materials[y*WIDTH+x]='i'
-    if choice=='none': return materials
+    if choice=='none' or lake_scale_px==0: return materials
     eligible={i for i,c in enumerate(terrain) if c not in 'oc' and materials[i]=='0'}
     if not eligible: raise ValueError('no eligible fine lake terrain')
     ranked=sorted(eligible,key=lambda i:(height[i],_value(seed,'lake-center',i)))
     used=set();centers=[]
+    separation=(55*RESOLUTION) if lake_scale_px is None else max(4,int(lake_scale_px*2.5))
     for ordinal in range(7):
         center=next((i for i in ranked if i not in used and all(
-            min(abs(i%WIDTH-j%WIDTH),WIDTH-abs(i%WIDTH-j%WIDTH))**2+(i//WIDTH-j//WIDTH)**2>(55*RESOLUTION)**2
+            min(abs(i%WIDTH-j%WIDTH),WIDTH-abs(i%WIDTH-j%WIDTH))**2+(i//WIDTH-j//WIDTH)**2>separation**2
             for j in centers)),None)
         if center is None: break
         centers.append(center);cx,cy=center%WIDTH,center//WIDTH
         queue=[(height[center],center)];queued={center};basin=[]
-        target=(110+_value(seed,'lake-size',ordinal)%460)*RESOLUTION**2
+        target=((110+_value(seed,'lake-size',ordinal)%460)*RESOLUTION**2 if lake_scale_px is None else
+                min(SIZE//12,max(16,int(lake_scale_px*lake_scale_px*.2))))
         while queue and len(basin)<target:
             _,i=heapq.heappop(queue)
             if i in used: continue
@@ -364,6 +366,9 @@ def generate_planet_v10(namespace,seed,preset,geology='none',lake_material='none
 
 def validate_planet_detail(payload,geometry):
     """Validate the saved fine authority and every coarse projection invariant."""
+    if geometry.get('surface',{}).get('version')=='planet-v11':
+        from .planet_generation import validate_surface
+        validate_surface(geometry)
     if not isinstance(payload,dict) or set(payload)!=FIELDS:
         raise ValueError('invalid fine planet fields')
     if payload['version']!=VERSION or type(payload['width']) is not int or type(payload['height']) is not int or (payload['width'],payload['height'])!=(WIDTH,HEIGHT):
@@ -420,7 +425,8 @@ def validate_planet_detail(payload,geometry):
             if features[indexes[largest[0]]-1]['kind']!='ocean':
                 raise ValueError('fine ocean identity must name largest component')
     if sum(f['kind']=='ocean' for f in features)!=(0 if dry else 1): raise ValueError('invalid fine ocean catalog')
-    if surface['lake_material']=='none' and set(materials)&set('whl') or surface['lake_material']!='none' and not any(f['kind']=='lake' and f['material']==surface['lake_material'] for f in features):
+    omitted_lake=(surface.get('version')=='planet-v11' and surface.get('physical_bands',{}).get('lake')=='attenuated')
+    if surface['lake_material']=='none' and set(materials)&set('whl') or surface['lake_material']!='none' and not omitted_lake and not any(f['kind']=='lake' and f['material']==surface['lake_material'] for f in features):
         raise ValueError('fine lake choice not represented')
     if any(m in 'whl' and {'w':'water','h':'hydrocarbon','l':'lava'}[m]!=surface['lake_material'] for m in materials): raise ValueError('fine lake choice differs')
     if surface['polar_caps']=='none':
@@ -479,7 +485,8 @@ def _validate_courses(payload,features,indexes,height,dry):
 def _validate_craters(craters,surface):
     if not isinstance(craters,list) or len(craters)>128 or surface['geology']=='none' and craters:
         raise ValueError('invalid fine crater list')
-    if surface['geology']=='cratered' and not craters: raise ValueError('missing fine crater descriptors')
+    if surface['geology']=='cratered' and not craters and not (surface.get('version')=='planet-v11' and surface.get('physical_bands',{}).get('crater')=='attenuated'):
+        raise ValueError('missing fine crater descriptors')
     seen=set()
     for c in craters:
         if not isinstance(c,dict) or set(c)!={'id','x_q','y_q','radius_q','depth','rim_height'} or not isinstance(c['id'],str) or not c['id'] or c['id'] in seen:

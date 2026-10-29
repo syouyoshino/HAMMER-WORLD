@@ -8,7 +8,7 @@
   const provinceAnchorSource = new WeakMap();
   // Geometry records are immutable; index recorded land once per response.
   function provinceLand(geometry) {
-    if(geometry.surface?.version==="planet-v10"){
+    if(["planet-v10","planet-v11"].includes(geometry.surface?.version)){
       const grid=geometry.province_anchor_grid,source=provinceAnchorSource.get(geometry),
         width=grid?.width,height=grid?.height;
       if(provinceCache.has(geometry)&&source?.anchors===geometry.province_anchors&&source.width===width&&source.height===height)return provinceCache.get(geometry);
@@ -70,12 +70,12 @@
   }
   function surfaceFor(geometry) {
     const s = geometry?.surface;
-    if(s?.version==="planet-v10")return s;
+    if(["planet-v10","planet-v11"].includes(s?.version))return s;
     if (!s || !["planet-v2", "planet-v3", "planet-v4", "planet-v5", "planet-v6", "planet-v7", "planet-v8", "planet-v9"].includes(s.version) || !Array.isArray(s.elevation))
       return null;
     return s;
   }
-  const wrapsX = geometry => ["planet-v6", "planet-v7", "planet-v8", "planet-v9", "planet-v10"].includes(geometry?.surface?.version) && geometry.surface.topology === "cylinder-x";
+  const wrapsX = geometry => ["planet-v6", "planet-v7", "planet-v8", "planet-v9", "planet-v10", "planet-v11"].includes(geometry?.surface?.version) && geometry.surface.topology === "cylinder-x";
   const nearestX = (x, reference, width) => x + Math.round((reference-x)/width)*width;
   function featureAt(geometry,index){
     const surface=geometry?.surface;if(surface?.version!=="planet-v9"||surface.hydrography?.version!=="hydrography-v1"||!Number.isInteger(index))return null;
@@ -287,7 +287,7 @@
       scale = Math.min(24, 1536 / cols), w = Math.round(cols * scale), h = Math.round(rows * scale),
       surface = surfaceFor(geometry), tiles = geometry.tiles,
       survey = style === "survey",
-      nativeFrozen = surface?.version === "planet-v10" && surface.hydrology === "none" && surface.preset === "frozen",
+      nativeFrozen = ["planet-v10","planet-v11"].includes(surface?.version) && surface.hydrology === "none" && surface.preset === "frozen",
       colors = nativeFrozen ? (survey ? {
         ocean:[120,138,150],coast:[162,177,187],plains:[173,186,194],
         rock:[139,152,161],forest:[139,154,164],marsh:[160,175,184],
@@ -320,19 +320,19 @@
       }
       return result;
     };
-    const materials = ["planet-v8","planet-v9","planet-v10"].includes(surface?.version) ? surface.materials : null,
+    const materials = ["planet-v8","planet-v9","planet-v10","planet-v11"].includes(surface?.version) ? surface.materials : null,
       lakeField = materials?.lake_material !== "none" && materials?.lake_mask
         ? interpolateRows(Array.from(materials.lake_mask, Number)) : null,
       lakeDepth = lakeField ? interpolateRows(lakeInterior(materials.lake_mask, cols, rows)) : null,
       iceField = materials?.polar_caps !== "none" && materials?.ice_mask
         ? interpolateRows(Array.from(materials.ice_mask, Number)) : null,
       composition = lakeField || iceField ? ctx.createImageData(w, h) : null;
-    const cratered = ["planet-v7", "planet-v8", "planet-v9", "planet-v10"].includes(surface?.version) && surface.geology === "cratered" && surface.craters?.length,
-      dryLighting = surface?.version==="planet-v10" && surface.hydrology==="none" && heights,
+    const cratered = ["planet-v7", "planet-v8", "planet-v9", "planet-v10", "planet-v11"].includes(surface?.version) && surface.geology === "cratered" && surface.craters?.length,
+      dryLighting = ["planet-v10","planet-v11"].includes(surface?.version) && surface.hydrology==="none" && heights,
       gradientStep = dryLighting ? 1 : cratered ? 1 / scale : .35,
       lightingHeight = dryLighting ? (dryLightingCache.get(geometry)?.height || dryLightingHeight(heights, cratered ? surface.craters : [], cols, rows, cylinder)) : heights;
     const land = interpolateRows(tiles.map(t => t.terrain === "ocean" ? 0 : 1)),
-      channels = [0,1,2].map(c => interpolateRows(tiles.map(t => surface?.version==="planet-v10"&&t.terrain==="ocean"?0:(colors[t.terrain] || colors.plains)[c]))),
+      channels = [0,1,2].map(c => interpolateRows(tiles.map(t => ["planet-v10","planet-v11"].includes(surface?.version)&&t.terrain==="ocean"?0:(colors[t.terrain] || colors.plains)[c]))),
       elevation = heights ? interpolateRows(heights) : null,
       heightLeft = heights ? interpolateRows(lightingHeight,-gradientStep) : null,
       heightRight = heights ? interpolateRows(lightingHeight,gradientStep) : null,
@@ -360,10 +360,10 @@
           sampledElevation=elevation?elevation[i]*inv+elevation[j]*ty:sea,
           correction=craterResidual?.[py*w+px]||0,
           elev=sampledElevation+correction,
-          heightContour=["planet-v7","planet-v8","planet-v9","planet-v10"].includes(surface?.version)&&surface.hydrology==="ocean-draining"&&surface.sea_level!==null&&heights,
+          heightContour=["planet-v7","planet-v8","planet-v9","planet-v10","planet-v11"].includes(surface?.version)&&surface.hydrology==="ocean-draining"&&surface.sea_level!==null&&heights,
           cover=heightContour?clamp((elev-sea+18)/36,0,1):land[i]*inv+land[j]*ty,
           terrainCover=land[i]*inv+land[j]*ty,
-          onLand=heightContour?(surface?.version==="planet-v10"?elev>sea+1e-9&&terrainCover>1e-9:elev>=sea):cover>=.5,
+          onLand=heightContour?(["planet-v10","planet-v11"].includes(surface?.version)?elev>sea+1e-9&&terrainCover>1e-9:elev>=sea):cover>=.5,
           wet=moisture?moisture[i]*inv+moisture[j]*ty:500,
           temp=temperature?temperature[i]*inv+temperature[j]*ty:500;
         let shade=1,high=0,wetMix=0,coldMix=0,depth=0,shore=0;
@@ -382,7 +382,7 @@
             // stencil, so the subtracted bilinear crater field cancels.
             dx+=right-left;dy+=down-up;
           }
-          if(surface?.version==="planet-v10"&&surface.hydrology==="none"){
+          if(["planet-v10","planet-v11"].includes(surface?.version)&&surface.hydrology==="none"){
             // Match the filtered background and separate analytic crater stencil.
             // Normalize native-cell derivatives to the displayed world grid.
             const reliefScale=surface.renderReliefScale||1,
@@ -415,7 +415,7 @@
             // by their matching coverage avoids cancellation near tiny shores;
             // exact-sea ocean samples never enter this land branch.
             const sampledChannel=channels[c][i]*inv+channels[c][j]*ty;
-            color=surface?.version==="planet-v10"?sampledChannel/terrainCover:
+            color=["planet-v10","planet-v11"].includes(surface?.version)?sampledChannel/terrainCover:
               (sampledChannel-colors.ocean[c]*(1-cover))/Math.max(.001,cover);
             if(heights) {
               color=Math.round(color*(1-high)+highColor[c]*high);
@@ -657,7 +657,7 @@
       ox = (bounds.left + bounds.right - gridW) / 2 + panX + copyIndex*gridW,
       oy = (bounds.top + bounds.bottom - gridH) / 2 + panY;
     const surface=surfaceFor(geometry), preset=surface?.hydrology==="none"?surface.preset:null,
-      cylinder=wrapsX(geometry),nativeDetail=detail?.version==="planet-detail-v2",v7=["planet-v7","planet-v8","planet-v9","planet-v10"].includes(surface?.version),
+      cylinder=wrapsX(geometry),nativeDetail=detail?.version==="planet-detail-v2",v7=["planet-v7","planet-v8","planet-v9","planet-v10","planet-v11"].includes(surface?.version),
       labelZoom=v7?tile/Math.max(w/cols,h/rows):zoom;
     const detailImage=nativeDetail?fineRaster(detail,geometry,style):null;
     const tiles = geometry.tiles, provinces = geometry.provinces;
@@ -791,7 +791,7 @@
       safeTop = (safe?.top ?? 0) + 8,
       safeBottom = Math.min(h - 92, (safe?.bottom ?? h) - 8),
       placed = labelObstacles.map(rect=>({...rect})), provinceTargets = [];
-    const clipAnnotations=["planet-v8","planet-v9","planet-v10"].includes(surface?.version);
+    const clipAnnotations=["planet-v8","planet-v9","planet-v10","planet-v11"].includes(surface?.version);
     if(clipAnnotations){ctx.save();ctx.beginPath();ctx.rect(safeLeft,safeTop,safeRight-safeLeft,Math.max(0,safeBottom-safeTop));ctx.clip();}
     const features=nativeDetail?detail.hydrography.features:surface?.version==="planet-v9"&&surface.hydrography?.version==="hydrography-v1"
       ?surface.hydrography.features:[], selectedFeature=features.find(item=>item.id===selectedFeatureId);
@@ -887,7 +887,7 @@
             (site) =>
               site.planet_id === planetId && site.province_id === province.id,
           );
-        if(surface?.version==="planet-v10"&&overlay!=="provinces"&&!holdings.length&&province.id!==selectedProvince)return null;
+        if(["planet-v10","planet-v11"].includes(surface?.version)&&overlay!=="provinces"&&!holdings.length&&province.id!==selectedProvince)return null;
         if (overlay !== "provinces" && (compact || labelZoom < (v7?2.5:1.65)) && !holdings.length && province.id !== selectedProvince)
           return null;
         const names = holdings.map((site) => site.name || "Settlement"),

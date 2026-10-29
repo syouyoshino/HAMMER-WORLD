@@ -1,6 +1,7 @@
 """Versioned, frozen fictional astronomy records for opted-in demo worlds."""
 import math
 import random
+from decimal import Decimal
 
 
 VERSION = "static-v1"
@@ -39,7 +40,13 @@ def generate(nodes, seed):
                 position = [round(distance * math.sin(angle)), 0, round(distance * math.cos(angle))]
                 if position == [0, 0, 0]:
                     position[0] = distance
-                radius_km = round(node.get("radius", 1) * 6_371)
+                if "radius_m" in node:
+                    radius_m = Decimal(node["radius_m"])
+                    if radius_m < 1_000_000 or radius_m > 100_000_000 or radius_m % 1000 != 0:
+                        raise ValueError("static-v1 requires planet-v11 radii from 1,000 to 100,000 whole kilometres; omit --astronomy static-v1")
+                    radius_km = int(radius_m / 1000)
+                else:
+                    radius_km = round(node.get("radius", 1) * 6_371)
             records[node["id"]] = {"position": position, "radius_km": radius_km}
         result["systems"][system["id"]] = {"bodies": records}
     return result
@@ -68,6 +75,20 @@ def validate(state):
            if key == "epoch_turn" else astronomy.get(key) != value for key, value in HEADER.items()):
         raise ValueError("unsupported saved astronomy version or frame")
     nodes = {node["id"]: node for node in state.get("nodes", [])}
+    config = state.get("_private", {}).get("generator_config", {})
+    if config.get("planet") == "planet-v11":
+        from .planet_scale import canonical_radius
+        radii=config.get("planet_radii_m")
+        planet_ids={nid for nid,node in nodes.items() if node.get("kind")=="planet"}
+        if not isinstance(radii,dict) or set(radii)!=planet_ids:
+            raise ValueError("saved astronomy and V11 radius configuration differ")
+        for planet_id in planet_ids:
+            canonical=canonical_radius(radii[planet_id])
+            node=nodes[planet_id]
+            if node.get("radius_m")!=canonical:
+                raise ValueError("saved astronomy and V11 body radius differ")
+    elif any("radius_m" in node for node in nodes.values() if node.get("kind")=="planet"):
+        raise ValueError("physical planet radius requires planet-v11")
     expected = {node_id: set() for node_id, node in nodes.items() if node.get("kind") == "system"}
     for node in nodes.values():
         if node.get("kind") in ("star", "planet"):
@@ -99,6 +120,9 @@ def validate(state):
             else:
                 if position == [0, 0, 0] or radius > 100_000:
                     raise ValueError("saved planet orbit or radius invariant failed")
+                if config.get("planet")=="planet-v11":
+                    if Decimal(nodes[node_id]["radius_m"]) != Decimal(radius)*1000:
+                        raise ValueError("saved astronomy radius does not match V11 physical radius")
             checked.append((position, radius))
         for index, (position, radius) in enumerate(checked):
             for other_position, other_radius in checked[index + 1:]:
