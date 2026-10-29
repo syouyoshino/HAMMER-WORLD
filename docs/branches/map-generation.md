@@ -743,3 +743,5 @@ the future versioned astronomical contract's required inputs. Existing breadcrum
 and the safe system chart remain the integration point. Only three shader lines
 change product code; unrecovered cartography and the character branch are untouched.
 This remains an interface release candidate without merge or deployment.
+
+Delivery implementation/review: `4335f6f` on `map-generation`.

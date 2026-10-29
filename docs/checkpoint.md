@@ -4,6 +4,8 @@ Read `AGENTS.md`, `plan.md` and `docs/decisions.md`, then inspect actual source/
 
 ## Globe lighting and celestial-data continuation
 
+Implementation/review: `4335f6f` on `map-generation`.
+
 Read `docs/reviews/globe-lighting-and-celestial-data.md` and the latest branch note.
 Three shader lines improve spherical shading; independent visual and actual orbital
 browser regression accept the scoped result. Recorded barren rock stays grey;

@@ -87,3 +87,5 @@ and authority are available, preserve existing chart IDs, and project visibility
 before serialization. Until then use the existing system breadcrumb/chart, which
 already separates unlocated bodies. No duplicate locator panel or invented sky
 positions were added. This is a precise feature blocker, not claimed completion.
+
+Delivery implementation/review: `4335f6f` on `map-generation`.
