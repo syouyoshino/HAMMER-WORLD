@@ -340,3 +340,13 @@ world rays. Keep a single 128-side bitmap and last-pose cache, plus a 32 KiB pub
 noise lattice. Multiple spatial scales and independent dark channels add depth
 without directional brush bands or campaign astronomy. No globe shader changes.
 The small retained sky scratch bitmap is separate from released app composites.
+
+
+Globe depth and celestial data (29 October 2026): lower ambient illumination and
+use continuous diffuse form shading in the existing orbital shader; keep material
+albedo and surface geometry intact. The light remains a camera-relative
+presentation aid, not astronomical sun direction. Grey barren fixtures retain
+recorded rock/ice. Accurate neighbouring-body sky placement is blocked by absent
+3D positions/ephemeris, units/frame/epoch and planetary orientation. Never turn
+schematic chart coordinates into claimed sky bearings; retain public filtering
+and existing system breadcrumb access. See the scoped review and continuation.

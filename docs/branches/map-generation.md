@@ -725,3 +725,21 @@ shader, map-renderer or app-navigation source changes. Generated evidence remain
 ignored. This is an interface release candidate, without merge or deployment.
 
 Delivery implementation/tests/review: `5ef3d75` on `map-generation`.
+
+
+## Globe lighting and celestial data — 29 October 2026
+
+The existing orbital shader now uses stronger continuous form shading, preserving
+recorded material colors and all geometry/picking. Independent blind caps A/B and
+water/lava/hydrocarbon review accept the scoped roundness/readability improvement;
+actual orbital camera/overlay/management-return/context-loss/fallback checks pass.
+Read `docs/reviews/globe-lighting-and-celestial-data.md` for evidence and remaining
+ice/material artifacts, browser and performance limits.
+
+Accurate neighbouring-body sky placement is explicitly blocked: current positions
+are schematic 2D chart coordinates without ephemeris/reference frame/orientation.
+No false celestial markers or new campaign records were created. The review lists
+the future versioned astronomical contract's required inputs. Existing breadcrumbs
+and the safe system chart remain the integration point. Only three shader lines
+change product code; unrecovered cartography and the character branch are untouched.
+This remains an interface release candidate without merge or deployment.

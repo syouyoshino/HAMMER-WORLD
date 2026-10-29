@@ -96,7 +96,9 @@ void main(){
  vec4 filtered=mix(sum,mean,meanWeight);
  vec4 color=vec4(pow(filtered.rgb/max(filtered.a,.000001),vec3(1./2.2)),filtered.a);
  vec3 normal=normalize(hit);
- float light=.72+.28*max(0.,dot(normal,normalize(vec3(-.42,.5,.76))));
+ float incidence=dot(normal,normalize(vec3(-.42,.5,.76)));
+ float diffuse=pow(max(0.,incidence),.72)*smoothstep(-.10,.12,incidence);
+ float light=.30+.70*diffuse;
  float limb=smoothstep(-.2,.3,normal.z);
  gl_FragColor=vec4(color.rgb*light,color.a*limb);
 }`;
