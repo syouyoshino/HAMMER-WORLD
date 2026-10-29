@@ -99,3 +99,5 @@ Replay using the existing fictional preview (no regeneration):
 node tests/check_orbit_background.cjs
 WOLD_SKY_OUT=data/space-depth/browser .venv/bin/python tests/browser_orbit_background.py
 ```
+
+Delivery implementation/tests/review: `5ef3d75`, branch `map-generation`.

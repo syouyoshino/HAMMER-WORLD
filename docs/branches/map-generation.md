@@ -723,3 +723,5 @@ Integrate only the small background module and its tests; keep unrecovered
 cartography, campaign records and authentication independent. No schema, geography,
 shader, map-renderer or app-navigation source changes. Generated evidence remains
 ignored. This is an interface release candidate, without merge or deployment.
+
+Delivery implementation/tests/review: `5ef3d75` on `map-generation`.

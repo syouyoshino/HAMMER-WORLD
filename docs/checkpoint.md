@@ -4,6 +4,8 @@ Read `AGENTS.md`, `plan.md` and `docs/decisions.md`, then inspect actual source/
 
 ## Orbital background depth continuation
 
+Implementation/tests/review: `5ef3d75` on `map-generation`.
+
 Read `docs/reviews/orbital-background-depth.md` and the latest branch note.
 The decorative sky now uses continuous world-ray noise in one bounded 128-side
 cached bitmap rather than recognizable clouds/strokes. Preserve the documented
