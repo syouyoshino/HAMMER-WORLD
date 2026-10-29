@@ -803,4 +803,10 @@ keep old versions unchanged, public allowlists and context-epoch guards intact.
 The character-relationships branch is untouched. Future deep zoom requires bounded
 real detail tiles; future rings/dynamic orbits require recorded versioned data.
 This is an interface release candidate, without merge, deployment or canonical-data
-recovery claims. Verified delivery reference follows after final checks.
+recovery claims.
+
+Verified implementation/tests/review: `39b015f`, pushed to `origin/map-generation`.
+Final source-matched 10,000-turn gate passes (598.82s), including detail retention
+and exact restore. Nine V11/radius tests, thirteen existing tests, 240 legacy hashes,
+eight preserved campaign responses, final Chromium workflows and20-cycle resource/
+desktop CSS-zoom checks pass. Full metrics and limits are in the linked review.

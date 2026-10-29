@@ -171,3 +171,6 @@ current read 10.1 ms; history page of50 321.0 ms. Source hashes match the frozen
 17 backend modules and final high-review source set. These include shared-host
 QA contention and are not production-scale guarantees. An earlier initial-kernel
 run and an interrupted final rerun are not substituted for this completed gate.
+
+Verified implementation/tests/review committed and pushed as `39b015f` on
+`map-generation`. No merge or deployment.
