@@ -7,10 +7,10 @@
   function direction(y,lon){const r=Math.sqrt(1-y*y);return [r*Math.sin(lon),y,r*Math.cos(lon)];}
   // Fixed world directions: camera rotation changes the field without reseeding it.
   const starTints=[[190,207,219],[171,194,211],[211,201,181],[199,207,210]];
-  const stars=Array.from({length:220},(_,i)=>{
+  const stars=Array.from({length:260},(_,i)=>{
     const tint=starTints[Math.floor(hash(i+1301)*starTints.length)],rank=hash(i+701);
-    const bright=rank>.975,clear=rank>.88;
-    return {direction:direction(2*hash(i+1)-1,TAU*hash(i+211)),radius:bright?1.18:clear?.75:.3+hash(i+431)*.36,color:`rgba(${tint.join(',')},${(bright?.86:clear?.5:.12+rank*.19).toFixed(3)})`};
+    const bright=rank>.98,clear=rank>.86;
+    return {direction:direction(2*hash(i+1)-1,TAU*hash(i+211)),radius:bright?1.55:clear?.92:.46+hash(i+431)*.35,color:`rgba(${tint.join(',')},${(bright?.92:clear?.62:.20+rank*.22).toFixed(3)})`};
   });
   // Public decorative noise, unrelated to campaign generation. Cartesian samples
   // stay continuous through yaw seams and poles without a latitude texture seam.
@@ -46,7 +46,7 @@
           const support=ramp(.36,.64,noise(dx*1.1+18.3,dy*1.1+5.7,dz*1.1+23.1));
           const occlusion=ramp(.48,.68,noise(dx*4.5+2.8,dy*4.5+21.4,dz*4.5+11.6));
           const light=support*ramp(.43,.65,field)*(1-.65*occlusion),i=(y*width+x)*4;
-          pixels[i]=7+32*light;pixels[i+1]=11+40*light;pixels[i+2]=16+48*light;pixels[i+3]=255;
+          pixels[i]=7+23*light;pixels[i+1]=11+29*light;pixels[i+2]=16+36*light;pixels[i+3]=255;
         }
       }
       skyContext.putImageData(skyPixels,0,0);lastSkyKey=key;

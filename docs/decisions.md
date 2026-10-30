@@ -402,3 +402,12 @@ screen/local coordinates at CSS zoom, keep zoom controls together and preserve t
 existing map renderer/context. Backend/generator/records remain unchanged. Read
 `docs/reviews/terrain-and-desktop-finish.md` for rejected candidates, independent
 findings/resolutions, exact evidence, performance limits and integration notes.
+
+### Orbital illumination — 30 October 2026
+
+Use recorded sun direction where known; otherwise use a fixed planet-frame
+illustrative direction and disclose it. Retain only 4.5% strategic night fill;
+bound terrain relief relative to geometric daylight to prevent black dayside
+trenches. Decorative stars remain separate from recorded navigable bodies. No
+physical spin/time, multi-sun model or campaign record backfill is implied.
+See `docs/reviews/orbit-lighting.md` for independent critique and GPU/browser evidence.

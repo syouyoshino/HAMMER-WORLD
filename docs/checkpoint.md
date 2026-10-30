@@ -302,3 +302,8 @@ resource and10,000-turn checks are in
 `docs/reviews/terrain-and-desktop-finish.md`. All17backend modules andeight existing
 fixture responses remain unchanged. No merge or deployment; hardware graphics,
 WebKit/native Safari and physical touch-device coverage remain unverified.
+
+Orbital lighting follow-up: dark night hemisphere, world-fixed disclosed fallback
+sun, bounded dayside relief and clearer stars implemented. Chromium GPU lighting,
+recorded-astronomy relief/cache/immutability and projection/sky/focus checks pass;
+independent scoped visual acceptance. See `docs/reviews/orbit-lighting.md`.

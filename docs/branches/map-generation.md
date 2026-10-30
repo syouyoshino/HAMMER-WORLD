@@ -840,3 +840,12 @@ Verified implementation/tests/review: `9edde3d`, pushed to `origin/map-generatio
 Final source-matched browser/reflow/private/GPU/fallback/resource checks and the
 10,000-turn gate pass. Full metrics, residual findings and continuation are in the
 linked review.
+
+## Orbital day/night follow-up — 30 October 2026
+
+World-fixed fallback sunlight (explicitly illustrative when star positions are
+unknown), dark night hemisphere, narrow terminator, bounded relief contrast and
+clearer decorative stars. Recorded host-star directions retain priority. No data
+or simulation changes. Independent scoped visual acceptance after correcting
+black dayside relief grooves; actual Chromium GPU/drag/theme and recorded-astronomy
+regressions pass. See `docs/reviews/orbit-lighting.md` for evidence and limitations.
