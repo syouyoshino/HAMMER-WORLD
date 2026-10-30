@@ -873,3 +873,7 @@ Performance remains a material limitation: shared two-CPU SwiftShader measured
 has the requested camera controls; Google Earth animation smoothness is not met
 in this environment. Hardware graphics and native Safari/WebKit remain unverified.
 No backend/generation/data changes, merge, deployment or character-branch changes.
+
+Verified implementation and tests: `defae73` (baseline `5e20f60`). Continuation:
+profile hardware/render readback before claiming smoothness; preserve the scoped
+visual findings and camera/data contracts in the linked review.

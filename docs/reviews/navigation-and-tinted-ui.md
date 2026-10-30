@@ -201,3 +201,6 @@ current correctness/visual acceptance does not close that performance gap. Retai
 all unresolved moderate visual debt and inherited finite-detail limitations when
 assessing future candidates. Interface release candidate only; no deployment,
 operational-security, backup/recovery or whole-game acceptance is implied.
+
+Delivered implementation, regression checks and review: `defae73` on
+`map-generation` (baseline `5e20f60`). No merge or deployment.
