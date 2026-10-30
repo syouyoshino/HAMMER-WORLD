@@ -834,5 +834,9 @@ high CSS-zoom space constraints remain documented debt, not commercial/optical p
 Integration: retain optional internal canvas relief separately from recorded data;
 reuse immutable detail caches and revision-gated uploads. Keep map picking and
 campaign/history/auth invalidation independent of this presentation. The character
-branch and unrecovered cartography remain untouched. No merge or deployment. Final
-verified delivery reference follows after remaining gates.
+branch and unrecovered cartography remain untouched. No merge or deployment.
+
+Verified implementation/tests/review: `9edde3d`, pushed to `origin/map-generation`.
+Final source-matched browser/reflow/private/GPU/fallback/resource checks and the
+10,000-turn gate pass. Full metrics, residual findings and continuation are in the
+linked review.

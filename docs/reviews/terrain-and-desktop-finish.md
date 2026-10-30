@@ -211,3 +211,6 @@ requires actual bounded finer data rather than magnifying this fixed overview.
 Test on hardware graphics and native Safari before making performance/browser
 claims. Preserve the light/dark toggle and existing character-screen integration.
 No merge, deployment, real-data recovery or operational certification was performed.
+
+Verified implementation/tests/review committed and pushed as `9edde3d` on
+`map-generation`. No merge or deployment.
