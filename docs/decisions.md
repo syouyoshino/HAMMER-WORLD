@@ -411,3 +411,17 @@ bound terrain relief relative to geometric daylight to prevent black dayside
 trenches. Decorative stars remain separate from recorded navigable bodies. No
 physical spin/time, multi-sun model or campaign record backfill is implied.
 See `docs/reviews/orbit-lighting.md` for independent critique and GPU/browser evidence.
+
+### Tinted controls and free system camera — 30 October 2026
+
+Use one tinted shell rather than opaque nested reports. Project frozen surveyed
+astronomy with a common star-relative scale and enlarged body symbols; keep
+unknown-position contacts in a separate scrollable rail. A coordinate grid is
+not an orbit path. Camera state is page-local, bounded per visited node/context;
+committed identity and matching detail govern restoration. Initial untouched
+planet entry favors lit geography; recorded sun/night lighting stays unchanged.
+
+Keep existing canvases and exact body-return tickets. Temporary half-resolution
+WebGL output preserves logical picking and full-resolution endpoints. Do not call
+this Google Earth smoothness: measured software output/readback remains slow.
+Read `docs/reviews/navigation-and-tinted-ui.md` for critique and verification.

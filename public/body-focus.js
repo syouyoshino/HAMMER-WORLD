@@ -10,7 +10,7 @@
       selectedComposition:state.selectedComposition?{...state.selectedComposition}:null,
       overlay:state.overlay,mapStyle:state.mapStyle,showFeatureNames:state.showFeatureNames,
       featureListOpen:state.featureListOpen,featureListQuery:state.featureListQuery,
-      orbitView:{...state.orbitView},detailAsset:state.detailAsset,detailKey:state.detailKey,
+      orbitView:{...state.orbitView},systemView:state.systemView?{...state.systemView}:undefined,detailAsset:state.detailAsset,detailKey:state.detailKey,
       detailStatus:state.detailStatus,mapRecord:state.mapRecord,orbitTexture:state.orbitTexture,
       orbitTextureKey:state.orbitTextureKey,orbitInitialKey:state.orbitInitialKey,
       camera:Object.fromEntries(CAMERA_KEYS.map(key=>[key,state[key]]))};
@@ -26,7 +26,7 @@
     state.selectedComposition=ticket.selectedComposition?{...ticket.selectedComposition}:null;
     state.overlay=ticket.overlay;state.mapStyle=ticket.mapStyle;state.showFeatureNames=ticket.showFeatureNames;
     state.featureListOpen=ticket.featureListOpen;state.featureListQuery=ticket.featureListQuery;
-    state.orbitView={...ticket.orbitView};Object.assign(state,ticket.camera);
+    state.orbitView={...ticket.orbitView};if(ticket.systemView)state.systemView={...ticket.systemView};Object.assign(state,ticket.camera);
     state.detailAsset=ticket.detailAsset;state.detailKey=ticket.detailKey;state.detailStatus=ticket.detailStatus;
     state.orbitTexture=ticket.orbitTexture;state.orbitTextureKey=ticket.orbitTextureKey;state.orbitInitialKey=ticket.orbitInitialKey;
     return true;

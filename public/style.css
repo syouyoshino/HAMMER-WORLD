@@ -51,10 +51,10 @@
   --in-progress: var(--apple-system-orange);
   --readiness: var(--apple-system-blue-contrast);
   --map-ground: #f1f2ee;
-  --panel-glass: rgb(244 244 237 / 63%);
-  --panel-glass-strong: #f4f4ed;
-  --map-glass: rgb(246 246 239 / 78%);
-  --map-glass-strong: #f6f6ef;
+  --panel-glass: rgb(244 244 237 / 72%);
+  --panel-glass-strong: rgb(244 244 237 / 88%);
+  --map-glass: rgb(246 246 239 / 70%);
+  --map-glass-strong: rgb(246 246 239 / 84%);
   --backdrop: rgb(22 27 31 / 42%);
   --table-stripe: #f3f4ef;
   --selection-hover: #454c4f;
@@ -82,7 +82,7 @@ button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-
   min-height: 32px;
   padding: 6px 10px;
   color: var(--ink);
-  background: transparent;
+  background: var(--map-glass-strong);
   border: 1px solid var(--line-strong);
   box-shadow: none;
 }
@@ -104,7 +104,7 @@ button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-
   min-height: 44px;
   padding: 4px 16px;
   color: var(--ink);
-  background: var(--paper);
+  background: var(--panel-glass-strong);
   border-bottom: 1px solid var(--line-strong);
 }
 #hw-command {
@@ -131,7 +131,7 @@ button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-
   min-height: 30px;
   padding: 4px 26px 4px 7px;
   color: var(--ink);
-  background: var(--paper);
+  background: var(--panel-glass-strong);
   border: 1px solid var(--line-strong);
 }
 .command-indicators { display: flex; align-items: center; gap: 12px; white-space: nowrap; }
@@ -231,7 +231,7 @@ button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-
 .orbit-star-name { overflow: hidden; font: 600 10px/13px var(--mono, ui-monospace, monospace); text-overflow: ellipsis; white-space: nowrap; }
 .orbit-star-scale { color: #c6ced1; font: 10px/13px var(--mono, ui-monospace, monospace); white-space: nowrap; }
 .orbit-landmark { position: absolute; display: block; padding: 0; color: #102536; background: transparent; border: 0; text-align: left; cursor: pointer; pointer-events: auto; }
-.orbit-landmark-label { position: relative; z-index: 1; display: block; overflow: hidden; padding: 4px 7px; color: #102536; background: rgba(244,247,247,.94); border: 1px solid rgba(16,37,54,.72); border-radius: 0; font: 600 10px/14px var(--mono, ui-monospace, monospace); text-overflow: ellipsis; white-space: nowrap; }
+.orbit-landmark-label { position: relative; z-index: 1; display: block; overflow: hidden; padding: 4px 7px; color: var(--ink); background: var(--map-glass-strong); border: 1px solid var(--line-strong); border-radius: 0; font: 600 10px/14px var(--mono, ui-monospace, monospace); text-overflow: ellipsis; white-space: nowrap; }
 .orbit-north-cue { position: absolute; z-index: 9; display: flex; align-items: center; gap: 10px; width: 112px; height: 26px; padding: 4px 7px; color: #e7eeee; background: rgba(10,23,32,.85); border: 1px solid rgba(231,238,238,.45); font: 10px/16px var(--mono, ui-monospace, monospace); pointer-events: none; }
 .orbit-north-cue strong { font-size: 12px; }
 .body-focus-view { position: absolute; z-index: 12; left: 18px; right: 18px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(280px, 340px); overflow: auto; color: #e8edef; background: #080f15; border: 1px solid #44515b; pointer-events: auto; }
@@ -313,7 +313,7 @@ button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-
 .workspace-head small { color: var(--muted); font-size: 9px; letter-spacing: .1em; }
 .workspace-title { margin: 1px 0; color: var(--ink); font-size: 16px; line-height: 1.3; }
 .workspace-scope { color: var(--muted); font-size: 11px; letter-spacing: 0; }
-.workspace-head .button { min-height: 30px; color: var(--ink); background: transparent; border: 1px solid var(--line-strong); box-shadow: none; }
+.workspace-head .button { min-height: 30px; color: var(--ink); background: var(--map-glass-strong); border: 1px solid var(--line-strong); box-shadow: none; }
 .workspace-head .button:hover { color: var(--selection-ink); background: var(--selection); }
 .workspace-head [data-workspace-close] { min-width: 32px; }
 .workspace-tabs { display: flex; gap: 0; min-height: 38px; overflow-x: auto; background: var(--paper); border-bottom: 1px solid var(--line); }
@@ -598,8 +598,8 @@ button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-
 @supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
   #command-menu, #command-workspace, #command-inspector {
     background: var(--panel-glass);
-    -webkit-backdrop-filter: blur(10px);
-    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(7px);
+    backdrop-filter: blur(7px);
   }
 }
 
@@ -638,10 +638,10 @@ button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-
   --recorded: var(--ink);
   --readiness: var(--apple-system-blue-contrast);
   --map-ground: #17191e;
-  --panel-glass: rgb(23 25 30 / 86%);
-  --panel-glass-strong: #17191e;
-  --map-glass: rgb(23 25 30 / 88%);
-  --map-glass-strong: #17191e;
+  --panel-glass: rgb(23 25 30 / 64%);
+  --panel-glass-strong: rgb(23 25 30 / 82%);
+  --map-glass: rgb(23 25 30 / 66%);
+  --map-glass-strong: rgb(23 25 30 / 80%);
   --backdrop: rgb(0 0 0 / 64%);
   --table-stripe: #20232a;
   --selection-hover: #414650;
@@ -658,13 +658,13 @@ select, input, textarea, .economy-metric { color: var(--ink); background-color: 
 #command-workspace .workspace-content, #command-inspector > header,
 #command-inspector footer { background: transparent; }
 #command-inspector .inspector-holder { background: transparent; }
-#desktop-shell #command-inspector #inspector-content { background: var(--paper); padding: 10px 12px; }
+#desktop-shell #command-inspector #inspector-content { background: color-mix(in srgb, var(--paper) 10%, transparent); padding: 10px 12px; }
 #command-workspace .workspace-content > .view-panel,
 #command-workspace .workspace-content .scope-pane,
 #command-workspace .workspace-content .report-group,
 #command-workspace .workspace-content .local-record-group,
 #command-workspace .workspace-content .chart-box {
-  background: color-mix(in srgb, var(--paper) 94%, transparent);
+  background: color-mix(in srgb, var(--paper) 10%, transparent);
 }
 #command-workspace .workspace-content > .view-panel { padding: 10px 12px 14px; }
 #command-workspace .workspace-content .scope-pane,

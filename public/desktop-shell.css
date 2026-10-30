@@ -86,14 +86,14 @@ body { display: block; min-height: 100%; overflow: hidden; }
 @supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
   #command-workspace, #command-inspector {
     background: var(--panel-glass);
-    -webkit-backdrop-filter: blur(10px);
-    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(7px);
+    backdrop-filter: blur(7px);
   }
 }
 
 .command-backdrop { position: absolute; z-index: 35; inset: 0; background: var(--backdrop); }
-#command-dialog { position: absolute; z-index: 40; top: 50%; left: 50%; width: min(520px, calc(100vw - 24px)); max-height: calc(100vh - 24px); transform: translate(-50%, -50%); overflow: auto; background: var(--paper); border: 1px solid var(--line-strong); }
-.dialog-title { position: sticky; z-index: 1; top: 0; display: flex; align-items: center; justify-content: space-between; padding: 9px 12px; background: var(--paper); border-bottom: 1px solid var(--line); font-size: 11px; letter-spacing: .08em; }
+#command-dialog { position: absolute; z-index: 40; top: 50%; left: 50%; width: min(520px, calc(100vw - 24px)); max-height: calc(100vh - 24px); transform: translate(-50%, -50%); overflow: auto; background: var(--panel-glass-strong); border: 1px solid var(--line-strong); }
+.dialog-title { position: sticky; z-index: 1; top: 0; display: flex; align-items: center; justify-content: space-between; padding: 9px 12px; background: var(--panel-glass-strong); border-bottom: 1px solid var(--line); font-size: 11px; letter-spacing: .08em; }
 .dialog-content { padding: 12px; }
 .campaign-current-summary { padding: 0 0 9px; border-bottom: 1px solid var(--line); }
 .campaign-current-summary dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px 16px; margin: 8px 0 0; }
@@ -174,6 +174,12 @@ body { display: block; min-height: 100%; overflow: hidden; }
 #desktop-shell #chart-readouts .map-caption { flex-wrap: wrap; gap: 4px 12px; }
 #desktop-shell #chart-readouts .map-legend { flex-wrap: wrap; gap: 3px 10px; }
 #desktop-shell #chart-readouts .map-footer { align-items: flex-start; gap: 4px 12px; }
+.commandbar { background: var(--panel-glass-strong); }
+#desktop-shell #command-inspector #inspector-content { background: color-mix(in srgb, var(--paper) 10%, transparent); }
+#map-overview-button { background: var(--map-glass-strong); }
+@supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  #chart-heading .commandbar { -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
+}
 @container (max-width: 1000px) {
   #desktop-shell #chart-readouts { bottom: 6px; gap: 3px; }
   #desktop-shell #chart-readouts .map-caption, #desktop-shell #chart-readouts .map-legend, #desktop-shell #chart-readouts .map-footer { font-size: 9px; line-height: 1.3; }

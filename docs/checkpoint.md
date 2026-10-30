@@ -307,3 +307,10 @@ Orbital lighting follow-up: dark night hemisphere, world-fixed disclosed fallbac
 sun, bounded dayside relief and clearer stars implemented. Chromium GPU lighting,
 recorded-astronomy relief/cache/immutability and projection/sky/focus checks pass;
 independent scoped visual acceptance. See `docs/reviews/orbit-lighting.md`.
+
+System/navigation release candidate: free recorded-position solar orbit/pan/zoom,
+Fit control, truthful unlocated contacts, tinted UI, remembered per-node cameras
+and safe async globe restoration. Final Chromium functional/context/reflow checks
+and independent scoped visual review pass. Software graphics remain slow; Google
+Earth smoothness, hardware graphics and Safari are unverified. Full evidence and
+remaining terrain/hierarchy limitations: `docs/reviews/navigation-and-tinted-ui.md`.

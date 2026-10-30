@@ -849,3 +849,27 @@ clearer decorative stars. Recorded host-star directions retain priority. No data
 or simulation changes. Independent scoped visual acceptance after correcting
 black dayside relief grooves; actual Chromium GPU/drag/theme and recorded-astronomy
 regressions pass. See `docs/reviews/orbit-lighting.md` for evidence and limitations.
+
+## Explorable system and tinted interface — 30 October 2026
+
+Baseline `5e20f60` → current release candidate: transparent theme-tinted controls,
+management shells and labels; a free perspective system view over public frozen
+astronomy; drag orbit, Shift-drag pan, wheel/buttons zoom, keyboard Fit system and
+context-preserving planet/surface navigation. Unlocated contacts retain unknown
+positions and parent-world identity. AU labels are derived only from saved data;
+body symbols are enlarged, the grid is a coordinate reference, and no orbit paths
+are invented. Untouched initial globe entry favors sunlit geography without
+changing light or saved cameras; Recenter still locates home/selection.
+
+Fresh blind/same-critic visual review accepts the scoped result after moon identity,
+scene boundary, initial globe and panel-stacking fixes. Functional browser tests
+cover camera return, held/stale detail, contact picking, history/private logout,
+reduced motion, desktop zoom and unchanged records. Tests retain the mounted canvas.
+Full evidence, rejected-candidate findings, source/browser limits and integration
+notes: `docs/reviews/navigation-and-tinted-ui.md`.
+
+Performance remains a material limitation: shared two-CPU SwiftShader measured
+1.87–1.91s per globe zoom despite transient half-resolution output. The interface
+has the requested camera controls; Google Earth animation smoothness is not met
+in this environment. Hardware graphics and native Safari/WebKit remain unverified.
+No backend/generation/data changes, merge, deployment or character-branch changes.

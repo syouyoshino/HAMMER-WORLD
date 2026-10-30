@@ -6,6 +6,7 @@ const focus=sandbox.window.HWBodyFocus;
 const state={campaignId:'demo',snapshot:{id:'snapshot-a'},contextEpoch:7,
  mapLevel:'planet',mapNodeId:'planet-a',panX:14,panY:-21,zoom:3.5,
  orbitActive:true,orbitView:{latitude:.3,longitude:-2,distance:2.45},
+ systemView:{yaw:.4,pitch:.7,distance:2.8},
  selectedProvince:'province-a',selectedEntity:{id:'settlement-a'},
  selectedFeatureId:'river-a',selectedFeaturePlanetId:'planet-a',
  selectedFeatureReturnProvince:'province-b',selectedComposition:{kind:'ice',cell:42},
@@ -17,6 +18,7 @@ const state={campaignId:'demo',snapshot:{id:'snapshot-a'},contextEpoch:7,
 const ticket=focus.capture(state);
 assert(!JSON.stringify(ticket).includes('NEVER_CAPTURE'));
 assert.notEqual(ticket.orbitView,state.orbitView);
+assert.notEqual(ticket.systemView,state.systemView);
 assert.notEqual(ticket.selectedComposition,state.selectedComposition);
 assert.equal(focus.matches(ticket,state),true);
 for(const patch of [{campaignId:'other'},{snapshot:{id:'snapshot-b'}},{contextEpoch:8}]){
@@ -25,7 +27,7 @@ for(const patch of [{campaignId:'other'},{snapshot:{id:'snapshot-b'}},{contextEp
  assert.equal(JSON.stringify(stale),before,'A stale ticket may not alter the new context');
 }
 const changed={...state,panX:500,panY:600,zoom:1,orbitActive:false,
- orbitView:{latitude:0,longitude:0,distance:4.2},selectedProvince:null,
+ orbitView:{latitude:0,longitude:0,distance:4.2},systemView:{yaw:0,pitch:0,distance:5},selectedProvince:null,
  selectedEntity:null,selectedFeatureId:null,selectedComposition:null,
  overlay:'military',mapStyle:'orbital',showFeatureNames:false};
 assert.equal(focus.restore(ticket,changed),true);
@@ -35,6 +37,7 @@ for(const key of ['panX','panY','zoom','orbitActive','selectedProvince','selecte
  assert.equal(changed[key],state[key],key);
 }
 assert.equal(JSON.stringify(changed.orbitView),JSON.stringify(state.orbitView));
+assert.equal(JSON.stringify(changed.systemView),JSON.stringify(state.systemView));
 assert.equal(changed.selectedEntity,state.selectedEntity);
 assert.equal(changed.detailAsset,state.detailAsset);
 assert.equal(changed.orbitTexture,state.orbitTexture);

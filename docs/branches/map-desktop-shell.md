@@ -183,3 +183,10 @@ The 30 October frontend finish on `map-generation` adds source-matched terrain
 lighting/material and desktop reflow verification. See
 `docs/reviews/terrain-and-desktop-finish.md` for preserved data boundaries,
 independent findings, performance/browser limits and integration notes.
+
+The `map-generation` continuation now includes tinted command surfaces, free
+recorded-position system orbit/pan/zoom, context-preserving hierarchy navigation
+and safe detail-loading transitions. Read `docs/reviews/navigation-and-tinted-ui.md`
+for fresh screenshots, blind critique/resolutions, browser checks and the measured
+software-rendering smoothness limitation. Keep UI camera state separate from
+campaign persistence when integrating this continuation.

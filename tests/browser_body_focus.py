@@ -64,6 +64,8 @@ def main():
         original_state = page.request.get(f"{base}/api/player/snapshots/{original_id}").json()["state"]
         historical_other = next(n for n in original_state["nodes"] if n["id"] == other["id"])
         act(page, out, "select-campaign", lambda: page.select_option("#campaign-select", campaign))
+        page.wait_for_selector("#orbit-toggle:visible", timeout=90000)
+        act(page, out, "locate-home", lambda: page.locator("#map-recenter").click())
         page.wait_for_selector(".orbit-landmark:visible", timeout=90000)
         canvas = page.locator("#planet-map").element_handle()
         focus = page.locator("#body-focus-view")
