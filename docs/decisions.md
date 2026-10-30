@@ -387,3 +387,18 @@ ticket restores map context; invalidation removes identity and references. Motio
 is illustrative and reduced-motion aware, without invented rings or flare events.
 Read `docs/reviews/physical-scale-and-body-focus.md` for independent rejected
 candidates, corrections, evidence and finite-detail limits. No deployment/merge.
+
+## 30 October 2026 — Presentation finish without regenerating worlds
+
+Native terrain uses an optional, cached elevation-derived slope texture under the
+existing star light. Keep background relief separate from recorded crater lighting;
+quiet background shading preserves material recognition. Liquid-aware filtering,
+neutral liquid samples, polar taper and bounded tangent perturbation alter lighting
+only. Stable hydrocarbon tone and legend preserve the saved mask identity. Shader
+helper lanes stay finite before derivatives, with original geometric rejection.
+
+Desktop chrome/readouts use natural flow and shell-relative panel bounds. Convert
+screen/local coordinates at CSS zoom, keep zoom controls together and preserve the
+existing map renderer/context. Backend/generator/records remain unchanged. Read
+`docs/reviews/terrain-and-desktop-finish.md` for rejected candidates, independent
+findings/resolutions, exact evidence, performance limits and integration notes.

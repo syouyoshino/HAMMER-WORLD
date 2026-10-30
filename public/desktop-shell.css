@@ -9,6 +9,7 @@ body { display: block; min-height: 100%; overflow: hidden; }
   color: var(--ink);
   font-family: var(--mono);
   pointer-events: none;
+  container-type: inline-size;
 }
 #map-backdrop {
   position: absolute;
@@ -21,8 +22,8 @@ body { display: block; min-height: 100%; overflow: hidden; }
 #map-backdrop .map-frame {
   position: absolute;
   inset: 0;
-  width: 100vw;
-  height: 100vh;
+  width: auto;
+  height: auto;
   min-height: 0;
   overflow: hidden;
   background: var(--map-ground);
@@ -118,3 +119,78 @@ body { display: block; min-height: 100%; overflow: hidden; }
 }
 
 #map-panel .map-footer { font-size:11px; }
+
+/* One flow owns the top chrome. Wrapping content reserves its real height. */
+#chart-heading { position: absolute; z-index: 8; inset: 0 0 auto; display: flex; flex-direction: column; gap: 4px; padding-bottom: 4px; pointer-events: none; }
+#chart-heading .commandbar { position: relative; inset: auto; display: flex; flex-wrap: wrap; gap: 4px 14px; min-height: 0; padding: 4px 12px; }
+#chart-heading #hw-command { min-height: 28px; padding: 3px 8px; }
+#chart-heading .command-brand { font-size: 11px; }
+#chart-heading .campaign-indicator { flex: 1 1 190px; margin-left: auto; }
+#chart-heading .campaign-indicator select { flex: 1; width: 100%; min-width: 0; max-width: 330px; min-height: 28px; font-size: 11px; }
+#chart-heading .command-indicators { flex-wrap: wrap; gap: 4px 12px; }
+#chart-heading .command-indicators > span { font-size: 10px; }
+#chart-heading #refresh-button { min-height: 28px; padding: 2px 6px; }
+#chart-heading #resource-shell { position: relative; inset: auto; margin: 0 12px; width: min(640px, calc(100% - 24px)); }
+#chart-heading #resource-strip { gap: 10px; padding: 0 0 3px; }
+#chart-heading .resource-value { font-size: 14px; }
+#chart-heading #view-title { position: relative; inset: auto; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 16px; min-height: 0; margin: 0 12px; padding: 2px 6px; }
+#chart-heading #view-title > div:first-child { flex: 1 1 200px; min-width: 0; }
+#chart-heading #view-title .eyebrow { font-size: 8px; }
+#chart-heading #view-title h1 { margin: 0; font-size: 14px; overflow-wrap: anywhere; }
+#chart-heading #view-title .map-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; width: auto; max-width: 100%; overflow: visible; }
+#chart-heading #view-title .map-tools > label { display: inline-flex; flex-direction: row; align-items: center; gap: 4px; min-width: 0; }
+#chart-heading #view-title .map-tools select { width: auto; min-width: 0; max-width: 145px; min-height: 26px; padding: 3px 20px 3px 5px; font-size: 10px; }
+#chart-heading #view-title .map-tools > button { width: auto; min-height: 26px; padding: 3px 6px; font-size: 10px; white-space: nowrap; }
+#chart-heading #view-title .map-tools > .icon-button { width: 28px; }
+#chart-heading #map-breadcrumbs { position: relative; inset: auto; align-self: flex-start; max-width: calc(100% - 24px); margin: 0 12px; padding: 2px 6px; overflow-x: auto; white-space: nowrap; }
+#chart-heading #live-banner { position: relative; inset: auto; margin: 0 12px; padding: 3px 6px; max-width: calc(100% - 24px); }
+#desktop-shell .map-command-layer { display: block; padding: 0; }
+#desktop-shell .force-map-controls { top: calc(var(--chart-heading-height, 180px) + 8px); }
+#desktop-shell .force-map-panels { top: calc(var(--chart-heading-height, 180px) + 46px); }
+#desktop-shell .force-map-panels .force-map-list { max-height: max(80px, calc(100% - var(--chart-heading-height, 180px) - 100px)); }
+@container (max-width: 1000px) {
+  #chart-heading .commandbar { gap: 4px 10px; }
+  #chart-heading .command-indicators { margin-left: auto; }
+  #chart-heading #view-title { align-items: stretch; flex-direction: column; }
+  #chart-heading #view-title > div:first-child { flex: none; }
+  #chart-heading #view-title .eyebrow { display: none; }
+  #chart-heading #view-title h1 { font-size: 13px; }
+  #chart-heading #view-title .map-tools { width: 100%; }
+  #desktop-shell #map-panel .map-caption { left: 12px; right: 12px; bottom: 75px; gap: 4px 12px; flex-wrap: wrap; font-size: 9px; }
+  #desktop-shell #map-panel .map-legend { left: 12px; right: 12px; bottom: 40px; max-width: none; justify-content: flex-start; flex-wrap: wrap; gap: 3px 10px; font-size: 9px; }
+  #desktop-shell #map-panel .map-footer { left: 12px; right: 12px; bottom: 6px; padding-top: 3px; gap: 4px 12px; font-size: 9px; }
+}
+@container (max-width: 700px) {
+  #chart-heading .command-brand { display: none; }
+  #chart-heading .campaign-indicator label { display: none; }
+  #chart-heading .command-indicators { margin-left: 0; }
+  #chart-heading .resource-note { font-size: 8px; }
+  #chart-heading #resource-shell { width: calc(100% - 24px); }
+  #chart-heading #view-title .map-tools select { max-width: 125px; }
+}
+
+#desktop-shell #chart-readouts { position: absolute; inset: auto 12px 8px; display: flex; flex-direction: column; align-items: stretch; gap: 4px; }
+#desktop-shell #chart-readouts .map-caption, #desktop-shell #chart-readouts .map-legend, #desktop-shell #chart-readouts .map-footer { position: static; inset: auto; margin: 0; max-width: none; padding: 2px 6px; font-size: 10px; }
+#desktop-shell #chart-readouts .map-caption { flex-wrap: wrap; gap: 4px 12px; }
+#desktop-shell #chart-readouts .map-legend { flex-wrap: wrap; gap: 3px 10px; }
+#desktop-shell #chart-readouts .map-footer { align-items: flex-start; gap: 4px 12px; }
+@container (max-width: 1000px) {
+  #desktop-shell #chart-readouts { bottom: 6px; gap: 3px; }
+  #desktop-shell #chart-readouts .map-caption, #desktop-shell #chart-readouts .map-legend, #desktop-shell #chart-readouts .map-footer { font-size: 9px; line-height: 1.3; }
+}
+
+/* Floating panels fit the shell's actual CSS box, including CSS zoom. */
+#desktop-shell #command-workspace { width: min(780px, calc(100% - 40px)); height: min(710px, calc(100% - 184px)); min-height: 0; max-width: calc(100% - 16px); max-height: calc(100% - 16px); }
+#desktop-shell #command-menu { width: min(560px, calc(100% - 32px)); max-height: calc(100% - 64px); }
+#desktop-shell #command-dialog { width: min(520px, calc(100% - 24px)); max-height: calc(100% - 24px); }
+#desktop-shell #command-inspector { width: min(340px, calc(100% - 36px)); }
+@container (max-width: 1000px) {
+  #desktop-shell #command-workspace { inset: 12px; width: auto; height: auto; max-width: none; max-height: none; transform: none; }
+  #desktop-shell #command-inspector { top: 52px; bottom: 8px; max-height: calc(100% - 60px); }
+}
+
+#chart-heading .map-zoom-controls { display: inline-flex; flex: 0 0 auto; align-items: center; gap: 4px; white-space: nowrap; }
+#chart-heading .map-zoom-controls > button { width: auto; min-height: 26px; padding: 3px 6px; font-size: 10px; white-space: nowrap; }
+#chart-heading .map-zoom-controls > .icon-button { width: 28px; }
+#desktop-shell #chart-readouts .map-caption { align-self: flex-start; width: fit-content; max-width: 100%; }
+#desktop-shell #chart-readouts .map-legend { align-self: flex-end; width: fit-content; max-width: 100%; }

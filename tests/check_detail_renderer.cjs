@@ -5,7 +5,7 @@ let source=fs.readFileSync('public/map-renderer.js','utf8');
 source=source.replace('    detailAt,','    detailAt,\n    _qaBaseRaster:baseRaster, _qaLighting:dryLightingHeight, _qaCraterNormals:dryCraterDerivatives, _qaProfile:craterProfile, _qaFineRaster:fineRaster, _qaFineGeometry:fineGeometry, _qaBoundary:fineFeatureBoundary, _qaCopy:drawPlanetCopy,');
 const canvases=[];
 const sandbox={window:{},document:{createElement:()=>{
-  const canvas={},context={createImageData:(w,h)=>({width:w,height:h,data:new Uint8ClampedArray(w*h*4)}),
+  const canvas={},context={canvas,createImageData:(w,h)=>({width:w,height:h,data:new Uint8ClampedArray(w*h*4)}),
     putImageData:image=>canvas.pixels=image,drawImage:layer=>canvas.layer=layer};
   for(const name of ['save','restore','beginPath','moveTo','lineTo','quadraticCurveTo','stroke','translate'])context[name]=()=>{};
   canvas.strokes=[];context.stroke=function(){canvas.strokes.push({width:this.lineWidth,style:this.strokeStyle});};
@@ -154,15 +154,19 @@ for(const style of ['orbital','survey']){
     sample=(x,y,material=false)=>{const image=material?ridge.layer.pixels:ridge.pixels,
       off=(Math.floor((y+.5)*scale)*ridge.width+Math.floor((x+.5)*scale))*4;return Array.from(image.data.slice(off,off+3));},
     mean=rgb=>rgb.reduce((a,b)=>a+b)/3,
-    flat=mean(sample(100,240)),lit=mean(sample(220,240)),shadow=mean(sample(260,240)),unlit=mean(sample(615,240));
-  assert(lit>flat*1.04&&shadow<flat*.95,`${style} saved gray slopes lost readable directional relief`);
-  assert(unlit>20&&unlit<flat*.8,`${style} steep unlit face lost its ambient floor or directional contrast`);
+    patch=(x,y,material=false)=>[-2,0,2].flatMap(dx=>[-2,0,2].map(dy=>mean(sample(x+dx,y+dy,material)))).reduce((a,b)=>a+b)/9,
+    flat=patch(100,240),lit=patch(220,240),shadow=patch(260,240),unlit=patch(615,240);
+  assert(lit>flat*1.01&&shadow<flat*.99,`${style} saved gray slopes lost subtle directional relief`);
+  assert(lit<flat*1.08&&shadow>flat*.92,`${style} background shading competed with material identity`);
+  assert(unlit>flat*.9&&unlit<flat*1.2,`${style} background folds became dark liquid-like channels`);
+  const craterLight=[780,800,820,840].map(x=>patch(x,400));
+  assert(Math.max(...craterLight)-Math.min(...craterLight)>flat*.03,`${style} quiet background erased recorded crater form`);
   const beforeOrbit=pixelHash(ridge),globe=renderer.buildOrbitTexture({geometry:ridgeGeometry,detail:ridgeDetail,style}).layer,
     orbitSample=(x,y,material=false)=>{const image=material?globe.layer.pixels:globe.pixels,
       off=(Math.floor((y+.5)*scale)*globe.width+Math.floor((x+.5)*scale))*4;return Array.from(image.data.slice(off,off+3));};
   assert.strictEqual(pixelHash(ridge),beforeOrbit,`${style} orbit lighting changed strategic raster bytes`);
   assert.strictEqual(renderer._qaFineRaster(ridgeDetail,ridgeGeometry,style),ridge,`${style} orbit lighting displaced strategic raster cache`);
-  assert(mean(sample(220,0))>mean(sample(260,0))+12,`${style} fixture lost its directional polar chart light`);
+  assert(mean(sample(220,0))>mean(sample(260,0))+3,`${style} fixture lost its subtle polar chart light`);
   assert(Math.abs(mean(orbitSample(220,0))-mean(orbitSample(260,0)))<8,`${style} orbit pole retained baked directional terrain light`);
   assert(Math.abs(mean(orbitSample(220,h-1))-mean(orbitSample(260,h-1)))<8,`${style} south orbit pole retained baked directional light`);
   assert(orbitSample(220,0,true).every((v,i)=>Math.abs(v-orbitSample(260,0,true)[i])<2),`${style} orbit pole ice retained baked directional light`);
@@ -177,8 +181,8 @@ for(const style of ['orbital','survey']){
     assert.strictEqual(globe.layer.pixels.data[off],ridge.layer.pixels.data[off],`${style} orbit lighting changed a recorded material boundary`);
   const iceLit=sample(220,140,true),iceShadow=sample(260,140,true);
   assert(Math.max(...iceLit)<251,`${style} ice highlights clipped saved relief`);
-  assert(mean(iceLit)>mean(iceShadow)+15,`${style} saved ice slope relief became featureless`);
-  assert(mean(iceShadow)>shadow+35,`${style} polar ice became indistinguishable from gray rock`);
+  assert(patch(220,140,true)>patch(260,140,true)+3,`${style} saved ice slope relief became featureless`);
+  assert(mean(iceShadow)>shadow+20,`${style} polar ice became indistinguishable from gray rock`);
   const lavaLit=sample(220,340,true),lavaShadow=sample(260,340,true);
   assert(lavaLit.every((v,i)=>Math.abs(v-lavaShadow[i])<7),`${style} lava inherited terrain lighting`);
   assert(lavaLit[0]>lavaLit[1]*1.5&&lavaLit[1]>lavaLit[2],`${style} lava lost its recorded orange material`);
@@ -195,10 +199,22 @@ for(const style of ['orbital','survey']){
     flat=sample(100,240),lit=sample(220,240),shadow=sample(260,240),
     iceLit=sample(220,140,true),iceShadow=sample(260,140,true);
   assert(flat[2]>flat[0]+12&&mean(flat)<205,`${style} native frozen ground lost blue-gray headroom`);
-  assert(mean(lit)>mean(flat)*1.04&&mean(shadow)<mean(flat)*.95,`${style} frozen ground lost saved slope contrast`);
-  assert(mean(iceLit)>mean(iceShadow)+25,`${style} native polar ice washed out its saved relief`);
+  const patch=(x,y)=>[-2,0,2].flatMap(dx=>[-2,0,2].map(dy=>mean(sample(x+dx,y+dy)))).reduce((a,b)=>a+b)/9,
+    flatPatch=patch(100,240),litPatch=patch(220,240),shadowPatch=patch(260,240);
+  assert(litPatch>flatPatch*1.01&&shadowPatch<flatPatch*.99,`${style} frozen subtle slopes ${JSON.stringify({flatPatch,litPatch,shadowPatch})}`);
+  assert(litPatch<flatPatch*1.08&&shadowPatch>flatPatch*.92,`${style} frozen background overwhelmed material identity`);
+  assert(mean(iceLit)>mean(iceShadow)+3,`${style} native polar ice lost subtle saved relief`);
   assert(Math.max(...iceLit)<245&&iceLit[2]>iceLit[0]+15,`${style} polar ice lost blue-gray highlight headroom`);
-  for(let off=3;off<frozen.layer.pixels.data.length;off+=4)
-    assert.strictEqual(frozen.layer.pixels.data[off],prior.layer.pixels.data[off],'Ice/material recoloring changed a saved material boundary');
+  for(let off=3;off<frozen.layer.pixels.data.length;off+=4){
+    const px=((off-3)/4)%frozen.width,py=Math.floor((off-3)/4/frozen.width);
+    // Hydrocarbon intentionally has a sharper opacity transition than lava.
+    // Ice and every pixel outside that saved lake's half-cell margin stay exact.
+    if(px>=(208-.5)*scale&&px<=(272+.5)*scale&&py>=(300-.5)*scale&&py<=(380+.5)*scale)continue;
+    assert.strictEqual(frozen.layer.pixels.data[off],prior.layer.pixels.data[off],'Ice or unrelated material alpha changed');
+  }
+  for(const x of [207,208,270,271,272])for(const y of [299,300,378,379,380]){
+    const off=(Math.floor((y+.5)*scale)*frozen.width+Math.floor((x+.5)*scale))*4+3;
+    assert.strictEqual(frozen.layer.pixels.data[off]>127,ridgeMaterials[y*w+x]==='l','Hydrocarbon transition changed saved cell identity');
+  }
 }
-console.log(JSON.stringify({result:'PASS',checks:'native1024 saved fields, bounded raster/cache, shared explicit courses, fine catalog/body boundaries/seam, fine picking and saved province anchors, supported river widths and honest province label visibility, exact-sea/mixed-shore colours in both styles and periodic join, filtered native dry background linear normals, quantization attenuation, analytic small crater/seam, orbit texture copy/overlay, dry gray/ice directional relief and unlit floor with flat lava fills, native frozen blue-gray headroom and exact material-alpha boundaries, globally unlit orbital albedo without height/slope/crater light and unchanged strategic bytes/material boundaries'}));
+console.log(JSON.stringify({result:'PASS',checks:'native1024 saved fields, bounded raster/cache, shared explicit courses, fine catalog/body boundaries/seam, fine picking and saved province anchors, supported river widths and honest province label visibility, exact-sea/mixed-shore colours in both styles and periodic join, filtered native dry background linear normals, quantization attenuation, analytic small crater/seam, orbit texture copy/overlay, quiet dry gray/ice background, separately legible recorded craters, material separation and flat lava fills, native frozen blue-gray headroom, exact ice/unrelated alpha and canonical liquid cell identity, globally unlit orbital albedo without height/slope/crater light and unchanged strategic bytes/material boundaries'}));

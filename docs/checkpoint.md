@@ -290,3 +290,15 @@ Read `docs/reviews/physical-scale-and-body-focus.md` and the branch notes for nu
 contracts, independent critique corrections, browser/resource evidence, final
 stress results and remaining minor limits. No merge/deployment or unrecovered
 cartography/real-campaign recovery is implied. Light/dark and desktop scope remain.
+
+## 30 October 2026 — Frontend finish candidate
+
+Terrain light/material readability and desktop reflow continue on `map-generation`.
+The same independent critic accepts the reviewed scoped tasks after correction of
+header/workspace stranding, split controls, ambiguous dry shadows and a shader rim
+regression. Remaining synthetic terrain/category boundaries and software-rendering
+limits are explicit. Full source-matched browser, history/logout, GPU/fallback,
+resource and10,000-turn checks are in
+`docs/reviews/terrain-and-desktop-finish.md`. All17backend modules andeight existing
+fixture responses remain unchanged. No merge or deployment; hardware graphics,
+WebKit/native Safari and physical touch-device coverage remain unverified.

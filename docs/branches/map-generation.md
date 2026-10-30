@@ -810,3 +810,29 @@ Final source-matched 10,000-turn gate passes (598.82s), including detail retenti
 and exact restore. Nine V11/radius tests, thirteen existing tests, 240 legacy hashes,
 eight preserved campaign responses, final Chromium workflows and20-cycle resource/
 desktop CSS-zoom checks pass. Full metrics and limits are in the linked review.
+
+## Terrain lighting and desktop reflow — 30 October 2026
+
+Frontend-only continuation from1e69533. Natural-flow command/title/tools/breadcrumbs
+and shell-bounded management/dialogs fix control overlap and stranded Map/Close at
+high CSS zoom. Existing zoom/recenter controls form one unit; readouts fit content.
+Screen/local coordinate conversions preserve map input. Light/dark remain available.
+
+V10/V11 Orbit uses a cached, optional signed-slope texture derived from recorded
+heights. Background and crater light stay separate; quiet dry/ice background and
+stable warm hydrocarbon fill/legend improve material reading. No geographic field,
+material mask, ID, physical radius, turn rule or historical record is regenerated.
+There is no Earth-size default. Statistics overlays retain prior lighting behavior.
+
+Read `docs/reviews/terrain-and-desktop-finish.md` for the independent blind comparison,
+preserved F1–F6 findings, bounded architectural diagnosis, failed-candidate fixes,
+actual lake-in-view evidence, final checks, numeric/resource and browser limits.
+The same critic accepts the scoped tasks with no major visual blocker in examined
+views; synthetic terrain form, fixed-detail/category steps, faint rivers and very
+high CSS-zoom space constraints remain documented debt, not commercial/optical parity.
+
+Integration: retain optional internal canvas relief separately from recorded data;
+reuse immutable detail caches and revision-gated uploads. Keep map picking and
+campaign/history/auth invalidation independent of this presentation. The character
+branch and unrecovered cartography remain untouched. No merge or deployment. Final
+verified delivery reference follows after remaining gates.

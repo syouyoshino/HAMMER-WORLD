@@ -70,6 +70,15 @@
     for(const item of entries.values())if(item.node&&['economy','history','orders','turn','log'].includes(item.id)){item.node.hidden=true;shell.workspace.querySelector('.workspace-content').append(item.node);}
     const campaignSelect=document.querySelector('#campaign-select'), refresh=document.querySelector('#refresh-button');
     root.querySelector('.campaign-indicator').append(campaignSelect);refresh.textContent='↻';refresh.setAttribute('aria-label','Refresh campaign');root.querySelector('.command-indicators').append(refresh);
+    const zoomControls=document.createElement('div');zoomControls.className='map-zoom-controls';
+    zoomControls.append(...['zoom-out','zoom-reset','zoom-in','map-recenter'].map(id=>document.getElementById(id)));tools.append(zoomControls);
+    // Keep chart chrome in document flow; its height changes with content and zoom.
+    const heading=document.createElement('div');heading.id='chart-heading';
+    heading.append(root.querySelector('.commandbar'),root.querySelector('#resource-shell'),title,crumb,document.querySelector('#live-banner'));root.append(heading);
+    const readouts=document.createElement('div');readouts.id='chart-readouts';
+    readouts.append(panel.querySelector('.map-caption'),panel.querySelector('#map-legend'),panel.querySelector('.map-footer'));panel.append(readouts);
+    const measureHeading=()=>root.style.setProperty('--chart-heading-height',`${heading.offsetHeight}px`);
+    new ResizeObserver(measureHeading).observe(heading);measureHeading();
     const menu=root.querySelector('#command-menu'),menuGrid=menu.querySelector('.menu-grid');
     const previewStatus=document.createElement('span');previewStatus.id='command-preview';previewStatus.textContent='PREVIEW READY';previewStatus.hidden=true;root.querySelector('.command-indicators').insertBefore(previewStatus,root.querySelector('#command-history'));
     const appearanceLabel=document.createElement('label');appearanceLabel.className='appearance-setting';appearanceLabel.htmlFor='appearance-select';appearanceLabel.append(document.createTextNode('Appearance'));const appearanceSelect=document.createElement('select');appearanceSelect.id='appearance-select';appearanceSelect.setAttribute('aria-label','Appearance');for(const [value,label] of [['system','System'],['light','Light'],['dark','Dark']])appearanceSelect.append(new Option(label,value));appearanceSelect.value=window.HWTheme?.preference||'system';appearanceSelect.onchange=()=>window.HWTheme?.set(appearanceSelect.value);appearanceLabel.append(appearanceSelect);menu.append(appearanceLabel);

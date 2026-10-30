@@ -149,7 +149,7 @@
   }
   // Lighting alone uses a low-pass background. Recorded heights, colours and
   // material masks remain authoritative and are never replaced by this field.
-  function dryLightingHeight(heights, craters, cols, rows, cylinder) {
+  function dryLightingHeight(heights, craters, cols, rows, cylinder, eligible = null) {
     const background = Float64Array.from(heights);
     for (const crater of craters || []) {
       const support=crater.radius_q*1.25;
@@ -166,12 +166,20 @@
       for(let k=0;k<weights.length;k++)weights[k]/=sum;
       const horizontal=new Float64Array(cols*rows),result=new Float64Array(cols*rows);
       for(let y=0;y<rows;y++)for(let x=0;x<cols;x++){
-        let value=0;for(let d=-radius;d<=radius;d++)value+=background[y*cols+(cylinder?((x+d)%cols+cols)%cols:clamp(x+d,0,cols-1))]*weights[d+radius];
-        horizontal[y*cols+x]=value;
+        let value=0,total=0;for(let d=-radius;d<=radius;d++){
+          const i=y*cols+(cylinder?((x+d)%cols+cols)%cols:clamp(x+d,0,cols-1));
+          if(eligible&&!eligible[i])continue;
+          value+=background[i]*weights[d+radius];total+=weights[d+radius];
+        }
+        horizontal[y*cols+x]=eligible?(total?value/total:background[y*cols+x]):value;
       }
       for(let y=0;y<rows;y++)for(let x=0;x<cols;x++){
-        let value=0;for(let d=-radius;d<=radius;d++)value+=horizontal[clamp(y+d,0,rows-1)*cols+x]*weights[d+radius];
-        result[y*cols+x]=value;
+        let value=0,total=0;for(let d=-radius;d<=radius;d++){
+          const i=clamp(y+d,0,rows-1)*cols+x;
+          if(eligible&&!eligible[i])continue;
+          value+=horizontal[i]*weights[d+radius];total+=weights[d+radius];
+        }
+        result[y*cols+x]=eligible?(total?value/total:background[y*cols+x]):value;
       }
       return result;
     };
@@ -211,6 +219,35 @@
       }
     }
     return distance;
+  }
+  function nativeShoreCrossings(surface,cols,rows,cylinder){
+    const heights=surface?.elevation,sea=surface?.sea_level,segments=[];
+    if(!heights||!Number.isFinite(sea)||heights.length!==cols*rows)return segments;
+    const point=(edge,x,y,from,to)=>{const t=(sea-from)/(to-from);return edge===0?[x+.5+t,y+.5]:edge===1?[x+1.5,y+.5+t]:edge===2?[x+1.5-t,y+1.5]:[x+.5,y+1.5-t];};
+    for(let y=0;y<rows-1;y++)for(let x=0;x<(cylinder?cols:cols-1);x++){
+      const nx=(x+1)%cols,i=y*cols+x,j=y*cols+nx,k=(y+1)*cols+nx,l=(y+1)*cols+x,
+        a=heights[i],b=heights[j],c=heights[k],d=heights[l],crossTop=Number.isFinite(a)&&Number.isFinite(b)&&(a>sea)!==(b>sea),
+        crossRight=Number.isFinite(b)&&Number.isFinite(c)&&(b>sea)!==(c>sea),crossBottom=Number.isFinite(c)&&Number.isFinite(d)&&(c>sea)!==(d>sea),crossLeft=Number.isFinite(d)&&Number.isFinite(a)&&(d>sea)!==(a>sea);
+      let top=null,right=null,bottom=null,left=null,count=0;
+      if(crossTop){top=point(0,x,y,a,b);count++;}if(crossRight){right=point(1,x,y,b,c);count++;}
+      if(crossBottom){bottom=point(2,x,y,c,d);count++;}if(crossLeft){left=point(3,x,y,d,a);count++;}
+      if(count===2){const hits=[top,right,bottom,left].filter(Boolean);segments.push([hits[0],hits[1]]);}
+      else if(count===4){
+        const center=(a+b+c+d)*.25;
+        if((center>sea)===(a>sea))segments.push([top,right],[bottom,left]);
+        else segments.push([top,left],[right,bottom]);
+      }
+    }
+    return segments;
+  }
+  function traceNativeShoreCrossings(ctx,surface,cols,rows,scale,cylinder,survey){
+    const segments=nativeShoreCrossings(surface,cols,rows,cylinder);if(!segments.length)return;
+    ctx.save();ctx.lineWidth=.45*scale;ctx.lineCap='round';ctx.strokeStyle=survey?'rgba(183,204,197,.38)':'rgba(60,102,111,.32)';ctx.beginPath();
+    for(const [[x1,y1],[x2,y2]] of segments){
+      const from=[x1*scale,y1*scale],to=[x2*scale,y2*scale];
+      for(const shift of cylinder?[-ctx.canvas.width,0,ctx.canvas.width]:[0]){ctx.moveTo(from[0]+shift,from[1]);ctx.lineTo(to[0]+shift,to[1]);}
+    }
+    ctx.stroke();ctx.restore();
   }
   function riverShorePoints(surface, points, cols, cylinder) {
     if(!surface.elevation || surface.sea_level===null)return points;
@@ -366,14 +403,13 @@
           onLand=heightContour?(["planet-v10","planet-v11"].includes(surface?.version)?elev>sea+1e-9&&terrainCover>1e-9:elev>=sea):cover>=.5,
           wet=moisture?moisture[i]*inv+moisture[j]*ty:500,
           temp=temperature?temperature[i]*inv+temperature[j]*ty:500;
-        let shade=1,high=0,wetMix=0,coldMix=0,depth=0,shore=0;
+        let shade=1,backgroundShade=1,high=0,wetMix=0,coldMix=0,depth=0,shore=0;
         if(!onLand) {
           depth=(heights?clamp((sea-elev)/250,0,1):.45)*.35;
           shore=heightContour?clamp((elev-(sea-14))/14,0,1)*.09:clamp(cover*1.2,0,.22);
         } else if(heights) {
           let dx=(heightRight[i]*inv+heightRight[j]*ty)-(heightLeft[i]*inv+heightLeft[j]*ty),
             dy=(lightingElevation[down0+px]*(1-downT)+lightingElevation[down1+px]*downT)-(lightingElevation[up0+px]*(1-upT)+lightingElevation[up1+px]*upT);
-          if(craterNormals){dx+=craterNormals.dx[py*w+px];dy+=craterNormals.dy[py*w+px];}
           if(craterResidual && !dryLighting){
             const left=craterResidual[py*w+(cylinder?(px+w-1)%w:Math.max(0,px-1))],
               right=craterResidual[py*w+(cylinder?(px+1)%w:Math.min(w-1,px+1))],
@@ -383,27 +419,38 @@
             dx+=right-left;dy+=down-up;
           }
           if(["planet-v10","planet-v11"].includes(surface?.version)&&surface.hydrology==="none"){
-            // Match the filtered background and separate analytic crater stencil.
-            // Normalize native-cell derivatives to the displayed world grid.
+            // Keep broad terrain and analytic crater shading separate through
+            // illumination; combining gradients first exaggerates their folds.
             const reliefScale=surface.renderReliefScale||1,
               nx=dx*reliefScale/(2*gradientStep*140),ny=dy*reliefScale/(2*gradientStep*140),
-              illumination=(nx*.5+ny*.6+.75)/Math.sqrt(1+nx*nx+ny*ny);
-            shade=(.3+.9*Math.max(0,illumination))/(.3+.9*.75);
-            if(survey)shade=1+(shade-1)*.85;
+              backgroundIllumination=(nx*.5+ny*.6+.75)/Math.sqrt(1+nx*nx+ny*ny),
+              backgroundContrast=clamp((Math.max(0,backgroundIllumination)-.75)*.9/.975,-.04,.04);
+            backgroundShade=1+backgroundContrast;
+            if(survey)backgroundShade=1+(backgroundShade-1)*.85;
+            let craterShade=1;
+            if(craterNormals){
+              const cx=craterNormals.dx[py*w+px]*reliefScale/(2*gradientStep*140),cy=craterNormals.dy[py*w+px]*reliefScale/(2*gradientStep*140),
+                craterIllumination=(cx*.5+cy*.6+.75)/Math.sqrt(1+cx*cx+cy*cy);
+              craterShade=1+clamp((Math.max(0,craterIllumination)-.75)*.2,-.08,.08);
+            }
+            shade=backgroundShade*craterShade;
           }else if(craterResidual){
             const nx=dx/(2*gradientStep*140),ny=dy/(2*gradientStep*140),
               // Normal (-gx,-gy,1) under northwest light (-.5,-.6,.75).
               illumination=(nx*.5+ny*.6+.75)/Math.sqrt(1+nx*nx+ny*ny);
             shade=.95+.065*illumination;
             if(survey)shade=1+(shade-1)*.6;
-          }else shade=1+clamp((-dx*.65-dy*.75)/110,-.32,.3)*(survey?.6:1);
+          }else {
+            shade=1+clamp((-dx*.65-dy*.75)/110,-.32,.3)*(survey?.6:1);
+            if(["planet-v10","planet-v11"].includes(surface?.version)&&surface.hydrology!=="none")shade=clamp(shade,.82,1.18);
+          }
           high=clamp((elev-620)/350,0,1)*(craterResidual?.18:.44);
           wetMix=surface?.hydrology==="none"?0:clamp((wet-450)/700,0,.24);
           coldMix=clamp((320-temp)/600,0,.3);
         }
         // The sphere lights its own geometry. Its texture is albedo, without
         // Cartesian chart hillshade or native dry elevation relief tint.
-        if(orbitLighting){shade=1;if(dryLighting)high=0;}
+        if(orbitLighting){shade=1;backgroundShade=1;if(dryLighting)high=0;}
         const grain=(hash(px,py,3)-.5)*(survey?2.2:7),off=(py*w+px)*4;
         for(let c=0;c<3;c++) {
           let color;
@@ -433,13 +480,13 @@
           const lakeCover=lakeField ? lakeField[i]*inv+lakeField[j]*ty : 0,
             iceCover=iceField ? iceField[i]*inv+iceField[j]*ty : 0,
             iceAlpha=clamp((iceCover-.35)/.3,0,1),
-            // Broad, inward transition softens the sampled shore without an
-            // outside outline. Every painted pixel still derives from its mask.
-            lakeT=clamp((lakeCover-.35)/.6,0,1),
+            // Keep the antialias transition centered on the saved mask edge;
+            // narrow recorded bodies still get a solid interior.
+            lakeT=clamp((lakeCover-.45)/.1,0,1),
             lakeAlpha=lakeT*lakeT*(3-2*lakeT);
           if(iceAlpha>0) {
             // Native ice retains the saved slope contrast with room below white.
-            const relief=dryLighting?clamp(shade,.57,1.18):clamp(1+(shade-1)*.75,.8,1.13),
+            const relief=dryLighting?backgroundShade:clamp(1+(shade-1)*.75,.8,1.13),
               iceColor=dryLighting?(survey?[176,194,204]:[164,185,198]):survey?[229,237,233]:[217,229,226];
             for(let c=0;c<3;c++)composition.data[off+c]=clamp(iceColor[c]*relief+grain*.3,0,255);
             composition.data[off+3]=Math.round(iceAlpha*255);
@@ -450,9 +497,10 @@
             const lava=materials.lake_material==="lava", hydrocarbon=materials.lake_material==="hydrocarbon",
               depth=lakeDepth[i]*inv+lakeDepth[j]*ty,
               innerT=clamp((depth-.4)/1.1,0,1),inner=innerT*innerT*(3-2*innerT),
-              body=lava?[153,70,32]:hydrocarbon?[58,45,28]:survey?[61,111,133]:[28,74,99],
-              shore=lava?[61,53,44]:hydrocarbon?[91,77,49]:survey?[100,133,130]:[65,103,108],
-              tone=1+(orbitLighting&&surface.hydrology==="none"?0:clamp((sampledElevation-550)/1800,-.07,.09))-clamp(depth-2,0,6)*.006;
+              body=lava?[153,70,32]:hydrocarbon?[104,78,45]:survey?[61,111,133]:[28,74,99],
+              shore=lava?[61,53,44]:hydrocarbon?[86,67,43]:survey?[100,133,130]:[65,103,108],
+              tone=hydrocarbon?1-clamp(depth,0,6)*.012:
+                1+(orbitLighting&&surface.hydrology==="none"?0:clamp((sampledElevation-550)/1800,-.07,.09))-clamp(depth-2,0,6)*.006;
             for(let c=0;c<3;c++)composition.data[off+c]=
               (shore[c]*(1-inner)+body[c]*inner)*tone+grain*(lava?.9:.65);
             composition.data[off+3]=Math.round(lakeAlpha*255);
@@ -462,6 +510,8 @@
     }
     ctx.putImageData(img,0,0);
     if (surface) {
+      if(["planet-v10","planet-v11"].includes(surface.version)&&surface.hydrology==="ocean-draining")
+        traceNativeShoreCrossings(ctx,surface,cols,rows,scale,cylinder,survey);
       // Contours interpolate the persisted elevation field, without decorative
       // hatching or a synthetic relief field.
       if (survey && !orbitLighting && surface.hydrology !== "none" && heights) {
@@ -543,7 +593,72 @@
       paths.set(river.id,[riverShorePoints(proxy.surface,raw,cols,wrapsX(geometry))]);
       for(const cell of new Set(river.points))owners.set(cell,(owners.get(cell)||0)+1);
     }
-    entry={geometry:proxy,paths,owners,boundaries:new Map(),rasters:new Map()};detailRasterCache.set(detail,entry);return entry;
+    entry={geometry:proxy,paths,owners,boundaries:new Map(),rasters:new Map(),orbitReliefCanvas:null,orbitReliefBackground:null};detailRasterCache.set(detail,entry);return entry;
+  }
+  function isLiquidReliefCell(detail,index){
+    return detail.terrain_grid[index]==="o"||"whl".includes(detail.materials?.[index]||"");
+  }
+  function deriveOrbitReliefField(detail,geometry){
+    if(!detail||!geometry||!['planet-v10','planet-v11'].includes(geometry.surface?.version)||
+      !Number.isInteger(detail.width)||!Number.isInteger(detail.height)||detail.width<2||detail.height<2||
+      detail.terrain_grid?.length!==detail.width*detail.height||!Array.isArray(detail.elevation)||detail.elevation.length!==detail.width*detail.height)return null;
+    const {width,height}=detail,data=new Uint8ClampedArray(width*height*4),raw=new Float32Array(width*height*2),cylinder=wrapsX(geometry),maxTilt=.4663,
+      dry=geometry.surface.hydrology==="none",craters=geometry.surface.geology==="cratered"?detail.craters||[]:[],gain=dry?.0001:.00022,craterGain=.00016,
+      entry=detailRasterCache.get(detail),
+      // Surface shading keeps its original field. Orbit excludes liquids before
+      // either Gaussian pass so their heights cannot manufacture land slopes.
+      background=dry?(entry?.orbitReliefBackground||dryLightingHeight(detail.elevation,craters,width,height,cylinder,
+        Uint8Array.from(detail.elevation,(_,i)=>isLiquidReliefCell(detail,i)?0:1))):null,
+      craterField=dry&&craters.length?dryCraterDerivatives(craters,width,height,width,height,1,cylinder):null;
+    if(dry&&entry&&!entry.orbitReliefBackground)entry.orbitReliefBackground=background;
+    for(let i=0;i<width*height;i++){const off=i*4;data[off]=128;data[off+1]=128;data[off+2]=128;data[off+3]=255;}
+    const fieldAt=(field,index,center)=>isLiquidReliefCell(detail,index)?center:(Number.isFinite(field[index])?field[index]:center);
+    const heightAt=(field,x,y,center)=>{const index=clamp(y,0,height-1)*width+(cylinder?(x%width+width)%width:clamp(x,0,width-1));return fieldAt(field,index,center);};
+    for(let y=0;y<height;y++){
+      const latitude=Math.PI*(.5-(y+.5)/height),cosLatitude=Math.max(0,Math.cos(latitude));
+      const polar=Math.max(0,Math.min(1,(cosLatitude-.12)/.38)),taper=polar*polar*(3-2*polar);
+      for(let x=0;x<width;x++){
+        const index=y*width+x;if(isLiquidReliefCell(detail,index))continue;
+        const source=background||detail.elevation,center=Number.isFinite(source[index])?source[index]:0;
+        const dLongitude=(heightAt(source,x+1,y,center)-heightAt(source,x-1,y,center))*width/(4*Math.PI*Math.max(.12,cosLatitude)),
+          dLatitude=-(heightAt(source,x,y+1,center)-heightAt(source,x,y-1,center))*height/(2*Math.PI);
+        let east=-dLongitude*gain*taper,north=-dLatitude*gain*taper;
+        if(craterField){
+          const left=cylinder?(x+width-1)%width:Math.max(0,x-1),right=cylinder?(x+1)%width:Math.min(width-1,x+1),
+            boundary=isLiquidReliefCell(detail,y*width+left)||isLiquidReliefCell(detail,y*width+right)||
+              isLiquidReliefCell(detail,Math.max(0,y-1)*width+x)||isLiquidReliefCell(detail,Math.min(height-1,y+1)*width+x);
+          if(!boundary){east-=craterField.dx[index]*width/(4*Math.PI*Math.max(.12,cosLatitude))*craterGain*taper;north+=craterField.dy[index]*height/(2*Math.PI)*craterGain*taper;}
+        }
+        let length=Math.hypot(east,north);
+        if(length>maxTilt){east*=maxTilt/length;north*=maxTilt/length;}
+        raw[index*2]=east;raw[index*2+1]=north;
+      }
+    }
+    // Smooth only this derived lighting field over one native cell. Liquid
+    // cells and their slopes never contribute to the land-side average.
+    const weights=[1,2,1,2,4,2,1,2,1];
+    for(let y=0;y<height;y++)for(let x=0;x<width;x++){
+      const index=y*width+x;if(isLiquidReliefCell(detail,index))continue;
+      let east=0,north=0,total=0,k=0;
+      for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++,k++){
+        const nx=cylinder?(x+dx+width)%width:clamp(x+dx,0,width-1),ny=clamp(y+dy,0,height-1),neighbor=ny*width+nx;
+        if(isLiquidReliefCell(detail,neighbor))continue;
+        const weight=weights[k];east+=raw[neighbor*2]*weight;north+=raw[neighbor*2+1]*weight;total+=weight;
+      }
+      if(!total)continue;
+      east=clamp(east/total,-maxTilt,maxTilt);north=clamp(north/total,-maxTilt,maxTilt);
+      const length=Math.hypot(east,north);if(length>maxTilt){east*=maxTilt/length;north*=maxTilt/length;}
+      // RG stores actual signed tangent slopes; 128 is exactly neutral.
+      const off=index*4;data[off]=Math.round(128+127*east);data[off+1]=Math.round(128+127*north);
+    }
+    return{width,height,data};
+  }
+  function buildOrbitReliefCanvas(detail,geometry,entry){
+    if(entry.orbitReliefCanvas)return entry.orbitReliefCanvas;
+    const field=deriveOrbitReliefField(detail,geometry);if(!field)return null;
+    const canvas=document.createElement('canvas');canvas.width=field.width;canvas.height=field.height;
+    const context=canvas.getContext('2d'),image=context.createImageData(field.width,field.height);image.data.set(field.data);context.putImageData(image,0,0);
+    entry.orbitReliefCanvas=canvas;return canvas;
   }
   function fineFeatureBoundary(detail, geometry, id) {
     const entry=fineGeometry(detail,geometry);
@@ -595,10 +710,11 @@
     entry.rasters.set(rasterKey,canvas);return canvas;
   }
   function buildOrbitTexture({geometry,detail=null,style="orbital",overlay="terrain",paintOverlay=null}) {
-    const source=fineRaster(detail,geometry,style,true)||baseRaster(geometry,style,true),canvas=document.createElement("canvas");
+    const fine=fineRaster(detail,geometry,style,true),source=fine||baseRaster(geometry,style,true),canvas=document.createElement("canvas");
     canvas.width=source.width;canvas.height=source.height;
     const ctx=canvas.getContext("2d");ctx.drawImage(source,0,0);
     if(paintOverlay)paintOverlay(ctx,{tile:canvas.width/geometry.planet.width,ox:0,oy:0,overlay});
+    if(fine&&overlay==="terrain"&&["planet-v10","planet-v11"].includes(geometry.surface?.version))canvas.hwOrbitRelief=buildOrbitReliefCanvas(detail,geometry,fineGeometry(detail,geometry));
     return canvas;
   }
   function traceRiver(ctx,points) {

@@ -178,3 +178,8 @@ Physical-scale generation and celestial focus navigation continue on the separat
 `docs/branches/map-generation.md`. Preserve the command shell, appearance toggle,
 context invalidation and public projections when integrating; this work does not
 merge the character branch or unrecovered cartography.
+
+The 30 October frontend finish on `map-generation` adds source-matched terrain
+lighting/material and desktop reflow verification. See
+`docs/reviews/terrain-and-desktop-finish.md` for preserved data boundaries,
+independent findings, performance/browser limits and integration notes.
