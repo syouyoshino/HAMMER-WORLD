@@ -180,3 +180,8 @@ Continuation: profile hardware frame/readback costs before promising smoothness;
 retain the existing critic ledger for further changes. Extend supported recorded
 terrain independently of UI work; never invent atmospheric/moon surfaces to fill
 the fixture. Recheck extreme crowding when adding new celestial symbol types.
+
+Verified implementation, regressions and review record: `ed352f1`, pushed to
+`origin/map-generation` (WIP baseline `5004eb2`). Runtime evidence remains local
+and ignored; the durable findings, environment, metrics and source hashes above
+are committed. No private fixture credentials or campaign databases are included.

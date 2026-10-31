@@ -919,3 +919,8 @@ are unverified. No Google Earth or commercial-game parity claim. Integrate throu
 saved detail references and body-return tickets; keep UI state out of campaign
 persistence. No merge/deployment/data reset. Baseline backup: `5004eb2`; delivery
 commit is recorded in the review after push.
+
+Verified correction milestone: `ed352f1`, pushed to `origin/map-generation`.
+Same-critic final scoped acceptance and supplemental precise-marker browser pass
+are recorded in the linked review. No unresolved critical/major defect in the
+reviewed celestial journeys; remaining limitations above are explicit.
