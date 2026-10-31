@@ -33,7 +33,7 @@ def main():
         page.screenshot(path=str(out/'02-drift.png'))
         region=next(p for p in positions if p['id'].endswith('region-01'))
         page.mouse.move(region['x'],region['y']);page.wait_for_selector('#map-tooltip:visible')
-        assert 'open' in page.locator('#map-tooltip').inner_text().lower()
+        assert 'select' in page.locator('#map-tooltip').inner_text().lower()
         page.wait_for_timeout(350);assert page.locator('#map-tooltip').is_visible(),'Ambient frames must not erase a hovered contact tooltip'
         assert page.locator('#planet-map').evaluate('n=>getComputedStyle(n).cursor')=='pointer'
         page.mouse.move(10,5);assert page.locator('#map-tooltip').is_hidden()

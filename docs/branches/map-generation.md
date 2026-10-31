@@ -975,3 +975,25 @@ integrating unrecovered work. No data reset, merge, deployment or character edit
 
 Verified spatial/motion milestone: `8d44d7b`, pushed to `origin/map-generation`.
 Continue from the linked review's explicit fixture/browser/performance limits.
+
+## Atlas orientation and purposeful camera — 31 October 2026
+
+Viewing-origin system/sector/region now comes from the committed public source
+context, with no inferred physical fleet location. Destination preview is distinct
+from origin: select a contact to focus it, then use its named primary Open action.
+A short guarded approach opens the existing chart and preserves the camera before
+approach. Offscreen contacts remain focusable. Manual input, overlays and context
+changes cancel pending opening; reduced motion is immediate.
+
+The Universe-only header collapses redundant resource/breadcrumb/eyebrow rows and
+uses readable origin/destination groups. Default scene starts~39px higher than
+baseline after retaining legible facts. Other map HUDs restore normally. Cyan
+origin and white destination cues have explicit state keys. No campaign/schema/
+generator/history changes; physical cosmic positions remain unrecorded.
+
+Actual orientation/camera/cancel, full hierarchy/history/private-response and
+ambient lifecycle checks pass on frozen source. Same-critic scoped visual
+acceptance after typography/selection/CTA correction. Full evidence, source hashes,
+performance/browser bounds, minor residuals and integration notes:
+`docs/reviews/atlas-orientation-and-camera.md`. Interface release candidate only;
+no merge, deployment, data reset or character-branch change.

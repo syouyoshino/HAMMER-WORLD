@@ -205,3 +205,8 @@ footprints and universe distances remain unknown; authorization stays server-sid
 Universe ambience follow-up on `map-generation` supersedes the flat schematic
 presentation while retaining its navigation/data contracts. Integration and
 independent motion/visual evidence: `docs/reviews/universe-spatial-finish.md`.
+
+Atlas orientation/camera continuation on `map-generation` adds a scoped compact
+header and ephemeral viewing-origin/destination cues, plus contact preview and
+guarded opening. Integrate using the existing public context/camera boundaries;
+see `docs/reviews/atlas-orientation-and-camera.md` for evidence and limitations.

@@ -459,3 +459,15 @@ reduced motion and context-exit cancellation. A surface outward gesture enters
 Orbit without recursively crossing another boundary. Atmosphere must not imply
 new authoritative positions or discovery footprints. Preserve the explicit public
 known-contact projection. Evidence: `docs/reviews/universe-spatial-finish.md`.
+
+### Viewing origin and selected destination — 31 October 2026
+
+Derive navigation origin only from the committed public Planet/System ancestor
+chain, not player/fleet location or arbitrary first system. Mark existing known
+ancestor contacts. Select previews/focuses; explicit Open performs a guarded
+camera approach before existing chart navigation. Save the visible camera before
+approach; never save the transient approach as the return view. Reuse the one
+Universe RAF and cancel on manual input, overlays and context changes. Historical
+origins can be rederived, but all returns remain in their authorized snapshot.
+Keep the compact Universe header separate from other map HUDs and show core facts
+legibly. Evidence: `docs/reviews/atlas-orientation-and-camera.md`.

@@ -95,14 +95,14 @@
     ctx.globalAlpha=1;
   }
 
-  function draw(ctx, {w,h,record,safe,zoom=1,panX=0,panY=0,theme='dark',selectedContactId=null,time=0}) {
+  function draw(ctx, {w,h,record,safe,zoom=1,panX=0,panY=0,theme='dark',selectedContactId=null,originContactIds=[],time=0}) {
     const dark = theme === 'dark', cx = (safe.left + safe.right) / 2, cy = (safe.top + safe.bottom) / 2;
     const contacts = record?.contacts || [], regions = contacts.filter(c => c.contactLevel === 'region'), sectors = contacts.filter(c => c.contactLevel === 'sector');
     const compact = safe.height < 340;
     const content = {left:safe.left, right:safe.right, top:safe.top + 48, bottom:safe.bottom};
     const project = (x,y) => ({x:cx + (x-cx)*zoom + panX, y:cy + (y-cy)*zoom + panY});
     const bounded = rect => { const r={left:Math.max(content.left,rect.left),right:Math.min(content.right,rect.right),top:Math.max(content.top,rect.top),bottom:Math.min(content.bottom,rect.bottom)}; return r.left<r.right&&r.top<r.bottom?r:null; };
-    const positions = [], regionLayout = new Map(), sectorLayout = new Map();
+    const positions = [], contactAnchors = [], regionLayout = new Map(), sectorLayout = new Map();
     ctx.save(); ctx.beginPath(); ctx.rect(safe.left,safe.top,safe.width,safe.height); ctx.clip();
     drawArtwork(ctx, {safe, dark, time, zoom, panX, panY});
 
@@ -152,8 +152,8 @@
     }
 
     const drawContact = (slot, level) => {
-      const {n} = slot.contact, p = project(slot.x, slot.y), selected = n.id === selectedContactId;
-      const detected = n.knowledge === 'detected', color = level === 'region' ? (dark ? '#f1c777' : '#7b5930') : detected ? (dark ? '#e0b56d' : '#805b20') : (dark ? '#9dd7e1' : '#426d77');
+      const {n} = slot.contact, p = project(slot.x, slot.y), selected = n.id === selectedContactId, origin = originContactIds.includes(n.id);
+      const detected = n.knowledge === 'detected', color = origin ? (dark ? '#8fc8ee' : '#28668b') : level === 'region' ? (dark ? '#f1c777' : '#7b5930') : detected ? (dark ? '#e0b56d' : '#805b20') : (dark ? '#9dd7e1' : '#426d77');
       const label = n.name || `${level === 'region' ? 'Region' : 'Sector'} · name unrecorded`;
       const type = level === 'region' ? `Region · ${detected ? 'Detected · Position unknown' : 'Surveyed'}` : `Sector · ${detected ? 'Detected · unlocated' : 'Surveyed'}`;
       ctx.save(); ctx.shadowColor = color; ctx.shadowBlur = dark ? (level === 'region' ? 15 : 8) : 4;
@@ -161,8 +161,8 @@
       if (level === 'region') { ctx.beginPath(); ctx.arc(p.x,p.y,7,0,Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(p.x,p.y,14,0,Math.PI*2); ctx.stroke(); }
       else if (detected) { ctx.strokeRect(p.x-5,p.y-5,10,10); }
       else { ctx.fillRect(p.x-4,p.y-4,8,8); }
+      if (origin) { ctx.beginPath();ctx.arc(p.x,p.y,level==='region'?19:13,0,Math.PI*2);ctx.stroke(); }
       ctx.restore();
-      if (selected) { ctx.strokeStyle = dark ? 'rgba(223,239,240,.9)' : 'rgba(42,81,91,.8)'; ctx.lineWidth=1; ctx.setLineDash([2,3]); ctx.beginPath(); ctx.arc(p.x,p.y,level==='region'?21:11,0,Math.PI*2); ctx.stroke(); ctx.setLineDash([]); }
       ctx.textAlign='center'; ctx.font=`600 ${level==='region'?13:12}px "Noto Instrument Mono",monospace`; ctx.fillStyle=dark?'#f0f4f3':'#233941';
       const nameWidth = ctx.measureText(label).width, maxLabel = Math.max(110, Math.min(220, safe.width / (compact ? 2 : Math.max(2, regions.length))));
       ctx.fillText(label,p.x,p.y+(level==='region'?34:20),maxLabel);
@@ -175,14 +175,25 @@
         ctx.font='10px "Noto Instrument Mono",monospace';ctx.fillStyle=dark?'#a4bac4':'#596f76';
         parentWidth=ctx.measureText(parentLine).width;ctx.fillText(parentLine,p.x,p.y+50,maxLabel);
       }
-      const width=Math.min(maxLabel,Math.max(112,nameWidth+12,typeWidth+12,parentWidth+12)), frameRect={left:p.x-width/2,right:p.x+width/2,top:p.y-(level==='region'?20:12),bottom:p.y+(level==='region'?55:55)}, hit=bounded(frameRect);
-      if(hit) positions.push({n,...p,anchorX:p.x,anchorY:p.y,radius:level==='region'?17:12,frameRect,hitRect:hit,contactLevel:level});
+      const width=Math.min(maxLabel,Math.max(112,nameWidth+12,typeWidth+12,parentWidth+12)), frameRect={left:Math.max(safe.left,p.x-width/2-6),right:Math.min(safe.right,p.x+width/2+6),top:Math.max(content.top,p.y-(level==='region'?30:23)),bottom:Math.min(content.bottom,p.y+60)}, hit=bounded(frameRect);
+      if (selected) {
+        const color=dark?'rgba(244,249,251,.96)':'rgba(31,61,71,.94)',arm=8;
+        ctx.strokeStyle=color;ctx.lineWidth=1.4;ctx.beginPath();
+        for(const [x,y,sx,sy] of [[frameRect.left,frameRect.top,1,1],[frameRect.right,frameRect.top,-1,1],[frameRect.left,frameRect.bottom,1,-1],[frameRect.right,frameRect.bottom,-1,-1]]){ctx.moveTo(x+sx*arm,y);ctx.lineTo(x,y);ctx.lineTo(x,y+sy*arm);}
+        ctx.stroke();
+        const tagX=p.x+(level==='region'?23:14),tagY=Math.max(content.top+12,Math.min(content.bottom-4,p.y-(level==='region'?20:16)));
+        ctx.fillStyle=dark?'rgba(5,14,22,.9)':'rgba(245,248,246,.94)';ctx.fillRect(tagX-3,tagY-11,37,14);
+        ctx.fillStyle=color;ctx.textAlign='left';ctx.font='700 9px "Noto Instrument Mono",monospace';ctx.fillText('DEST',tagX,tagY);
+      }
+      const target={id:n.id,n,...p,baseX:slot.x,baseY:slot.y,anchorX:p.x,anchorY:p.y,radius:level==='region'?17:12,frameRect,hitRect:hit,contactLevel:level,regionId:slot.contact.regionId||n.id};
+      contactAnchors.push(target);
+      if(hit) positions.push(target);
     };
     for (const slot of regionLayout.values()) drawContact(slot,'region');
     for (const slot of sectorLayout.values()) drawContact(slot,'sector');
     if (!contacts.length) { ctx.textAlign='center'; ctx.font='600 13px "Noto Instrument Mono",monospace'; ctx.fillStyle=dark?'#d2dbdf':'#34464a'; ctx.fillText('No regions or sectors are recorded',cx,cy-7); }
     ctx.restore();
-    return {hierarchy:true,universe:true,positions,hitTargets:positions,safeRect:safe,sceneRect:safe,model:{contacts}};
+    return {hierarchy:true,universe:true,positions,hitTargets:positions,contactAnchors,safeRect:safe,sceneRect:safe,model:{contacts}};
   }
 
   const api = {fromGalactic, draw};

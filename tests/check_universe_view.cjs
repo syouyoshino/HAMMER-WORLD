@@ -30,6 +30,10 @@ for(const theme of ['light','dark']){
  const boxes=layout.positions.map(p=>p.frameRect);
  for(let i=0;i<boxes.length;i++)for(let j=i+1;j<boxes.length;j++){const a=boxes[i],b=boxes[j];assert(!(a.left<b.right&&a.right>b.left&&a.top<b.bottom&&a.bottom>b.top),'Compact contact labels overlap');}
 }
+const offscreen=view.draw(ctx,{w:1440,h:1000,record,safe:{left:12,right:1428,top:220,bottom:920,width:1416,height:700},zoom:1,panX:5000,panY:0});
+assert.equal(offscreen.positions.length,0,'Clipped contacts must not remain hit targets');
+assert.deepEqual(new Set(offscreen.contactAnchors.map(p=>p.id)),new Set(['r','a','b']),'Offscreen contacts must retain focus anchors');
+assert(offscreen.contactAnchors.every(p=>Number.isFinite(p.baseX)&&Number.isFinite(p.baseY)));
 const empty=view.fromGalactic({groups:[],level:'galactic'});assert.deepEqual(empty.nodes,[]);
 view.draw(ctx,{w:1280,h:720,record:empty,safe:{left:10,right:1270,top:180,bottom:680,width:1260,height:500}});
 console.log('Universe authorized contact derivation, unknown positions, immutable schematic layout and themes passed');

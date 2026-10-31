@@ -90,13 +90,13 @@ def main():
         assert page.evaluate('({zoom:__universeAudit.zoom,panX:__universeAudit.panX,panY:__universeAudit.panY})')==universe_camera
         page.locator('#zoom-reset').click();page.wait_for_timeout(150)
         region_point=page.evaluate('__universeAudit.layout.positions.find(p=>p.n.kind==="region")')
-        page.mouse.click(region_point['x'],region_point['y']);wait_level('galactic')
+        page.mouse.click(region_point['x'],region_point['y']);assert page.locator('#map-level').input_value()=='universe';page.locator('#universe-open').click();wait_level('galactic')
         page.select_option('#map-level','universe');wait_level('universe')
         # Known sector is reachable through the labeled dropdown; detected is generic.
         sector=next(n for n in contacts if n['kind']=='sector' and n['knowledge']=='surveyed')
         page.select_option('#universe-contact-select',sector['id']);page.locator('#universe-open').click();wait_level('sector')
         page.select_option('#map-level','universe');wait_level('universe')
-        page.set_viewport_size({'width':1280,'height':720});page.evaluate("document.documentElement.style.zoom='1.5'");page.wait_for_timeout(300)
+        page.set_viewport_size({'width':1280,'height':720});page.evaluate("document.documentElement.style.zoom='1.5'");page.wait_for_timeout(300);page.locator('#zoom-reset').click();page.wait_for_timeout(100)
         small=page.evaluate('__universeAudit');s=small['layout']['safeRect']
         assert {p['n']['id'] for p in small['layout']['positions']}==allowed,'Fit must retain all reviewed contacts on short desktop chart'
         for point in small['layout']['positions']:
@@ -105,7 +105,7 @@ def main():
         for selector in ['#universe-contact-select','#universe-open','#universe-return','#map-level']:
             r=page.locator(selector).bounding_box();assert r and r['x']>=0 and r['y']>=0 and r['x']+r['width']<=1281 and r['y']+r['height']<=721,(selector,r)
         page.evaluate("document.documentElement.style.zoom='1'");page.set_viewport_size({'width':1440,'height':1000})
-        # History uses its own authorized map response and loses live return target.
+        # History uses its own authorized response; any rederived origin stays historical.
         page.locator('#hw-command').click();page.locator('#command-menu [data-open="history"]').click()
         page.get_by_role('button',name='Inspect turn 0',exact=True).click();page.wait_for_function('!document.querySelector("#historical-badge").hidden')
         if page.locator('[data-return-map]').is_visible():page.locator('[data-return-map]').click()
@@ -113,7 +113,13 @@ def main():
         historical=page.evaluate('__universeAudit.record');assert historical['snapshot_id']!=before['snapshot_id']
         expected=page.request.get(base+'/api/player/campaigns/'+cid+'/map?level=galactic&snapshot_id='+historical['snapshot_id']).json()
         assert {n['id'] for n in historical['nodes']}=={n['id'] for g in expected['groups'] for n in [g['region'],*g['sectors']]}
-        assert page.locator('#universe-return').is_disabled();snap('06-historical-fog')
+        snap('06-historical-fog')
+        if page.locator('#universe-return').is_enabled():
+            with page.expect_response(lambda response:'/map?' in response.url and 'level=system' in response.url and historical['snapshot_id'] in response.url) as returned:
+                page.locator('#universe-return').click()
+            assert returned.value.json()['snapshot_id']==historical['snapshot_id']
+            wait_level('system');page.select_option('#map-level','universe');wait_level('universe')
+            assert page.evaluate('__universeAudit.record.snapshot_id')==historical['snapshot_id']
         # A held old map response cannot repaint another campaign.
         held=[]
         def hold(route):

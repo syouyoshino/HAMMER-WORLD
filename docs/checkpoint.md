@@ -343,3 +343,10 @@ zoom chain, camera/history/private isolation and desktop CSS150% checks pass.
 See `docs/reviews/universe-spatial-finish.md` for rejected candidates, measurements,
 source hashes and evidence limits. Procedural backdrop is illustration, not new
 physical astronomy or recorded discovery coverage. No backend/data changes.
+
+31 October atlas orientation follow-up: clear viewing origin/destination, contact
+preview/focus, guarded opening approach and readable compact Universe header.
+Normal/reduced-motion exact camera return, offscreen focus, cancel/context cleanup,
+historical return authorization, private stale-response and ambient checks pass.
+Independent scoped visual acceptance; low-priority typography/Forces placement and
+browser/dense-layout limits remain. See `docs/reviews/atlas-orientation-and-camera.md`.
