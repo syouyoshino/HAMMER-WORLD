@@ -972,3 +972,6 @@ is not hardware/production/Google Earth performance. Cached artwork is illustrat
 and cannot establish physical discovery boundaries or positions. Preserve the
 public map projection, RAF lifecycle and bounded two-theme texture cache when
 integrating unrecovered work. No data reset, merge, deployment or character edits.
+
+Verified spatial/motion milestone: `8d44d7b`, pushed to `origin/map-generation`.
+Continue from the linked review's explicit fixture/browser/performance limits.

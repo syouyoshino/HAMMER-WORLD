@@ -154,3 +154,8 @@ Final source hashes (SHA-256):
 | `public/style.css` | `60f5bc845dbd593be2731fad32cccbc4d5b434e33b51d1dc56099de8ada2aaa5` |
 | `public/desktop-shell.js` | `02190928ec72d2a275f81ecff58571ee7da546efe5dee4a8d34e1bad6bf59ad2` |
 | `public/desktop-shell.css` | `530ac6ccbeeabe1dd5c9f7bb9ffac551fccb580dc6ff75d23c4b14eaec6ebbe7` |
+
+Verified implementation/tests/review: `8d44d7b`, pushed to `origin/map-generation`
+from baseline `66e9099`. Runtime recordings, traces, captures and private fixture
+configuration remain ignored; no generated/runtime assets or campaign databases
+are committed. The release candidate is not merged or deployed.
