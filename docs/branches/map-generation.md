@@ -946,3 +946,7 @@ The same independent critic accepts the final scoped U01–07 corrections, inclu
 all three contact frames at the tested desktop zoom. Final control-state checks
 also pass. Remaining minor footer typography, dense-layout and browser/motion
 limits are documented; this is an interface release candidate.
+
+Verified Universe implementation/tests/review: `8269a63`, pushed to
+`origin/map-generation`, baseline `7ed3023`. Continue from the linked review's
+explicit limits; no merge, deployment or data reset was performed.

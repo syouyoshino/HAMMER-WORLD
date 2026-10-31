@@ -205,3 +205,8 @@ is unchanged by these two UI refinements, so earlier executed flow and visual
 acceptance remain applicable. The isolated control-state supplement uses final
 `public/app.js` SHA-256 `09ccecad045f769de20a6b9b16a6e61ddcd0913e5bb4e552644dc0e90218aec2`; all other frontend hashes above
 are unchanged. Neither supplemental check is represented as a fresh full-suite run.
+
+Verified implementation, tests and review record: `8269a63`, pushed to
+`origin/map-generation` (baseline `7ed3023`). Captures, traces and runtime fixtures
+remain local ignored artifacts; durable findings/metrics/source hashes are above.
+No private records, tokens, databases or generated assets are committed.
