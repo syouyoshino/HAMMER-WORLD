@@ -196,3 +196,8 @@ explicit celestial entry actions, a factual body inspector and geographic entry
 focus. Review `docs/reviews/continuous-world-journey.md` for CW-01–08 corrections,
 actual browser evidence, scoped acceptance and inherited renderer limits before
 integration. Original cartography/character work remains untouched.
+
+The `map-generation` Universe continuation adds a shared heading-mounted contact
+strip and schematic discovery fog, with safe outward zoom and camera return.
+See `docs/reviews/universe-and-zoom.md` before integrating: physical discovery
+footprints and universe distances remain unknown; authorization stays server-side.

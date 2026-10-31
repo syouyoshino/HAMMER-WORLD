@@ -436,3 +436,16 @@ and regional geographic focus; retain the original system camera for return.
 Unknown intelligence and unsupported moon/atmosphere surfaces remain unavailable.
 Preview caches and pending requests are scoped to campaign/snapshot/login context.
 Independent CW-01–08 corrections and evidence: `docs/reviews/continuous-world-journey.md`.
+
+### Universe discovery overview — 31 October 2026
+
+Extend outward navigation from surface through globe and system to a client-only
+Universe schematic. Reuse the authorized Galactic map response and historical
+snapshot guards; do not broaden backend projections or infer universal positions
+from parent-relative chart coordinates. Display public regions/sectors as hierarchy
+contacts over qualitative unexplored-space fog, with distances/extent explicitly
+unknown. No hidden counts, placeholders or surveyed-radius boundaries. Physical
+fog footprints require future recorded coverage data. Universe/Galactic cameras
+are distinct, and return to the departing system requires the same context.
+See `docs/reviews/universe-and-zoom.md` for the actual-browser regression found
+in the inherited globe-parent lookup, corrections and final evidence.

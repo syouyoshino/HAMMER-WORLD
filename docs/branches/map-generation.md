@@ -924,3 +924,25 @@ Verified correction milestone: `ed352f1`, pushed to `origin/map-generation`.
 Same-critic final scoped acceptance and supplemental precise-marker browser pass
 are recorded in the linked review. No unresolved critical/major defect in the
 reviewed celestial journeys; remaining limitations above are explicit.
+
+## Universe discovery overview and outward zoom — 31 October 2026
+
+Surface → globe → system → Universe now passes actual browser navigation. The
+inherited globe parent lookup was corrected, and system pullback no longer ends
+at its distance clamp. Universe uses the authorized Galactic response as a
+qualitative known-region/sector schematic with fog over unknown space. Distances,
+coverage and total extent remain unknown; there are no fabricated galaxies or
+hidden contact placeholders. Region/Sector/Galactic views remain reachable.
+
+A visible contact strip, exact same-context system return, distinct root cameras,
+wheel-burst guards and short-desktop responsive composition accompany the view.
+Historical/private delayed-response and unchanged-record checks pass. No backend,
+generation, database or saved-history change. Full U01–07 critique ledger,
+corrections, browser/source hashes and performance limits:
+`docs/reviews/universe-and-zoom.md`. Integrate the small Universe module and shared
+strip mounting with the existing authorized API and camera ticket boundaries.
+
+The same independent critic accepts the final scoped U01–07 corrections, including
+all three contact frames at the tested desktop zoom. Final control-state checks
+also pass. Remaining minor footer typography, dense-layout and browser/motion
+limits are documented; this is an interface release candidate.

@@ -327,3 +327,11 @@ context/history/private logout and desktop CSS zoom checks are documented in
 `docs/reviews/continuous-world-journey.md`. Read its final independent verdict and
 limits before extending this release candidate. Retain source-authorized preview
 cache invalidation and body camera tickets; no campaign/generator/schema changes.
+
+31 October Universe continuation: outward surface→globe→system→Universe navigation,
+qualitative fog and known-region/sector contacts implemented. Actual Chromium
+chain/return/camera/history/private delayed-response checks pass, including the
+corrected short chart at1280×720 CSS150%. No measured exploration footprint or
+intergalactic positions are available; no hidden objects/coordinates are invented.
+Read `docs/reviews/universe-and-zoom.md` for the final independent verdict, retained
+limitations and source-matched evidence. No merge/deployment/data reset.
