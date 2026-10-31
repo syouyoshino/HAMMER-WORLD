@@ -13,6 +13,7 @@
       orbitView:{...state.orbitView},systemView:state.systemView?{...state.systemView}:undefined,detailAsset:state.detailAsset,detailKey:state.detailKey,
       detailStatus:state.detailStatus,mapRecord:state.mapRecord,orbitTexture:state.orbitTexture,
       orbitTextureKey:state.orbitTextureKey,orbitInitialKey:state.orbitInitialKey,
+      entryFocusMarker:state.entryFocusMarker?{...state.entryFocusMarker}:null,
       camera:Object.fromEntries(CAMERA_KEYS.map(key=>[key,state[key]]))};
   }
   function matches(ticket,state){return Boolean(ticket&&ticket.contextEpoch===state.contextEpoch&&
@@ -28,7 +29,7 @@
     state.featureListOpen=ticket.featureListOpen;state.featureListQuery=ticket.featureListQuery;
     state.orbitView={...ticket.orbitView};if(ticket.systemView)state.systemView={...ticket.systemView};Object.assign(state,ticket.camera);
     state.detailAsset=ticket.detailAsset;state.detailKey=ticket.detailKey;state.detailStatus=ticket.detailStatus;
-    state.orbitTexture=ticket.orbitTexture;state.orbitTextureKey=ticket.orbitTextureKey;state.orbitInitialKey=ticket.orbitInitialKey;
+    state.orbitTexture=ticket.orbitTexture;state.orbitTextureKey=ticket.orbitTextureKey;state.orbitInitialKey=ticket.orbitInitialKey;state.entryFocusMarker=ticket.entryFocusMarker?{...ticket.entryFocusMarker}:null;
     return true;
   }
   function element(tag,className,text){const node=document.createElement(tag);if(className)node.className=className;if(text!==undefined)node.textContent=String(text);return node;}

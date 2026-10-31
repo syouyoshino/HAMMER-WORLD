@@ -53,7 +53,7 @@ body { display: block; min-height: 100%; overflow: hidden; }
 #command-inspector {
   position: absolute;
   z-index: 22;
-  top: 168px;
+  top: calc(var(--chart-heading-height, 180px) + 8px);
   right: 18px;
   bottom: 82px;
   width: min(340px, calc(100vw - 36px));
@@ -200,3 +200,16 @@ body { display: block; min-height: 100%; overflow: hidden; }
 #chart-heading .map-zoom-controls > .icon-button { width: 28px; }
 #desktop-shell #chart-readouts .map-caption { align-self: flex-start; width: fit-content; max-width: 100%; }
 #desktop-shell #chart-readouts .map-legend { align-self: flex-end; width: fit-content; max-width: 100%; }
+
+#chart-heading #system-selection { position: relative; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; width: calc(100% - 24px); min-height: 38px; margin: 0 12px; padding: 3px 6px; color: var(--ink); background: var(--map-glass); border: 1px solid var(--line); border-radius: 0; pointer-events: auto; }
+#chart-heading #system-selection[hidden] { display: none; }
+#chart-heading #system-selection > label { flex: 0 0 auto; color: var(--muted); font: 600 10px var(--mono); text-transform: uppercase; }
+#chart-heading #system-selection > select { flex: 0 1 300px; min-width: 180px; max-width: 38%; min-height: 34px; }
+#chart-heading #system-selection > span { flex: 1 1 160px; min-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#chart-heading #system-selection > button { flex: 0 0 auto; min-height: 34px; padding-inline: 10px; border-radius: 0; }
+@container (max-width: 700px) {
+  #chart-heading #system-selection { gap: 5px; }
+  #chart-heading #system-selection > select { flex: 1 1 42%; min-width: 120px; max-width: none; }
+  #chart-heading #system-selection > span { flex: 1 1 100%; order: 2; }
+  #chart-heading #system-selection > button { min-height: 34px; }
+}

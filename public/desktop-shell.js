@@ -74,7 +74,7 @@
     zoomControls.append(...['zoom-out','zoom-reset','zoom-in','map-recenter'].map(id=>document.getElementById(id)));tools.append(zoomControls);
     // Keep chart chrome in document flow; its height changes with content and zoom.
     const heading=document.createElement('div');heading.id='chart-heading';
-    heading.append(root.querySelector('.commandbar'),root.querySelector('#resource-shell'),title,crumb,document.querySelector('#live-banner'));root.append(heading);
+    heading.append(root.querySelector('.commandbar'),root.querySelector('#resource-shell'),title,crumb,document.querySelector('#live-banner'),document.querySelector('#system-selection'));root.append(heading);
     const readouts=document.createElement('div');readouts.id='chart-readouts';
     readouts.append(panel.querySelector('.map-caption'),panel.querySelector('#map-legend'),panel.querySelector('.map-footer'));panel.append(readouts);
     const measureHeading=()=>root.style.setProperty('--chart-heading-height',`${heading.offsetHeight}px`);

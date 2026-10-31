@@ -314,3 +314,8 @@ and safe async globe restoration. Final Chromium functional/context/reflow check
 and independent scoped visual review pass. Software graphics remain slow; Google
 Earth smoothness, hardware graphics and Safari are unverified. Full evidence and
 remaining terrain/hierarchy limitations: `docs/reviews/navigation-and-tinted-ui.md`.
+
+31 October 2026 backup: continuous-world preview/focus/entry and isolated fixture
+work is committed as work in progress. Syntax and targeted projection/preview/
+body-return checks pass; final browser review is incomplete, with a known
+Surface-mode title regression. See `docs/branches/map-generation.md` before resuming.

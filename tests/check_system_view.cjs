@@ -23,6 +23,15 @@ const dock=p0.hitTargets.find(p=>p.n.id==='u');assert(dock?.uiOnly);
 assert(dock.displayName.includes('Inner'),'Unlocated moon must identify its parent world');
 assert(p0.hitTargets.find(p=>p.n.id==='a').labelSecondary.includes('AU from host star'));
 assert(!p0.positions.some(p=>p.n.id==='u'||p.n.id==='h'));
+const focused=view.project(record,{...view.fit(),targetBodyId:'a',selectedBodyId:'a',focusProgress:1},viewport);
+const selected=focused.positions.find(p=>p.n.id==='a');
+assert(selected.radius>40&&selected.pickPriority===1);
+assert(Math.abs(selected.x-(focused.sceneRect.left+focused.sceneRect.right)/2)<1e-7);
+assert(Math.abs(selected.y-(focused.sceneRect.top+focused.sceneRect.bottom)/2)<1e-7);
+const approached=view.project(record,{...view.fit(),targetBodyId:'a',selectedBodyId:'a',focusProgress:1,approachProgress:1,approachRadius:250},viewport);
+const enlarged=approached.positions.find(p=>p.n.id==='a');assert.equal(enlarged.radius,250);
+assert(Math.abs(enlarged.x-(viewport.safeRect.left+viewport.safeRect.right)/2)<1e-7);
+assert.equal(focused.hitTargets.find(p=>!p.uiOnly).n.id,'a','Visible selected symbol owns overlapping sphere hits');
 for(const v of [{yaw:NaN,pitch:Infinity,distance:0},{yaw:1e10,pitch:-4,distance:Infinity},{}]){
  const layout=view.project(record,v,viewport);
  for(const p of layout.positions)assert(Number.isFinite(p.x)&&Number.isFinite(p.y));

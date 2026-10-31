@@ -877,3 +877,22 @@ No backend/generation/data changes, merge, deployment or character-branch change
 Verified implementation and tests: `defae73` (baseline `5e20f60`). Continuation:
 profile hardware/render readback before claiming smoothness; preserve the scoped
 visual findings and camera/data contracts in the linked review.
+
+## Continuous-world work-in-progress backup — 31 October 2026
+
+This checkpoint adds recorded-terrain system previews, selected-body focus,
+explicit orbit/surface entry, an optional grid, and opt-in isolated sparse/rich/
+extreme review fixtures. Preview work is snapshot/context guarded and bounded;
+existing campaign data and production generators are unchanged. Further review
+changes add a factual body inspector, geographic entry marker and crowded-symbol
+priority. Generated assets, databases and runtime captures are excluded from Git.
+
+Earlier three-system browser journeys passed before the latest review changes.
+Current JavaScript syntax and system projection, preview isolation/cache bounds,
+and body-return unit checks pass. Final browser acceptance remains incomplete:
+`tests/browser_continuous_world.py` most recently failed its Surface-mode title
+assertion after descent. Fix mode-label updates, then verify the latest inspector,
+entry marker, crowded labels and regressions with the existing critic's CW-01–08
+ledger before calling this an accepted interface release candidate. Software-GPU
+smoothness, native Safari/WebKit, gas atmospheres and recorded moon surfaces retain
+previous limitations. No merge, deployment or data reset was performed.
