@@ -190,3 +190,9 @@ and safe detail-loading transitions. Read `docs/reviews/navigation-and-tinted-ui
 for fresh screenshots, blind critique/resolutions, browser checks and the measured
 software-rendering smoothness limitation. Keep UI camera state separate from
 campaign persistence when integrating this continuation.
+
+31 October `map-generation` continuation adds continuous recorded-world previews,
+explicit celestial entry actions, a factual body inspector and geographic entry
+focus. Review `docs/reviews/continuous-world-journey.md` for CW-01–08 corrections,
+actual browser evidence, scoped acceptance and inherited renderer limits before
+integration. Original cartography/character work remains untouched.

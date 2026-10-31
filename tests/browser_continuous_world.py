@@ -91,6 +91,12 @@ def main():
             assert abs((center['longitude']-entry['longitude']+math.pi)%(2*math.pi)-math.pi)<.02,(center,entry)
             marker=page.locator('#entry-focus-marker');assert marker.is_visible(),'Carried geographic focus missing'
             location=page.locator('#entry-focus-coordinates').inner_text();assert 'N' in location and '°' in location
+            marker_style=marker.evaluate('n=>({position:getComputedStyle(n).position,pointerEvents:getComputedStyle(n).pointerEvents})')
+            assert marker_style=={'position':'absolute','pointerEvents':'none'},marker_style
+            marker_box=marker.bounding_box();viewport=page.viewport_size
+            assert marker_box['x']>=0 and marker_box['y']>=0 and marker_box['x']+marker_box['width']<=viewport['width'] and marker_box['y']+marker_box['height']<=viewport['height'],marker_box
+            anchor_error=marker.evaluate('n=>{const r=n.firstElementChild.getBoundingClientRect(),p=n.offsetParent.getBoundingClientRect();return {x:r.x+r.width/2-p.x-parseFloat(n.style.left),y:r.y+r.height/2-p.y-parseFloat(n.style.top)}}')
+            assert abs(anchor_error['x'])<1 and abs(anchor_error['y'])<1,anchor_error
             marker_before=marker.evaluate('n=>({x:parseFloat(n.style.left),y:parseFloat(n.style.top)})')
             page.mouse.move(400,600);page.mouse.down();page.mouse.move(480,620,steps=5);page.mouse.up()
             marker_after=marker.evaluate('n=>({x:parseFloat(n.style.left),y:parseFloat(n.style.top)})')

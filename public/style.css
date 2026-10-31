@@ -234,6 +234,13 @@ button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-
 .orbit-landmark-label { position: relative; z-index: 1; display: block; overflow: hidden; padding: 4px 7px; color: var(--ink); background: var(--map-glass-strong); border: 1px solid var(--line-strong); border-radius: 0; font: 600 10px/14px var(--mono, ui-monospace, monospace); text-overflow: ellipsis; white-space: nowrap; }
 .orbit-north-cue { position: absolute; z-index: 9; display: flex; align-items: center; gap: 10px; width: 112px; height: 26px; padding: 4px 7px; color: #e7eeee; background: rgba(10,23,32,.85); border: 1px solid rgba(231,238,238,.45); font: 10px/16px var(--mono, ui-monospace, monospace); pointer-events: none; }
 .orbit-north-cue strong { font-size: 12px; }
+.entry-focus-marker { position: absolute; z-index: 10; display: grid; justify-items: center; gap: 2px; max-width: min(220px, calc(100% - 12px)); transform: translate(-50%, -11px); color: #f4f1d5; text-shadow: 0 1px 3px #071018, 0 0 5px #071018; font: 10px/1.2 var(--mono, ui-monospace, monospace); pointer-events: none; }
+.entry-focus-marker[hidden] { display: none !important; }
+.entry-focus-marker > span { color: #ffe58a; font: 700 26px/22px var(--mono, ui-monospace, monospace); text-shadow: 0 1px 4px #071018, 0 0 7px #071018; }
+.entry-focus-marker b, .entry-focus-marker small { max-width: 100%; padding: 2px 4px; background: rgba(7, 16, 24, .86); border: 1px solid rgba(255, 229, 138, .58); overflow-wrap: anywhere; }
+.entry-focus-marker small { color: #e3e7e3; }
+.body-summary-moon { display: grid; gap: 3px; margin: 6px 0; }
+.body-summary-moon span { color: var(--muted); font-size: 10px; }
 .body-focus-view { position: absolute; z-index: 12; left: 18px; right: 18px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(280px, 340px); overflow: auto; color: #e8edef; background: #080f15; border: 1px solid #44515b; pointer-events: auto; }
 .body-focus-view[hidden] { display: none; }
 .body-focus-stage { min-height: 340px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 42px; overflow: hidden; padding: 48px; background: radial-gradient(ellipse at center, #182028, #080f15 72%); }

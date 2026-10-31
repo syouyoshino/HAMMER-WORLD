@@ -896,3 +896,26 @@ entry marker, crowded labels and regressions with the existing critic's CW-01–
 ledger before calling this an accepted interface release candidate. Software-GPU
 smoothness, native Safari/WebKit, gas atmospheres and recorded moon surfaces retain
 previous limitations. No merge, deployment or data reset was performed.
+
+## Continuous-world corrections — 31 October 2026
+
+Supersedes the WIP acceptance status above. Mode headings now track actual orbit
+and surface state, the geographic entry crosshair is a visible precise overlay,
+selected-world labels have clearance, and moon status rows are separated. A new
+snapshot clears system preview caches. The same independent critic's CW-01–08
+ledger, three-system actual-browser evidence and context/reflow regressions are
+recorded in `docs/reviews/continuous-world-journey.md`.
+
+System previews reuse authorized saved geography. Separate Select/Focus/Inspect/
+Enter orbit/Enter surface actions preserve original camera context. Unknown
+positions remain unlocated, selected bodies take draw/pick priority and all
+contacts remain available through the Body list. Optional grid starts off.
+Preview work is bounded and context-gated. Production generation, existing
+campaign records, immutable history and the character branch remain unchanged.
+
+This is a scoped interface release candidate. Software-GPU globe motion remains
+slow, terrain detail remains finite, and native Safari/WebKit/hardware graphics
+are unverified. No Google Earth or commercial-game parity claim. Integrate through
+saved detail references and body-return tickets; keep UI state out of campaign
+persistence. No merge/deployment/data reset. Baseline backup: `5004eb2`; delivery
+commit is recorded in the review after push.

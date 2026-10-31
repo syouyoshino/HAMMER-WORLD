@@ -319,3 +319,11 @@ remaining terrain/hierarchy limitations: `docs/reviews/navigation-and-tinted-ui.
 work is committed as work in progress. Syntax and targeted projection/preview/
 body-return checks pass; final browser review is incomplete, with a known
 Surface-mode title regression. See `docs/branches/map-generation.md` before resuming.
+
+31 October continuous-world correction: the WIP Surface title regression is fixed.
+Recorded-terrain preview → focused globe → regional surface and exact system
+return pass sparse/rich/extreme browser journeys. Inspector/crowding/marker fixes,
+context/history/private logout and desktop CSS zoom checks are documented in
+`docs/reviews/continuous-world-journey.md`. Read its final independent verdict and
+limits before extending this release candidate. Retain source-authorized preview
+cache invalidation and body camera tickets; no campaign/generator/schema changes.

@@ -425,3 +425,14 @@ Keep existing canvases and exact body-return tickets. Temporary half-resolution
 WebGL output preserves logical picking and full-resolution endpoints. Do not call
 this Google Earth smoothness: measured software output/readback remains slow.
 Read `docs/reviews/navigation-and-tinted-ui.md` for critique and verification.
+
+### Continuous recorded-world entry — 31 October 2026
+
+Reuse saved surveyed albedo for bounded CPU system previews. Keep true frozen
+astronomical spacing; enlarge symbols and disclose crowding rather than moving
+bodies to make a diagram attractive. Selection is separate from Focus, Inspect
+and explicit orbit/surface entry. Preserve preview bearing into the native globe
+and regional geographic focus; retain the original system camera for return.
+Unknown intelligence and unsupported moon/atmosphere surfaces remain unavailable.
+Preview caches and pending requests are scoped to campaign/snapshot/login context.
+Independent CW-01–08 corrections and evidence: `docs/reviews/continuous-world-journey.md`.
