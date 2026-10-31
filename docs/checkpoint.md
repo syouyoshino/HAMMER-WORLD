@@ -335,3 +335,11 @@ corrected short chart at1280×720 CSS150%. No measured exploration footprint or
 intergalactic positions are available; no hidden objects/coordinates are invented.
 Read `docs/reviews/universe-and-zoom.md` for the final independent verdict, retained
 limitations and source-matched evidence. No merge/deployment/data reset.
+
+31 October Universe spatial follow-up: user-rejected static diagram replaced with
+cached diffuse stellar scenery, multi-depth parallax and bounded ambient motion.
+Same-critic final scoped acceptance; actual motion/pause/reduced-motion, complete
+zoom chain, camera/history/private isolation and desktop CSS150% checks pass.
+See `docs/reviews/universe-spatial-finish.md` for rejected candidates, measurements,
+source hashes and evidence limits. Procedural backdrop is illustration, not new
+physical astronomy or recorded discovery coverage. No backend/data changes.

@@ -449,3 +449,13 @@ fog footprints require future recorded coverage data. Universe/Galactic cameras
 are distinct, and return to the departing system requires the same context.
 See `docs/reviews/universe-and-zoom.md` for the actual-browser regression found
 in the inherited globe-parent lookup, corrections and final evidence.
+
+### Universe ambience and one-boundary zoom — 31 October 2026
+
+Use cached decorative stellar imagery and shallow parallax for spatial atmosphere;
+keep known contact targets independent of time and artwork. At most two theme
+textures; one24Hz-capped loop only while Universe is visible and unobscured, with
+reduced motion and context-exit cancellation. A surface outward gesture enters
+Orbit without recursively crossing another boundary. Atmosphere must not imply
+new authoritative positions or discovery footprints. Preserve the explicit public
+known-contact projection. Evidence: `docs/reviews/universe-spatial-finish.md`.

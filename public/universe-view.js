@@ -1,8 +1,8 @@
 (() => {
   'use strict';
 
-  // Universe is a schematic projection of the public galactic response. Its layout
-  // encodes hierarchy only; it never interprets saved coordinates as distances.
+  // Universe is a public, schematic contact chart. Its artwork is decorative and
+  // never supplies physical locations or distances for recorded contacts.
   function fromGalactic(record) {
     const contacts = [];
     for (const group of record?.groups || []) {
@@ -17,57 +17,171 @@
     return {...record, sourceLevel: record?.level, level: 'universe', nodes: contacts.map(contact => contact.n), contacts};
   }
 
-  function draw(ctx, {w,h,record,safe,zoom=1,panX=0,panY=0,theme='dark',selectedContactId=null}) {
-    const dark=theme==='dark',cx=(safe.left+safe.right)/2,cy=(safe.top+safe.bottom)/2;
-    ctx.fillStyle=dark?'#101923':'#e9ebe6';ctx.fillRect(0,0,w,h);
-    const contacts=record?.contacts||[],regions=contacts.filter(c=>c.contactLevel==='region'),sectors=contacts.filter(c=>c.contactLevel==='sector');
-    const compact=safe.height<340,columns=Math.max(1,Math.min(contacts.length,Math.floor(safe.width/230))),cellWidth=safe.width/columns;
-    const gap=compact?cellWidth:Math.max(220,(safe.width-80)/Math.max(1,regions.length)),span=(regions.length-1)*gap,groups=new Map(),layout=new Map(),positions=[];
-    const content={left:safe.left,right:safe.right,top:safe.top+48,bottom:safe.bottom};
-    const compactSlots=new Map();
-    if(compact)contacts.forEach((contact,index)=>compactSlots.set(contact.n.id,{x:safe.left+cellWidth*(index%columns+.5),y:content.top+34+Math.floor(index/columns)*104+(contact.contactLevel==='sector'?18:0)}));
-    regions.forEach((contact,index)=>groups.set(contact.n.id,{contact,...(compact?compactSlots.get(contact.n.id):{x:cx-span/2+index*gap,y:cy-105}),children:sectors.filter(s=>s.regionId===contact.n.id)}));
-    const project=(x,y)=>({x:cx+(x-cx)*zoom+panX,y:cy+(y-cy)*zoom+panY});
-    const bounded=rect=>{const r={left:Math.max(content.left,rect.left),right:Math.min(content.right,rect.right),top:Math.max(content.top,rect.top),bottom:Math.min(content.bottom,rect.bottom)};return r.left<r.right&&r.top<r.bottom?r:null;};
-    ctx.save();ctx.beginPath();ctx.rect(safe.left,safe.top,safe.width,safe.height);ctx.clip();
-    const mist=ctx.createLinearGradient(safe.left,safe.top,safe.right,safe.bottom);
-    mist.addColorStop(0,dark?'rgba(38,51,59,.82)':'rgba(177,186,184,.82)');mist.addColorStop(.34,dark?'rgba(22,34,42,.62)':'rgba(199,206,201,.65)');mist.addColorStop(.7,dark?'rgba(33,45,52,.76)':'rgba(185,194,191,.76)');mist.addColorStop(1,dark?'rgba(45,55,59,.86)':'rgba(169,180,179,.86)');
-    ctx.fillStyle=mist;ctx.fillRect(safe.left,safe.top,safe.width,safe.height);
-    // Fine low contrast diagonal grain supplies a qualitative fog texture without an edge or boundary.
-    ctx.strokeStyle=dark?'rgba(192,204,200,.055)':'rgba(60,74,75,.055)';ctx.lineWidth=1;
-    for(let x=safe.left-safe.height;x<safe.right;x+=13){ctx.beginPath();ctx.moveTo(x,safe.top);ctx.lineTo(x+safe.height,safe.bottom);ctx.stroke();}
-    ctx.textAlign='center';ctx.font='12px "Noto Instrument Mono",monospace';ctx.fillStyle=dark?'#aebdbc':'#526366';
-    ctx.fillText('UNCHARTED SPACE · EMPTY SPACE HAS NO GEOGRAPHIC MEANING',cx,safe.top+22);
-    ctx.textAlign='left';ctx.font='11px "Noto Instrument Mono",monospace';ctx.fillText('RECORDED HIERARCHY · NOT TRAVEL LINKS',safe.left+12,safe.top+41);
-    ctx.save();ctx.beginPath();ctx.rect(content.left,content.top,safe.width,Math.max(0,content.bottom-content.top));ctx.clip();
-    const line=dark?'rgba(157,182,182,.44)':'rgba(66,91,92,.42)';ctx.strokeStyle=line;ctx.lineWidth=1;ctx.setLineDash([3,5]);
-    for(const group of groups.values()){
-      const root=project(group.x,group.y+(compact?-23:17)),trunkX=group.x-22,lastY=cy+48+(group.children.length-1)*76;
-      if(!compact&&group.children.length){const junction=project(trunkX,group.y+17),trunkEnd=project(trunkX,lastY);ctx.beginPath();ctx.moveTo(root.x,root.y);ctx.lineTo(junction.x,junction.y);ctx.lineTo(trunkEnd.x,trunkEnd.y);ctx.stroke();}
-      group.children.forEach((sector,index)=>{const slot=compact?compactSlots.get(sector.n.id):{x:group.x,y:cy+48+index*76}, {x,y}=slot;layout.set(sector.n.id,{x,y,trunkX});const point=project(x,y);ctx.beginPath();if(compact){const bend=project(x,group.y-23);ctx.moveTo(root.x,root.y);ctx.lineTo(bend.x,bend.y);ctx.lineTo(point.x,point.y-12);}else{const junction=project(trunkX,y);ctx.moveTo(junction.x,junction.y);ctx.lineTo(point.x-10,point.y);}ctx.stroke();});
+  function hash(value) {
+    let h = 2166136261;
+    for (const char of String(value)) h = Math.imul(h ^ char.charCodeAt(0), 16777619);
+    return h >>> 0;
+  }
+  function random(seed) {
+    let x = seed >>> 0;
+    return () => { x = (Math.imul(x, 1664525) + 1013904223) >>> 0; return x / 4294967296; };
+  }
+  // Bounded decorative textures: built once per theme, independent of records.
+  const artwork = new Map();
+  function galaxyTexture(dark) {
+    if (artwork.has(dark)) return artwork.get(dark);
+    if (typeof document === 'undefined') return null;
+    const canvas = document.createElement('canvas'); canvas.width = 1400; canvas.height = 900;
+    const c = canvas.getContext('2d'), rng = random(0x51a7a);
+    const normal = () => Math.sqrt(-2 * Math.log(Math.max(.00001, rng()))) * Math.cos(rng() * Math.PI * 2);
+    // Local elliptical puffs fade monotonically to transparency. Overlapping small
+    // clouds leave broken, feathery edges rather than a bounded oval or stroked arm.
+    const puff = (x,y,r,color,alpha,flat=1) => {
+      c.save(); c.translate(x,y); c.scale(1,flat);
+      const g = c.createRadialGradient(0,0,0,0,0,r);
+      g.addColorStop(0,`rgba(${color},${alpha})`);
+      g.addColorStop(.35,`rgba(${color},${alpha*.52})`);
+      g.addColorStop(.7,`rgba(${color},${alpha*.12})`);
+      g.addColorStop(1,`rgba(${color},0)`);
+      c.fillStyle=g; c.fillRect(-r,-r,r*2,r*2); c.restore();
+    };
+    c.translate(700,450); c.rotate(-.34);
+    const colors = dark ? ['73,112,159','108,105,151','58,120,140'] : ['89,126,143','130,115,145','88,137,145'];
+    for (let i=0;i<230;i++) {
+      const t=rng(), angle=t*5.6+(i%3)*Math.PI*2/3, radius=35+t*540;
+      const x=Math.cos(angle)*radius+normal()*40, y=Math.sin(angle)*radius*.42+normal()*22;
+      puff(x,y,35+rng()*105,colors[i%3],dark?.08:.055,.5+rng()*.4);
     }
-    ctx.setLineDash([]);
-    for(const group of groups.values()){
-      const n=group.contact.n,p=project(group.x,group.y),name=n.name||'Region · name unrecorded',selected=n.id===selectedContactId,type=`${selected?'Selected · ':''}Region · ${n.knowledge==='detected'?'Detected · Position unknown':'Surveyed'}`;
-      ctx.strokeStyle=dark?'#c3a66f':'#76633e';ctx.lineWidth=1.5;ctx.beginPath();ctx.arc(p.x,p.y,17,0,Math.PI*2);ctx.stroke();ctx.beginPath();ctx.arc(p.x,p.y,5,0,Math.PI*2);ctx.fillStyle=dark?'#c3a66f':'#76633e';ctx.fill();
-      if(selected){ctx.strokeStyle=dark?'#d8e4df':'#385b61';ctx.setLineDash([2,3]);ctx.beginPath();ctx.arc(p.x,p.y,23,0,Math.PI*2);ctx.stroke();ctx.setLineDash([]);}
-      ctx.textAlign='center';ctx.font='600 13px "Noto Instrument Mono",monospace';const nameWidth=ctx.measureText(name).width;ctx.fillStyle=dark?'#e0e6e2':'#26343a';ctx.fillText(name,p.x,p.y+39,Math.max(120,gap-24));
-      ctx.font='11px "Noto Instrument Mono",monospace';ctx.fillStyle=dark?'#bac8c5':'#526366';const typeWidth=ctx.measureText(type).width;ctx.fillText(type,p.x,p.y+55,gap-24);
-      const width=Math.min(gap-16,Math.max(128,nameWidth+12,typeWidth+12)),frameRect={left:p.x-width/2,right:p.x+width/2,top:p.y-23,bottom:p.y+60},hit=bounded(frameRect);
-      if(hit)positions.push({n,...p,anchorX:p.x,anchorY:p.y,radius:18,frameRect,hitRect:hit,contactLevel:'region'});
+    // Dust lanes are gaps between thousands of irregularly scattered fine points.
+    // The drawing is scenery only: none of these points are navigable objects.
+    for (let i=0;i<20000;i++) {
+      const t=Math.pow(rng(),.72), angle=t*5.6+(i%3)*Math.PI*2/3+normal()*(.11+t*.16);
+      const radius=18+t*540, x=Math.cos(angle)*radius+normal()*14, y=Math.sin(angle)*radius*.42+normal()*9;
+      const size=.22+rng()*.85;
+      c.globalAlpha=(.035+rng()*.32)*(1-t*.65)*(dark?1:.5);
+      c.fillStyle=dark?(i%5?'#c0d6e7':'#e9d4b1'):(i%5?'#46667a':'#967961');
+      c.fillRect(x,y,size,size);
     }
-    for(const sector of sectors){
-      const slot=layout.get(sector.n.id);if(!slot)continue;const n=sector.n,p=project(slot.x,slot.y),detected=n.knowledge==='detected',selected=n.id===selectedContactId,name=n.name||'Sector · name unrecorded',type=`${selected?'Selected · ':''}Sector · ${detected?'Detected · Position unknown':'Surveyed'}`;
-      ctx.lineWidth=1.5;ctx.strokeStyle=detected?(dark?'#d3aa68':'#8a6223'):(dark?'#8da6a6':'#607574');
-      if(detected)ctx.strokeRect(p.x-5,p.y-5,10,10);else{ctx.fillStyle=ctx.strokeStyle;ctx.fillRect(p.x-4,p.y-4,8,8);}
-      if(selected){ctx.strokeStyle=dark?'#d8e4df':'#385b61';ctx.strokeRect(p.x-9,p.y-9,18,18);}
-      ctx.textAlign='center';ctx.font='600 12px "Noto Instrument Mono",monospace';const nameWidth=ctx.measureText(name).width;ctx.fillStyle=dark?'#d5dfdc':'#354448';ctx.fillText(name,p.x,p.y+21,Math.max(130,gap-20));
-      ctx.font='11px "Noto Instrument Mono",monospace';ctx.fillStyle=detected?(dark?'#e0bd84':'#79591f'):(dark?'#aebdbc':'#526366');const typeWidth=ctx.measureText(type).width;ctx.fillText(type,p.x,p.y+37,gap-24);
-      const width=Math.min(gap-16,Math.max(132,nameWidth+16,typeWidth+12)),frameRect={left:p.x-width/2,right:p.x+width/2,top:p.y-12,bottom:p.y+43},hit=bounded(frameRect);
-      if(hit)positions.push({n,...p,anchorX:p.x,anchorY:p.y,radius:12,frameRect,hitRect:hit,contactLevel:'sector'});
+    c.globalAlpha=1;
+    puff(-7,0,155,dark?'154,168,191':'148,156,153',dark?.17:.09,.5);
+    puff(-7,0,76,dark?'235,216,178':'255,246,220',dark?.22:.17,.55);
+    puff(-7,0,28,dark?'255,242,215':'255,251,232',dark?.25:.24,.65);
+    artwork.set(dark,canvas); return canvas;
+  }
+  function drawArtwork(ctx, {safe, dark, time, panX, panY}) {
+    const {left, right, top, bottom, width, height} = safe;
+    const cx=(left+right)/2, cy=(top+bottom)/2;
+    ctx.fillStyle=dark?'#040a13':'#e3e9e9'; ctx.fillRect(left,top,width,height);
+    const texture=galaxyTexture(dark);
+    if (texture) {
+      const scale=Math.max(width/1400,height/900)*1.1;
+      ctx.save();
+      ctx.translate(cx+panX*.035+Math.sin(time*.000018)*width*.008,cy+panY*.035+Math.cos(time*.000015)*height*.006);
+      ctx.rotate(Math.sin(time*.000009)*.008);
+      ctx.drawImage(texture,-700*scale,-450*scale,1400*scale,900*scale); ctx.restore();
     }
-    if(!contacts.length){ctx.textAlign='center';ctx.font='600 13px "Noto Instrument Mono",monospace';ctx.fillStyle=dark?'#d2dbd9':'#34464a';ctx.fillText('No regions or sectors are recorded',cx,cy-7);}
-    ctx.restore();ctx.restore();
+    // Sparse foreground stars have several slow parallax depths. The dense cloud
+    // above is cached; no gradients or particle populations are rebuilt per frame.
+    const rng=random(0x81a7a);
+    const count=Math.max(100,Math.min(280,Math.floor(width*height/4500)));
+    for (let i=0;i<count;i++) {
+      const x0=rng()*width,y0=rng()*height,depth=.018+rng()*.16;
+      const x=left+(((x0+panX*depth+time*depth*.0015)%width)+width)%width;
+      const y=top+(((y0+panY*depth+time*depth*.00065)%height)+height)%height;
+      const radius=.3+rng()*.8;
+      ctx.globalAlpha=.18+rng()*.55;ctx.fillStyle=dark?(i%7?'#dbe8ed':'#f2d9aa'):(i%7?'#526d7b':'#9c7351');
+      ctx.beginPath();ctx.arc(x,y,radius,0,Math.PI*2);ctx.fill();
+    }
+    ctx.globalAlpha=1;
+  }
+
+  function draw(ctx, {w,h,record,safe,zoom=1,panX=0,panY=0,theme='dark',selectedContactId=null,time=0}) {
+    const dark = theme === 'dark', cx = (safe.left + safe.right) / 2, cy = (safe.top + safe.bottom) / 2;
+    const contacts = record?.contacts || [], regions = contacts.filter(c => c.contactLevel === 'region'), sectors = contacts.filter(c => c.contactLevel === 'sector');
+    const compact = safe.height < 340;
+    const content = {left:safe.left, right:safe.right, top:safe.top + 48, bottom:safe.bottom};
+    const project = (x,y) => ({x:cx + (x-cx)*zoom + panX, y:cy + (y-cy)*zoom + panY});
+    const bounded = rect => { const r={left:Math.max(content.left,rect.left),right:Math.min(content.right,rect.right),top:Math.max(content.top,rect.top),bottom:Math.min(content.bottom,rect.bottom)}; return r.left<r.right&&r.top<r.bottom?r:null; };
+    const positions = [], regionLayout = new Map(), sectorLayout = new Map();
+    ctx.save(); ctx.beginPath(); ctx.rect(safe.left,safe.top,safe.width,safe.height); ctx.clip();
+    drawArtwork(ctx, {safe, dark, time, zoom, panX, panY});
+
+    const caption = 'Known-space atlas · schematic · distances unknown';
+    ctx.font = '11px "Noto Instrument Mono",monospace'; ctx.textAlign = 'left';
+    const capWidth = Math.min(safe.width - 24, ctx.measureText(caption).width + 18);
+    ctx.fillStyle = dark ? 'rgba(4,13,24,.72)' : 'rgba(245,248,246,.8)';
+    ctx.fillRect(safe.left + 12, safe.top + 10, capWidth, 24);
+    ctx.fillStyle = dark ? '#c3d1d5' : '#344b56'; ctx.fillText(caption, safe.left + 21, safe.top + 26, capWidth - 18);
+
+    if (compact) {
+      const columns = Math.max(1, Math.min(contacts.length, Math.floor(safe.width / 205))), cell = safe.width / columns;
+      contacts.forEach((contact, i) => {
+        const row = Math.floor(i / columns), x = safe.left + cell * (i % columns + .5), y = content.top + 25 + row * 91 + (contact.contactLevel === 'sector' ? 12 : 0);
+        (contact.contactLevel === 'region' ? regionLayout : sectorLayout).set(contact.n.id, {x,y,contact});
+      });
+    } else {
+      const orbitX = Math.min(safe.width * .31, Math.max(140, safe.width * .28));
+      const orbitY = Math.min(safe.height * .23, Math.max(80, safe.height * .21));
+      regions.forEach((contact, i) => {
+        const angle = -Math.PI / 2 + (Math.PI * 2 * i / Math.max(1, regions.length)) + .12;
+        const x = cx + Math.cos(angle) * orbitX, y = cy + 20 + Math.sin(angle) * orbitY;
+        regionLayout.set(contact.n.id, {x,y,contact,angle});
+        const children = sectors.filter(s => s.regionId === contact.n.id);
+        const radiusX = Math.min(safe.width * .24, Math.max(150, safe.width * .17));
+        const radiusY = Math.min(safe.height * .22, Math.max(100, safe.height * .18));
+        const horizontalInset = Math.min(110, safe.width / 2);
+        children.forEach((sector, j) => {
+          const spread = Math.min(Math.PI * .9, .62 + children.length * .22);
+          const a = angle + Math.PI + (children.length === 1 ? 0 : ((j / (children.length - 1)) - .5) * spread);
+          const sx = Math.max(safe.left + horizontalInset, Math.min(safe.right - horizontalInset, x + Math.cos(a) * radiusX));
+          const sy = Math.max(content.top + 62, Math.min(content.bottom - 58, y + Math.sin(a) * radiusY));
+          sectorLayout.set(sector.n.id, {x:sx, y:sy, contact:sector});
+        });
+      });
+    }
+
+    // One restrained focus sweep can frame a selected region or its selected sector.
+    if (!compact && selectedContactId) {
+      const selectedSector = sectors.find(contact => contact.n.id === selectedContactId);
+      const focusedRegion = regionLayout.get(selectedSector?.regionId || selectedContactId);
+      if (focusedRegion) {
+        const p = project(focusedRegion.x, focusedRegion.y);
+        ctx.strokeStyle = dark ? 'rgba(132,180,202,.2)' : 'rgba(71,119,139,.2)'; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.ellipse(p.x,p.y,48,28,0,0,Math.PI*2); ctx.stroke();
+      }
+    }
+
+    const drawContact = (slot, level) => {
+      const {n} = slot.contact, p = project(slot.x, slot.y), selected = n.id === selectedContactId;
+      const detected = n.knowledge === 'detected', color = level === 'region' ? (dark ? '#f1c777' : '#7b5930') : detected ? (dark ? '#e0b56d' : '#805b20') : (dark ? '#9dd7e1' : '#426d77');
+      const label = n.name || `${level === 'region' ? 'Region' : 'Sector'} · name unrecorded`;
+      const type = level === 'region' ? `Region · ${detected ? 'Detected · Position unknown' : 'Surveyed'}` : `Sector · ${detected ? 'Detected · unlocated' : 'Surveyed'}`;
+      ctx.save(); ctx.shadowColor = color; ctx.shadowBlur = dark ? (level === 'region' ? 15 : 8) : 4;
+      ctx.strokeStyle = color; ctx.fillStyle = color; ctx.lineWidth = level === 'region' ? 1.7 : 1.4;
+      if (level === 'region') { ctx.beginPath(); ctx.arc(p.x,p.y,7,0,Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(p.x,p.y,14,0,Math.PI*2); ctx.stroke(); }
+      else if (detected) { ctx.strokeRect(p.x-5,p.y-5,10,10); }
+      else { ctx.fillRect(p.x-4,p.y-4,8,8); }
+      ctx.restore();
+      if (selected) { ctx.strokeStyle = dark ? 'rgba(223,239,240,.9)' : 'rgba(42,81,91,.8)'; ctx.lineWidth=1; ctx.setLineDash([2,3]); ctx.beginPath(); ctx.arc(p.x,p.y,level==='region'?21:11,0,Math.PI*2); ctx.stroke(); ctx.setLineDash([]); }
+      ctx.textAlign='center'; ctx.font=`600 ${level==='region'?13:12}px "Noto Instrument Mono",monospace`; ctx.fillStyle=dark?'#f0f4f3':'#233941';
+      const nameWidth = ctx.measureText(label).width, maxLabel = Math.max(110, Math.min(220, safe.width / (compact ? 2 : Math.max(2, regions.length))));
+      ctx.fillText(label,p.x,p.y+(level==='region'?34:20),maxLabel);
+      ctx.font='10px "Noto Instrument Mono",monospace'; ctx.fillStyle=detected?(dark?'#e1c18a':'#77571f'):(dark?'#b5cbd1':'#4f6971');
+      const typeWidth=ctx.measureText(type).width; ctx.fillText(type,p.x,p.y+(level==='region'?49:35),maxLabel);
+      let parentWidth=0;
+      if (level==='sector') {
+        const parent=regions.find(contact=>contact.n.id===slot.contact.regionId)?.n;
+        const parentLine=`Within ${parent?.name||'Region · name unrecorded'}`;
+        ctx.font='10px "Noto Instrument Mono",monospace';ctx.fillStyle=dark?'#a4bac4':'#596f76';
+        parentWidth=ctx.measureText(parentLine).width;ctx.fillText(parentLine,p.x,p.y+50,maxLabel);
+      }
+      const width=Math.min(maxLabel,Math.max(112,nameWidth+12,typeWidth+12,parentWidth+12)), frameRect={left:p.x-width/2,right:p.x+width/2,top:p.y-(level==='region'?20:12),bottom:p.y+(level==='region'?55:55)}, hit=bounded(frameRect);
+      if(hit) positions.push({n,...p,anchorX:p.x,anchorY:p.y,radius:level==='region'?17:12,frameRect,hitRect:hit,contactLevel:level});
+    };
+    for (const slot of regionLayout.values()) drawContact(slot,'region');
+    for (const slot of sectorLayout.values()) drawContact(slot,'sector');
+    if (!contacts.length) { ctx.textAlign='center'; ctx.font='600 13px "Noto Instrument Mono",monospace'; ctx.fillStyle=dark?'#d2dbdf':'#34464a'; ctx.fillText('No regions or sectors are recorded',cx,cy-7); }
+    ctx.restore();
     return {hierarchy:true,universe:true,positions,hitTargets:positions,safeRect:safe,sceneRect:safe,model:{contacts}};
   }
 

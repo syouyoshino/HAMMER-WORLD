@@ -201,3 +201,7 @@ The `map-generation` Universe continuation adds a shared heading-mounted contact
 strip and schematic discovery fog, with safe outward zoom and camera return.
 See `docs/reviews/universe-and-zoom.md` before integrating: physical discovery
 footprints and universe distances remain unknown; authorization stays server-side.
+
+Universe ambience follow-up on `map-generation` supersedes the flat schematic
+presentation while retaining its navigation/data contracts. Integration and
+independent motion/visual evidence: `docs/reviews/universe-spatial-finish.md`.

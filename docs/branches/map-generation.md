@@ -950,3 +950,25 @@ limits are documented; this is an interface release candidate.
 Verified Universe implementation/tests/review: `8269a63`, pushed to
 `origin/map-generation`, baseline `7ed3023`. Continue from the linked review's
 explicit limits; no merge, deployment or data reset was performed.
+
+## Universe spatial finish and ambient movement — 31 October 2026
+
+The user rejected the prior accepted schematic as ugly/static. That functional
+acceptance did not establish a convincing space presentation. Replaced the hatch
+and hierarchy diagram with diffuse cached stellar artwork, parallax stars and
+restrained ambient drift; separated contacts and added parent context. Rejected
+the first thick-ribbon candidate and retained its independent findings. Final
+same-critic S01–06 review accepts this scoped scene and final sharpness/hover polish.
+
+Animation is capped at24Hz and pauses under reduced motion, hidden/covered views,
+and context exit. Actual pixel/lifecycle tests and complete navigation/history/
+private stale-response regressions pass, with no changed campaign records. A
+surface zoom input now crosses only into Orbit before another input can leave it.
+Universe-only CSS display scaling improves canvas text at the tested desktop zoom.
+
+Full current screenshots/video, independent ledger, final hashes and measured
+limits: `docs/reviews/universe-spatial-finish.md`. One small software-Chromium sample
+is not hardware/production/Google Earth performance. Cached artwork is illustrative
+and cannot establish physical discovery boundaries or positions. Preserve the
+public map projection, RAF lifecycle and bounded two-theme texture cache when
+integrating unrecovered work. No data reset, merge, deployment or character edits.
