@@ -1,7 +1,7 @@
 # Map generation — interface release candidate
 
 Latest continuation (1 November 2026): night infrastructure and close analytical
-readability, based on `c88e3d9`. See
+readability in `eae4f8e`, based on `c88e3d9`. See
 `docs/reviews/night-infrastructure-and-readability.md` for final design, independent
 critique/correction, browser/GPU evidence and orbital-structure integration
 contract. No campaign records, terrain generation, geography or schema changes.

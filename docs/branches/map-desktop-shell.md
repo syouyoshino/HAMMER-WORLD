@@ -217,3 +217,6 @@ radius-relative analytical night lift near surface descent. Public/terrain plane
 IDs remain distinct. Existing schema does not locate orbital stations; never
 reinterpret settlement-linked orbital batteries as floating structures. Read
 `docs/reviews/night-infrastructure-and-readability.md` before integration.
+Implementation and verified review milestone: `eae4f8e`. Continue with a bounded
+station schema/authorization review if orbital structures are approved; preserve
+the separate public/geometry IDs when integrating unrecovered cartography.
