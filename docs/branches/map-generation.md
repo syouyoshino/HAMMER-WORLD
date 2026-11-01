@@ -997,3 +997,6 @@ acceptance after typography/selection/CTA correction. Full evidence, source hash
 performance/browser bounds, minor residuals and integration notes:
 `docs/reviews/atlas-orientation-and-camera.md`. Interface release candidate only;
 no merge, deployment, data reset or character-branch change.
+
+Verified atlas-orientation implementation: `494c1e4`, pushed to
+`origin/map-generation` (baseline `4867696`).

@@ -158,3 +158,7 @@ work. The single-click preview is intentional; Open (or selected-contact inward
 zoom at the endpoint) performs navigation. Character relationships remain an
 independent screen. Continue with busy-fixture and native-browser evidence before
 making broader quality/performance claims.
+
+Verified implementation/tests/review: `494c1e4`, pushed to `origin/map-generation`
+from baseline `4867696`. Runtime captures/traces remain local ignored evidence;
+no private campaign records, credentials or databases are committed.
