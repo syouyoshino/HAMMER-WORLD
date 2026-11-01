@@ -1,5 +1,11 @@
 # Map generation — interface release candidate
 
+Latest continuation (1 November 2026): night infrastructure and close analytical
+readability, based on `c88e3d9`. See
+`docs/reviews/night-infrastructure-and-readability.md` for final design, independent
+critique/correction, browser/GPU evidence and orbital-structure integration
+contract. No campaign records, terrain generation, geography or schema changes.
+
 Date: 22 October 2026 UTC. Branch: `map-generation`, created from `edf243e` on `feature/map-desktop-shell`. The preceding military interface implementation is `2379356`; owned movement projection milestone is `3e97811`. The source branch was clean and its push reported up to date before this branch was created.
 
 ## Authorized scope of this milestone

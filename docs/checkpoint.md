@@ -350,3 +350,14 @@ Normal/reduced-motion exact camera return, offscreen focus, cancel/context clean
 historical return authorization, private stale-response and ambient checks pass.
 Independent scoped visual acceptance; low-priority typography/Forces placement and
 browser/dense-layout limits remain. See `docs/reviews/atlas-orientation-and-camera.md`.
+
+1 November night-infrastructure release candidate: selected-turn owned active
+facility lights now form compact schematic patterns at saved province anchors.
+Close orbit gradually lifts night terrain without moving the sun or darkening
+daylight; camera/persistent records are unchanged. Actual Chromium/GPU lighting,
+world/history clearing, celestial navigation/exact return and private logout
+regressions pass, without browser errors. Independent scoped visual/behavioral
+review accepts the revised candidate. Facility identities remain indistinct at
+globe scale; WebKit/Safari/hardware rendering are unverified. Orbital structures
+remain a documented future saved-entity contract, not invented stations. See
+`docs/reviews/night-infrastructure-and-readability.md` for evidence and limits.

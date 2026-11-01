@@ -90,7 +90,10 @@ def main():
             assert page.locator("#body-focus-view").get_attribute("data-body-id") is None
             assert page.locator("#overlay-select").input_value() == result["origin"]["overlay"]
             assert page.locator("#map-style").input_value() == result["origin"]["mapStyle"]
-            assert page.evaluate("__orbitAudit.view") == result["origin"]["orbitView"]
+            rendered_view = page.evaluate("__orbitAudit.view")
+            # Analytical lighting is derived for rendering, never camera state.
+            assert 0 <= rendered_view.pop("nightReadability", 0) <= 1
+            assert rendered_view == result["origin"]["orbitView"]
             assert canvas.evaluate('c=>c===document.querySelector("#planet-map")')
 
         # Keep a real selected province and a nondefault overlay/style in origin.

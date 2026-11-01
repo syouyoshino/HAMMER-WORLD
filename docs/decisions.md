@@ -471,3 +471,17 @@ Universe RAF and cancel on manual input, overlays and context changes. Historica
 origins can be rederived, but all returns remain in their authorized snapshot.
 Keep the compact Universe header separate from other map HUDs and show core facts
 legibly. Evidence: `docs/reviews/atlas-orientation-and-camera.md`.
+
+### Night facilities and analytical close orbit — 1 November 2026
+
+Use only owned, completed facilities with recorded activation at/before the
+selected snapshot turn. Join by explicit public planet ID, which may differ from
+the saved geometry's internal ID. Draw stable type-specific schematic light
+clusters at saved province anchors, not invented building footprints. Keep the
+emission source and reusable GPU texture in the existing context/revision cache;
+reset absent emission to black. Distant night follows spherical sun incidence;
+close zoom monotonically lifts terrain to analytical readability using normalized
+descent altitude, preserving the actual star and brighter daylight. No new camera
+persistence field. Orbital batteries remain settlement defense; future stations
+need public saved entities/positions and snapshot authorization before rendering.
+Evidence and limitations: `docs/reviews/night-infrastructure-and-readability.md`.

@@ -57,6 +57,12 @@
     const scale=Math.max(.001,tile)*rows,denom=scale-Math.min(rect.width,rect.height)*.36*Math.PI;
     return clamp(denom>0?scale/denom:4.2,1.018,4.2);
   }
+  function nightReadability(distance,descentDistance){
+    if(!Number.isFinite(distance)||!Number.isFinite(descentDistance))return 0;
+    const altitude=Math.max(0,distance-1),descent=Math.max(.001,descentDistance-1);
+    const t=clamp((altitude-descent)/(3*descent),0,1);
+    return 1-(t*t*(3-2*t));
+  }
   function powerOfTwoSize(width,height) {
     const scale=Math.min(1,MAX_SIDE/width,MAX_SIDE/height,Math.sqrt(MAX_PIXELS/(width*height)));
     const pow=v=>2**Math.floor(Math.log2(Math.max(1,v*scale)));
@@ -83,10 +89,10 @@ precision highp float;
 precision mediump float;
 #endif
 varying vec2 v;
-uniform sampler2D tex,poleMean,reliefTex;
+uniform sampler2D tex,poleMean,reliefTex,emissionTex;
 uniform vec3 N,E,U;
 uniform vec2 viewSize,textureSize;
-uniform float D,pixelAngle,hasRelief;
+uniform float D,pixelAngle,hasRelief,nightReadability;
 uniform vec3 lightDirection;
 vec4 linearPremul(vec4 c){return vec4(pow(c.rgb,vec3(2.2))*c.a,c.a);}
 void main(){
@@ -141,8 +147,12 @@ void main(){
  reliefIncidence=clamp(reliefIncidence,incidence-reliefBound,incidence+reliefBound);
  float diffuse=pow(max(0.,reliefIncidence),.72)*smoothstep(-.045,.065,incidence);
  float light=.045+.955*diffuse;
+ light=mix(light,max(light,.9),clamp(nightReadability,0.,1.));
+ vec4 emissionSample=texture2D(emissionTex,uv);
+ vec3 emission=emissionSample.rgb*emissionSample.a;
  float limb=smoothstep(-.2,.3,normal.z);
- gl_FragColor=vec4(color.rgb*light,color.a*limb);
+ vec3 lit=color.rgb*light+emission*(1.-smoothstep(-.12,.06,incidence))*(1.-.25*clamp(nightReadability,0.,1.));
+ gl_FragColor=vec4(lit,color.a*limb);
 }`;
     const shader=(type,src)=>{const s=gl.createShader(type);gl.shaderSource(s,src);gl.compileShader(s);if(!gl.getShaderParameter(s,gl.COMPILE_STATUS))throw Error(gl.getShaderInfoLog(s));return s;};
     try {
@@ -151,9 +161,10 @@ void main(){
       const texture=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,texture);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR_MIPMAP_LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.REPEAT);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
       const poleMean=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,poleMean);for(const axis of [gl.TEXTURE_WRAP_S,gl.TEXTURE_WRAP_T])gl.texParameteri(gl.TEXTURE_2D,axis,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
       const reliefTexture=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,reliefTexture);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR_MIPMAP_LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.REPEAT);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
+      const emissionTexture=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,emissionTexture);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR_MIPMAP_LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.REPEAT);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
       const loc=name=>gl.getUniformLocation(program,name),lostState={value:false};
       canvas.addEventListener?.("webglcontextlost",event=>{event.preventDefault();lostState.value=true;});canvas.addEventListener?.("webglcontextrestored",()=>{lostState.value=true;});
-      return {canvas,gl,program,buffer,texture,poleMean,reliefTexture,locations:{p:gl.getAttribLocation(program,"p"),N:loc("N"),E:loc("E"),U:loc("U"),lightDirection:loc("lightDirection"),viewSize:loc("viewSize"),D:loc("D"),tex:loc("tex"),poleMean:loc("poleMean"),reliefTex:loc("reliefTex"),textureSize:loc("textureSize"),pixelAngle:loc("pixelAngle"),hasRelief:loc("hasRelief")}, uploaded:null, lostState,
+      return {canvas,gl,program,buffer,texture,poleMean,reliefTexture,emissionTexture,locations:{p:gl.getAttribLocation(program,"p"),N:loc("N"),E:loc("E"),U:loc("U"),lightDirection:loc("lightDirection"),viewSize:loc("viewSize"),D:loc("D"),tex:loc("tex"),poleMean:loc("poleMean"),reliefTex:loc("reliefTex"),emissionTex:loc("emissionTex"),textureSize:loc("textureSize"),pixelAngle:loc("pixelAngle"),hasRelief:loc("hasRelief"),nightReadability:loc("nightReadability")}, uploaded:null, lostState,
         render(source,revision,width,height,view,rect={left:0,top:0,width,height},starDirection=null,renderScale=1){if(this.lostState.value||gl.isContextLost()||!source)return false;const dims=powerOfTwoSize(source.width,source.height);if(this.uploaded!==revision){let image=source;if(dims.width!==source.width||dims.height!==source.height){const tmp=document.createElement("canvas");tmp.width=dims.width;tmp.height=dims.height;tmp.getContext("2d").drawImage(source,0,0,dims.width,dims.height);image=tmp;}
             gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,texture);gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,true);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,image);gl.generateMipmap(gl.TEXTURE_2D);
             const meanCanvas=document.createElement("canvas");meanCanvas.width=1;meanCanvas.height=dims.height;const meanContext=meanCanvas.getContext("2d"),data=meanContext.createImageData(1,dims.height);data.data.set(rowMeans(image.getContext("2d").getImageData(0,0,dims.width,dims.height).data,dims.width,dims.height));meanContext.putImageData(data,0,0);gl.bindTexture(gl.TEXTURE_2D,poleMean);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,meanCanvas);
@@ -162,11 +173,17 @@ void main(){
             const relief=source.hwOrbitRelief;
             if(relief){let reliefImage=relief;if(dims.width!==relief.width||dims.height!==relief.height){const tmp=document.createElement("canvas");tmp.width=dims.width;tmp.height=dims.height;tmp.getContext("2d").drawImage(relief,0,0,dims.width,dims.height);reliefImage=tmp;}gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,reliefImage);gl.generateMipmap(gl.TEXTURE_2D);}
             else {gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,1,1,0,gl.RGBA,gl.UNSIGNED_BYTE,new Uint8Array([128,128,128,255]));gl.generateMipmap(gl.TEXTURE_2D);}
+            // Emission is uploaded with its albedo revision; a missing layer is
+            // explicitly black so a reused renderer cannot retain old lights.
+            gl.activeTexture(gl.TEXTURE3);gl.bindTexture(gl.TEXTURE_2D,emissionTexture);gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,true);
+            const emission=source.hwOrbitEmission;
+            if(emission){let emissionImage=emission;if(dims.width!==emission.width||dims.height!==emission.height){const tmp=document.createElement("canvas");tmp.width=dims.width;tmp.height=dims.height;tmp.getContext("2d").drawImage(emission,0,0,dims.width,dims.height);emissionImage=tmp;}gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,emissionImage);gl.generateMipmap(gl.TEXTURE_2D);}
+            else {gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,1,1,0,gl.RGBA,gl.UNSIGNED_BYTE,new Uint8Array([0,0,0,255]));gl.generateMipmap(gl.TEXTURE_2D);}
             this.uploaded=revision;
           }
           const scale=Math.max(.25,Math.min(1,Number.isFinite(renderScale)?renderScale:1)),dpr=Math.min(2,window.devicePixelRatio||1)*scale,targetW=Math.max(1,Math.round(width*dpr)),targetH=Math.max(1,Math.round(height*dpr));if(canvas.width!==targetW||canvas.height!==targetH){canvas.width=targetW;canvas.height=targetH;}if(this.lostState.value){this.lostState.value=false;this.uploaded=null;return false;}gl.clearColor(0,0,0,0);gl.clear(gl.COLOR_BUFFER_BIT);gl.viewport(Math.round(rect.left*dpr),Math.round((height-rect.top-rect.height)*dpr),Math.round(rect.width*dpr),Math.round(rect.height*dpr));gl.useProgram(program);gl.bindBuffer(gl.ARRAY_BUFFER,buffer);gl.enableVertexAttribArray(this.locations.p);gl.vertexAttribPointer(this.locations.p,2,gl.FLOAT,false,0,0);const f=basis(view.latitude,view.longitude),short=Math.max(1,Math.min(rect.width,rect.height)),illustrativeSun=[-.42,.5,.76],sourceLight=starDirection||illustrativeSun,light=[dot(sourceLight,f.E),dot(sourceLight,f.U),dot(sourceLight,f.N)];
-          gl.uniform3fv(this.locations.N,f.N);gl.uniform3fv(this.locations.E,f.E);gl.uniform3fv(this.locations.U,f.U);gl.uniform3fv(this.locations.lightDirection,light);gl.uniform2f(this.locations.viewSize,rect.width/short,rect.height/short);gl.uniform1f(this.locations.D,view.distance??2.45);gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,texture);gl.uniform1i(this.locations.tex,0);gl.activeTexture(gl.TEXTURE1);gl.bindTexture(gl.TEXTURE_2D,poleMean);gl.uniform1i(this.locations.poleMean,1);gl.activeTexture(gl.TEXTURE2);gl.bindTexture(gl.TEXTURE_2D,reliefTexture);gl.uniform1i(this.locations.reliefTex,2);gl.uniform1f(this.locations.hasRelief,source.hwOrbitRelief?1:0);gl.uniform2f(this.locations.textureSize,dims.width,dims.height);gl.uniform1f(this.locations.pixelAngle,Math.max(.000001,(view.distance-1)/(short*.36*view.distance*dpr)));gl.drawArrays(gl.TRIANGLES,0,6);return !gl.isContextLost();}};
+          gl.uniform3fv(this.locations.N,f.N);gl.uniform3fv(this.locations.E,f.E);gl.uniform3fv(this.locations.U,f.U);gl.uniform3fv(this.locations.lightDirection,light);gl.uniform2f(this.locations.viewSize,rect.width/short,rect.height/short);gl.uniform1f(this.locations.D,view.distance??2.45);gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,texture);gl.uniform1i(this.locations.tex,0);gl.activeTexture(gl.TEXTURE1);gl.bindTexture(gl.TEXTURE_2D,poleMean);gl.uniform1i(this.locations.poleMean,1);gl.activeTexture(gl.TEXTURE2);gl.bindTexture(gl.TEXTURE_2D,reliefTexture);gl.uniform1i(this.locations.reliefTex,2);gl.activeTexture(gl.TEXTURE3);gl.bindTexture(gl.TEXTURE_2D,emissionTexture);gl.uniform1i(this.locations.emissionTex,3);gl.uniform1f(this.locations.hasRelief,source.hwOrbitRelief?1:0);gl.uniform1f(this.locations.nightReadability,view.nightReadability??0);gl.uniform2f(this.locations.textureSize,dims.width,dims.height);gl.uniform1f(this.locations.pixelAngle,Math.max(.000001,(view.distance-1)/(short*.36*view.distance*dpr)));gl.drawArrays(gl.TRIANGLES,0,6);return !gl.isContextLost();}};
     } catch { return null; }
   }
-  window.HWPlanetOrbit={basis,unit,screenPoint,projectRecordedDirection,projectRecordedStar,inversePoint,focusFlatCamera,distanceForTile,powerOfTwoSize,rowMeans,create};
+  window.HWPlanetOrbit={basis,unit,screenPoint,projectRecordedDirection,projectRecordedStar,inversePoint,focusFlatCamera,distanceForTile,nightReadability,powerOfTwoSize,rowMeans,create};
 })();

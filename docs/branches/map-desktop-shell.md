@@ -210,3 +210,10 @@ Atlas orientation/camera continuation on `map-generation` adds a scoped compact
 header and ephemeral viewing-origin/destination cues, plus contact preview and
 guarded opening. Integrate using the existing public context/camera boundaries;
 see `docs/reviews/atlas-orientation-and-camera.md` for evidence and limitations.
+
+1 November night-infrastructure continuation on `map-generation` adds owned,
+active selected-turn facility emission at schematic province anchors and a
+radius-relative analytical night lift near surface descent. Public/terrain planet
+IDs remain distinct. Existing schema does not locate orbital stations; never
+reinterpret settlement-linked orbital batteries as floating structures. Read
+`docs/reviews/night-infrastructure-and-readability.md` before integration.

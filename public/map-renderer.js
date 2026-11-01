@@ -709,11 +709,17 @@
     }
     entry.rasters.set(rasterKey,canvas);return canvas;
   }
-  function buildOrbitTexture({geometry,detail=null,style="orbital",overlay="terrain",paintOverlay=null}) {
+  function buildOrbitTexture({geometry,planetId,detail=null,style="orbital",overlay="terrain",paintOverlay=null,settlements=[],facilities=[],turn=null}) {
     const fine=fineRaster(detail,geometry,style,true),source=fine||baseRaster(geometry,style,true),canvas=document.createElement("canvas");
     canvas.width=source.width;canvas.height=source.height;
     const ctx=canvas.getContext("2d");ctx.drawImage(source,0,0);
     if(paintOverlay)paintOverlay(ctx,{tile:canvas.width/geometry.planet.width,ox:0,oy:0,overlay});
+    if(window.HWFacilityLights&&Number.isInteger(turn)){
+      const lights=window.HWFacilityLights.model({geometry,planetId,settlements,facilities,turn,provinceLand:provinceLand(geometry)});
+      const emission=document.createElement("canvas");emission.width=canvas.width;emission.height=canvas.height;
+      window.HWFacilityLights.paint(emission.getContext("2d"),emission.width,emission.height,lights,geometry.planet.width,geometry.planet.height);
+      canvas.hwOrbitEmission=emission;canvas.hwOrbitFacilityCount=lights.length;
+    }
     if(fine&&overlay==="terrain"&&["planet-v10","planet-v11"].includes(geometry.surface?.version))canvas.hwOrbitRelief=buildOrbitReliefCanvas(detail,geometry,fineGeometry(detail,geometry));
     return canvas;
   }
