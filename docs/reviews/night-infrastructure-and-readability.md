@@ -148,3 +148,15 @@ unlocated; schematic placement must be explicitly identified. Add authorization
 and immutable snapshot serialization before any rendering layer. This requires
 a separate bounded schema/authority review. Preserve existing geography and
 unrecovered cartography; do not modify the character-relationships branch.
+
+## Delivery status
+
+Verified implementation/review is committed locally as `eae4f8e`, with delivery
+references in `0d85bc6`. Push to `origin/map-generation` is blocked: the configured
+GitHub credential is invalid (`gh auth status` and authenticated Git push both
+fail). The connected GitHub read tool confirms the remote head is still
+`c88e3d9`; its first attempted object write returned “MCP tool call requires
+approval, but approval policy is never.” No connector objects or branch updates
+were published. No force push, history rewrite, merge or deployment occurred.
+Restore working GitHub write authentication/approval configuration, then push the
+existing local commits; implementation work does not need to be recreated.

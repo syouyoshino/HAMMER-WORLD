@@ -220,3 +220,6 @@ reinterpret settlement-linked orbital batteries as floating structures. Read
 Implementation and verified review milestone: `eae4f8e`. Continue with a bounded
 station schema/authorization review if orbital structures are approved; preserve
 the separate public/geometry IDs when integrating unrecovered cartography.
+This milestone is locally committed but not pushed: Git authentication is invalid
+and connector write approval is disabled by the environment. Remote branch stays
+at `c88e3d9`; push the existing commits once write access is restored.

@@ -5,6 +5,10 @@ readability in `eae4f8e`, based on `c88e3d9`. See
 `docs/reviews/night-infrastructure-and-readability.md` for final design, independent
 critique/correction, browser/GPU evidence and orbital-structure integration
 contract. No campaign records, terrain generation, geography or schema changes.
+Delivery note: `eae4f8e` and `0d85bc6` are local commits. Remote publishing is
+blocked by invalid Git credentials and unavailable connector write approval;
+remote `map-generation` remains `c88e3d9`. Restore write access and push these
+commits, without rebuilding or resetting data.
 
 Date: 22 October 2026 UTC. Branch: `map-generation`, created from `edf243e` on `feature/map-desktop-shell`. The preceding military interface implementation is `2379356`; owned movement projection milestone is `3e97811`. The source branch was clean and its push reported up to date before this branch was created.
 
