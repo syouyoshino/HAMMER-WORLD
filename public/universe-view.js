@@ -22,6 +22,7 @@
     for (const char of String(value)) h = Math.imul(h ^ char.charCodeAt(0), 16777619);
     return h >>> 0;
   }
+  const hasChartLocation = node => node && node.knowledge !== 'hidden' && node.knowledge !== 'detected' && Number.isFinite(node?.x) && Number.isFinite(node?.y);
   function random(seed) {
     let x = seed >>> 0;
     return () => { x = (Math.imul(x, 1664525) + 1013904223) >>> 0; return x / 4294967296; };
@@ -97,12 +98,12 @@
 
   function draw(ctx, {w,h,record,safe,zoom=1,panX=0,panY=0,theme='dark',selectedContactId=null,originContactIds=[],time=0}) {
     const dark = theme === 'dark', cx = (safe.left + safe.right) / 2, cy = (safe.top + safe.bottom) / 2;
-    const contacts = record?.contacts || [], regions = contacts.filter(c => c.contactLevel === 'region'), sectors = contacts.filter(c => c.contactLevel === 'sector');
+    const contacts = [...(record?.contacts || [])].sort((a,b)=>String(a.contactLevel).localeCompare(String(b.contactLevel))||String(a.n?.id).localeCompare(String(b.n?.id))), allRegions=contacts.filter(c=>c.contactLevel==='region'), regionById=new Map(allRegions.map(c=>[c.n.id,c])), regions = allRegions.filter(c => hasChartLocation(c.n)), sectors = contacts.filter(c => c.contactLevel === 'sector' && hasChartLocation(c.n) && hasChartLocation(regionById.get(c.regionId)?.n));
     const compact = safe.height < 340;
     const content = {left:safe.left, right:safe.right, top:safe.top + 48, bottom:safe.bottom};
     const project = (x,y) => ({x:cx + (x-cx)*zoom + panX, y:cy + (y-cy)*zoom + panY});
     const bounded = rect => { const r={left:Math.max(content.left,rect.left),right:Math.min(content.right,rect.right),top:Math.max(content.top,rect.top),bottom:Math.min(content.bottom,rect.bottom)}; return r.left<r.right&&r.top<r.bottom?r:null; };
-    const positions = [], contactAnchors = [], regionLayout = new Map(), sectorLayout = new Map();
+    const positions = [], contactAnchors = [], hitTargets = [], regionLayout = new Map(), sectorLayout = new Map();
     ctx.save(); ctx.beginPath(); ctx.rect(safe.left,safe.top,safe.width,safe.height); ctx.clip();
     drawArtwork(ctx, {safe, dark, time, zoom, panX, panY});
 
@@ -115,7 +116,7 @@
 
     if (compact) {
       const columns = Math.max(1, Math.min(contacts.length, Math.floor(safe.width / 205))), cell = safe.width / columns;
-      contacts.forEach((contact, i) => {
+      [...regions,...sectors].forEach((contact, i) => {
         const row = Math.floor(i / columns), x = safe.left + cell * (i % columns + .5), y = content.top + 25 + row * 91 + (contact.contactLevel === 'sector' ? 12 : 0);
         (contact.contactLevel === 'region' ? regionLayout : sectorLayout).set(contact.n.id, {x,y,contact});
       });
@@ -140,6 +141,19 @@
       });
     }
 
+    // An open bracket labels a list of children, never a territorial footprint.
+    if (!compact) {
+      for (const region of regions) {
+        const children = sectors.filter(sector => sector.regionId === region.n.id).map(sector => sectorLayout.get(sector.n.id)).filter(Boolean).map(slot => project(slot.x, slot.y));
+        if (!children.length) continue;
+        const left = Math.min(...children.map(point => point.x)) - 115, right = Math.max(...children.map(point => point.x)) + 115, top = Math.min(...children.map(point => point.y)) - 41;
+        ctx.strokeStyle = dark ? 'rgba(169,199,205,.48)' : 'rgba(58,83,90,.45)'; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(left,top+8); ctx.lineTo(left,top); ctx.lineTo(right,top); ctx.lineTo(right,top+8); ctx.stroke();
+        ctx.fillStyle = dark ? '#d7c69e' : '#675638'; ctx.font = '12px "Noto Instrument Mono",monospace'; ctx.textAlign = 'center';
+        ctx.fillText(`Known sectors in ${region.n.name || 'Region'}`, (left+right)/2, top-9, Math.max(180,right-left+60));
+      }
+    }
+
     // One restrained focus sweep can frame a selected region or its selected sector.
     if (!compact && selectedContactId) {
       const selectedSector = sectors.find(contact => contact.n.id === selectedContactId);
@@ -153,9 +167,10 @@
 
     const drawContact = (slot, level) => {
       const {n} = slot.contact, p = project(slot.x, slot.y), selected = n.id === selectedContactId, origin = originContactIds.includes(n.id);
-      const detected = n.knowledge === 'detected', color = origin ? (dark ? '#8fc8ee' : '#28668b') : level === 'region' ? (dark ? '#f1c777' : '#7b5930') : detected ? (dark ? '#e0b56d' : '#805b20') : (dark ? '#9dd7e1' : '#426d77');
+      const detected = n.knowledge === 'detected', located=hasChartLocation(n), color = origin ? (dark ? '#8fc8ee' : '#28668b') : level === 'region' ? (dark ? '#f1c777' : '#7b5930') : detected ? (dark ? '#e0b56d' : '#805b20') : (dark ? '#9dd7e1' : '#426d77');
       const label = n.name || `${level === 'region' ? 'Region' : 'Sector'} · name unrecorded`;
-      const type = level === 'region' ? `Region · ${detected ? 'Detected · Position unknown' : 'Surveyed'}` : `Sector · ${detected ? 'Detected · unlocated' : 'Surveyed'}`;
+      const knowledge=detected?'Detected':n.knowledge==='surveyed'?'Surveyed':'Knowledge unknown',position=located?'':' · Position unknown';
+      const type = `${level === 'region' ? 'Region' : 'Sector'} · ${knowledge}${position}`;
       ctx.save(); ctx.shadowColor = color; ctx.shadowBlur = dark ? (level === 'region' ? 15 : 8) : 4;
       ctx.strokeStyle = color; ctx.fillStyle = color; ctx.lineWidth = level === 'region' ? 1.7 : 1.4;
       if (level === 'region') { ctx.beginPath(); ctx.arc(p.x,p.y,7,0,Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(p.x,p.y,14,0,Math.PI*2); ctx.stroke(); }
@@ -166,13 +181,13 @@
       ctx.textAlign='center'; ctx.font=`600 ${level==='region'?13:12}px "Noto Instrument Mono",monospace`; ctx.fillStyle=dark?'#f0f4f3':'#233941';
       const nameWidth = ctx.measureText(label).width, maxLabel = Math.max(110, Math.min(220, safe.width / (compact ? 2 : Math.max(2, regions.length))));
       ctx.fillText(label,p.x,p.y+(level==='region'?34:20),maxLabel);
-      ctx.font='10px "Noto Instrument Mono",monospace'; ctx.fillStyle=detected?(dark?'#e1c18a':'#77571f'):(dark?'#b5cbd1':'#4f6971');
+      ctx.font='11px "Noto Instrument Mono",monospace'; ctx.fillStyle=detected?(dark?'#e1c18a':'#77571f'):(dark?'#b5cbd1':'#4f6971');
       const typeWidth=ctx.measureText(type).width; ctx.fillText(type,p.x,p.y+(level==='region'?49:35),maxLabel);
       let parentWidth=0;
       if (level==='sector') {
-        const parent=regions.find(contact=>contact.n.id===slot.contact.regionId)?.n;
+        const parent=regionById.get(slot.contact.regionId)?.n;
         const parentLine=`Within ${parent?.name||'Region · name unrecorded'}`;
-        ctx.font='10px "Noto Instrument Mono",monospace';ctx.fillStyle=dark?'#a4bac4':'#596f76';
+        ctx.font='11px "Noto Instrument Mono",monospace';ctx.fillStyle=dark?'#a4bac4':'#596f76';
         parentWidth=ctx.measureText(parentLine).width;ctx.fillText(parentLine,p.x,p.y+50,maxLabel);
       }
       const width=Math.min(maxLabel,Math.max(112,nameWidth+12,typeWidth+12,parentWidth+12)), frameRect={left:Math.max(safe.left,p.x-width/2-6),right:Math.min(safe.right,p.x+width/2+6),top:Math.max(content.top,p.y-(level==='region'?30:23)),bottom:Math.min(content.bottom,p.y+60)}, hit=bounded(frameRect);
@@ -185,18 +200,146 @@
         ctx.fillStyle=dark?'rgba(5,14,22,.9)':'rgba(245,248,246,.94)';ctx.fillRect(tagX-3,tagY-11,37,14);
         ctx.fillStyle=color;ctx.textAlign='left';ctx.font='700 9px "Noto Instrument Mono",monospace';ctx.fillText('DEST',tagX,tagY);
       }
+      if (origin) { ctx.font='600 11px "Noto Instrument Mono",monospace'; ctx.textAlign='center'; ctx.fillStyle=dark?'#8fc8ee':'#28668b'; ctx.fillText('VIEW ORIGIN · ANCESTOR',p.x,p.y-31,210); }
       const target={id:n.id,n,...p,baseX:slot.x,baseY:slot.y,anchorX:p.x,anchorY:p.y,radius:level==='region'?17:12,frameRect,hitRect:hit,contactLevel:level,regionId:slot.contact.regionId||n.id};
       contactAnchors.push(target);
-      if(hit) positions.push(target);
+      if(hit && p.x>=content.left && p.x<=content.right && p.y>=content.top && p.y<=content.bottom) positions.push(target);
     };
     for (const slot of regionLayout.values()) drawContact(slot,'region');
     for (const slot of sectorLayout.values()) drawContact(slot,'sector');
+    // Detected contacts have no known chart position. Keep them selectable from
+    // an explicit list, without creating a coordinate anchor for the chart.
+    const unlocated=contacts.filter(contact=>!hasChartLocation(contact.n)||(contact.contactLevel==='sector'&&!hasChartLocation(regionById.get(contact.regionId)?.n)));
+    if (unlocated.length) {
+      const width=Math.min(310,safe.width-24),left=safe.right-width-12,top=safe.top+49,row=48;
+      const bottom=Math.min(safe.bottom-8,top+30+row*unlocated.length);
+      ctx.fillStyle=dark?'rgba(4,13,24,.95)':'rgba(245,248,246,.97)';ctx.fillRect(left,top,width,bottom-top);
+      ctx.strokeStyle=dark?'rgba(224,181,109,.55)':'rgba(128,91,32,.5)';ctx.strokeRect(left,top,width,bottom-top);
+      ctx.textAlign='left';ctx.font='600 12px "Noto Instrument Mono",monospace';ctx.fillStyle=dark?'#e1c18a':'#77571f';ctx.fillText('UNLOCATED · POSITION UNKNOWN',left+12,top+20,width-24);
+      unlocated.forEach((contact,index)=>{
+        const y=top+30+index*row;if(y+row>bottom)return;
+        const parent=contact.contactLevel==='sector'?(regionById.get(contact.regionId)?.n.name||'Region unknown'):'Parent unknown';
+        ctx.font='12px "Noto Instrument Mono",monospace';ctx.fillStyle=dark?'#f0f4f3':'#233941';ctx.fillText(contact.n.name||`${contact.contactLevel} · name unknown`,left+12,y+16,width-24);
+        ctx.font='11px "Noto Instrument Mono",monospace';ctx.fillStyle=dark?'#c1b291':'#665a45';ctx.fillText(`${contact.contactLevel} · in ${parent}`,left+12,y+33,width-24);
+        hitTargets.push({id:contact.n.id,n:contact.n,uiOnly:true,x:left+width/2,y:y+row/2,hitRect:{left:left+4,right:left+width-4,top:y,bottom:y+row}});
+      });
+    }
     if (!contacts.length) { ctx.textAlign='center'; ctx.font='600 13px "Noto Instrument Mono",monospace'; ctx.fillStyle=dark?'#d2dbdf':'#34464a'; ctx.fillText('No regions or sectors are recorded',cx,cy-7); }
     ctx.restore();
-    return {hierarchy:true,universe:true,positions,hitTargets:positions,contactAnchors,safeRect:safe,sceneRect:safe,model:{contacts}};
+    return {hierarchy:true,universe:true,positions,hitTargets:[...positions,...hitTargets],contactAnchors,safeRect:safe,sceneRect:safe,model:{contacts}};
   }
 
-  const api = {fromGalactic, draw};
+  function drawStrategic(ctx,{w,h,record,publicState,safe,zoom=1,panX=0,panY=0,theme='dark',forceControlRect=null}) {
+    const dark=theme==='dark',level=record?.level==='sector'?'sector':'galactic';
+    const nodes=(publicState?.nodes||[]).filter(node=>node.knowledge!=='hidden'),byId=new Map(nodes.map(node=>[node.id,node]));
+    const parent=record?.parent||byId.get(record?.parent_id)||null;
+    const descendants=id=>nodes.filter(node=>node.kind==='system'&&node.parent_id===id);
+    const rawGroups=level==='galactic'?(record?.groups||[]).filter(group=>group.region&&group.region.knowledge!=='hidden'):[{region:byId.get(parent?.parent_id),sectors:[parent]}];
+    const allSectors=rawGroups.flatMap(group=>(group.sectors||[]).filter(node=>node&&node.knowledge!=='hidden').map(sector=>({sector,region:group.region})));
+    const isLocated=entry=>hasChartLocation(entry.sector)&&(level==='sector'||hasChartLocation(entry.region));
+    const groups=allSectors.filter(isLocated).map(entry=>({...entry,systems:descendants(entry.sector.id)})).sort((a,b)=>String(a.sector.id).localeCompare(String(b.sector.id)));
+    const systems=allSectors.flatMap(entry=>descendants(entry.sector.id));
+    const unlocated=[...new Map(allSectors.flatMap(entry=>isLocated(entry)?descendants(entry.sector.id).filter(node=>!hasChartLocation(node)):[entry.sector,...descendants(entry.sector.id)]).map(node=>[node.id,node])).values()];
+    const links=(publicState?.links||record?.links||[]).filter(link=>byId.get(link.a)?.kind==='system'&&byId.get(link.b)?.kind==='system');
+    const bright=dark?'#edf3f1':'#263d43',muted=dark?'#b8cbd0':'#52676c',edge=dark?'rgba(169,199,205,.43)':'rgba(58,83,90,.4)';
+    const centerX=(safe.left+safe.right)/2,centerY=(safe.top+safe.bottom)/2;
+    const project=(x,y)=>({x:centerX+(x-centerX)*zoom+panX,y:centerY+(y-centerY)*zoom+panY});
+    const bounded=rect=>{const r={left:Math.max(safe.left,rect.left),right:Math.min(safe.right,rect.right),top:Math.max(safe.top,rect.top),bottom:Math.min(safe.bottom,rect.bottom)};return r.left<r.right&&r.top<r.bottom?r:null;};
+    ctx.fillStyle=dark?'#07111c':'#e7ecea';ctx.fillRect(0,0,w,h);ctx.save();ctx.beginPath();ctx.rect(safe.left,safe.top,safe.width,safe.height);ctx.clip();
+    drawArtwork(ctx,{safe,dark,time:0,panX,panY});
+    ctx.fillStyle=dark?'rgba(4,10,19,.26)':'rgba(227,233,233,.25)';ctx.fillRect(safe.left,safe.top,safe.width,safe.height);
+    const trayWidth=Math.min(330,Math.max(220,safe.width*.27)),trayLeft=safe.right-trayWidth-12;
+    const trayTop=Math.max(safe.top+18,forceControlRect&&forceControlRect.right>trayLeft?forceControlRect.bottom+12:safe.top+18);
+    const chartRight=unlocated.length&&safe.width>650?trayLeft-28:safe.right-24;
+    const chartWidth=Math.max(150,chartRight-safe.left-24),cols=Math.max(1,Math.floor(chartWidth/360));
+    const frameW=chartWidth/Math.min(cols,Math.max(1,groups.length)),frameH=Math.min(300,Math.max(170,(safe.height-90)/Math.max(1,Math.ceil(groups.length/cols))));
+    const coords=new Map(),positions=[],contactAnchors=[],forceObstacles=[];
+    ctx.textAlign='left';ctx.font='11px "Noto Instrument Mono",monospace';ctx.fillStyle=muted;
+    ctx.fillText('KNOWN SPACE · SCHEMATIC · DISTANCES UNKNOWN',safe.left+24,safe.top+21,Math.max(160,chartWidth));
+    groups.forEach((group,index)=>{
+      const left=safe.left+24+(index%cols)*frameW,top=safe.top+65+Math.floor(index/cols)*frameH;
+      const p=project(left,top),count=group.systems.filter(node=>node.knowledge==='surveyed').length;
+      ctx.font='600 15px "Noto Instrument Mono",monospace';ctx.fillStyle=bright;ctx.textAlign='left';
+      ctx.fillText(group.sector.name||'Sector · name unknown',p.x,p.y,frameW-30);
+      ctx.font='12px "Noto Instrument Mono",monospace';ctx.fillStyle=muted;
+      ctx.fillText(`${count} surveyed ${count===1?'system':'systems'} · ${group.region?.name||'Region unknown'}`,p.x,p.y+22,frameW-30);
+      ctx.strokeStyle=edge;ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(p.x,p.y+34);ctx.lineTo(p.x+Math.min(360,frameW-30)*zoom,p.y+34);ctx.stroke();
+      const children=group.systems.filter(hasChartLocation).sort((a,b)=>String(a.id).localeCompare(String(b.id))),columns=Math.max(1,Math.ceil(Math.sqrt(children.length)));
+      children.forEach((node,i)=>{
+        const x=left+Math.min(360*columns,frameW-30)*(i%columns+.5)/columns,y=top+100+Math.floor(i/columns)*170,point=project(x,y);
+        const labelWidth=Math.min(300,Math.max(130,frameW/columns-20));
+        const hitRect=bounded({left:point.x-labelWidth/2-8,right:point.x+labelWidth/2+8,top:point.y-25,bottom:point.y+124});
+        const anchor={id:node.id,n:node,...point,baseX:x,baseY:y,anchorX:point.x,anchorY:point.y,radius:16,contactLevel:'system',regionId:group.sector.id,labelWidth,hitRect};
+        coords.set(node.id,anchor);contactAnchors.push(anchor);
+        if(hitRect&&point.x>=safe.left&&point.x<=safe.right&&point.y>=safe.top&&point.y<=safe.bottom)positions.push(anchor);
+      });
+    });
+    // Only located systems have geometric endpoints. A known link to an
+    // unlocated contact is described in the list, never drawn into its UI row.
+    ctx.strokeStyle=dark?'rgba(139,190,207,.76)':'rgba(52,112,130,.76)';ctx.lineWidth=1.5;ctx.beginPath();
+    for(const link of links){const a=coords.get(link.a),b=coords.get(link.b);if(a&&b){ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);}}ctx.stroke();
+    for(const point of positions){
+      const {n,x,y,labelWidth}=point;
+      const childPlanets=nodes.filter(node=>node.kind==='planet'&&node.parent_id===n.id);
+      const childLines=[];
+      for(const [knowledge,label] of [['surveyed','Surveyed planets'],['detected','Detected planets']]) {
+        const children=childPlanets.filter(node=>node.knowledge===knowledge);
+        if(children.length)childLines.push(`${label} · ${children.map(node=>node.name||'Name unrecorded').join(', ')}`);
+      }
+      const otherChildren=childPlanets.filter(node=>!['surveyed','detected'].includes(node.knowledge));
+      if(otherChildren.length)childLines.push(`Known planets · ${otherChildren.map(node=>node.name||'Name unrecorded').join(', ')}`);
+      if(!childLines.length)childLines.push('No public planet records');
+      // This is an annotated system symbol. Child names are a public record
+      // list, never planetary positions or a claim of a complete system census.
+      ctx.fillStyle=dark?'rgba(4,13,24,.88)':'rgba(245,248,246,.92)';
+      ctx.fillRect(x-labelWidth/2-6,y+20,labelWidth+12,103);
+      ctx.strokeStyle=dark?'#9dd7e1':'#426d77';ctx.fillStyle=ctx.strokeStyle;ctx.lineWidth=1.5;
+      ctx.beginPath();ctx.arc(x,y,13,0,Math.PI*2);ctx.stroke();
+      ctx.beginPath();ctx.arc(x,y,6,0,Math.PI*2);ctx.stroke();ctx.fillRect(x-2,y-2,4,4);
+      ctx.fillRect(x-21,y-.5,5,1);ctx.fillRect(x+16,y-.5,5,1);ctx.fillRect(x-.5,y-21,1,5);ctx.fillRect(x-.5,y+16,1,5);
+      ctx.font='600 15px "Noto Instrument Mono",monospace';ctx.textAlign='center';ctx.fillStyle=bright;
+      ctx.fillText(n.name||'System · name unknown',x,y+39,labelWidth);
+      ctx.font='11px "Noto Instrument Mono",monospace';ctx.fillStyle=muted;
+      ctx.fillText(`System · ${n.knowledge==='surveyed'?'Surveyed':'Known'}`,x,y+57,labelWidth);
+      ctx.font='12px "Noto Instrument Mono",monospace';
+      childLines.slice(0,2).forEach((line,index)=>{
+        let visible=line;
+        while(visible.length>1&&ctx.measureText(visible).width>labelWidth-8)visible=visible.slice(0,-1);
+        if(visible!==line)visible=visible.slice(0,-1)+'…';
+        ctx.fillText(visible,x,y+78+index*17,labelWidth);
+      });
+      ctx.font='600 12px "Noto Instrument Mono",monospace';ctx.fillStyle=dark?'#a7d3e0':'#356f80';
+      ctx.fillText('Open system ›',x,y+115,labelWidth);
+      if(n.id===record?.selected_id){ctx.strokeStyle=dark?'#f1c777':'#7b5930';ctx.lineWidth=1;ctx.strokeRect(point.hitRect.left,point.hitRect.top,point.hitRect.right-point.hitRect.left,point.hitRect.bottom-point.hitRect.top);}
+      forceObstacles.push(point.hitRect);
+    }
+    const hitTargets=positions.slice();
+    if(unlocated.length){
+      const left=trayLeft,width=trayWidth,top=trayTop;
+      const rows=unlocated.map(node=>{const knownLinks=links.filter(link=>link.a===node.id||link.b===node.id).map(link=>byId.get(link.a===node.id?link.b:link.a)).filter(Boolean);return{node,knownLinks,height:knownLinks.length?72:52};});
+      const height=Math.min(safe.bottom-top-10,40+rows.reduce((total,row)=>total+row.height,0));
+      ctx.fillStyle=dark?'rgba(4,13,24,.95)':'rgba(245,248,246,.97)';ctx.fillRect(left,top,width,height);
+      ctx.strokeStyle=dark?'rgba(224,181,109,.55)':'rgba(128,91,32,.5)';ctx.strokeRect(left,top,width,height);
+      ctx.textAlign='left';ctx.font='600 12px "Noto Instrument Mono",monospace';ctx.fillStyle=dark?'#e1c18a':'#77571f';ctx.fillText('UNLOCATED · POSITION UNKNOWN',left+12,top+23,width-24);
+      let y=top+38;
+      for(const row of rows){
+        if(y+row.height>top+height)break;
+        const {node,knownLinks}=row,parentNode=byId.get(node.parent_id)||allSectors.find(entry=>entry.sector.id===node.id)?.region;
+        ctx.font='12px "Noto Instrument Mono",monospace';ctx.fillStyle=bright;ctx.fillText(node.name||`${node.kind} · name unknown`,left+12,y+15,width-24);
+        ctx.font='11px "Noto Instrument Mono",monospace';ctx.fillStyle=muted;ctx.fillText(`${node.kind} · in ${parentNode?.name||'Parent unknown'}`,left+12,y+32,width-24);
+        if(knownLinks.length){ctx.fillStyle=dark?'#a7d3e0':'#356f80';ctx.fillText(`Known link: ${knownLinks.map(item=>item.name||'Unnamed system').join(', ')}`,left+12,y+50,width-24);}
+        const hitRect=bounded({left:left+4,right:left+width-4,top:y,bottom:y+row.height});
+        if(hitRect)hitTargets.push({n:node,id:node.id,uiOnly:true,x:left+width/2,y:y+row.height/2,hitRect});
+        y+=row.height;
+      }
+      forceObstacles.push({left,right:left+width,top,bottom:top+height});
+    }
+    if(!groups.length){ctx.font='600 13px "Noto Instrument Mono",monospace';ctx.textAlign='left';ctx.fillStyle=bright;ctx.fillText(level==='galactic'?'No located sectors are recorded':'No located systems are recorded',safe.left+24,safe.top+75,chartWidth);}
+    ctx.restore();if(forceControlRect)forceObstacles.push(forceControlRect);
+    return{hierarchy:true,positions,hitTargets,safeRect:safe,sceneRect:safe,contactAnchors,forceObstacles,model:{groups,systems,links}};
+  }
+
+  const api = {fromGalactic, draw, drawStrategic};
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   if (typeof window !== 'undefined') window.HWUniverseView = api;
 })();

@@ -49,4 +49,14 @@ const context=new Proxy({}, {get(_,name){
 },set(){return true;}});
 view.draw(context,{w:1280,h:720,record,view:view.fit(),safeRect:viewport.safeRect});
 view.draw(context,{w:1280,h:720,record:missing,view:view.fit(),safeRect:viewport.safeRect});
+assert.deepEqual(model.separations.map(row=>[row.id,row.distanceAU]),[['a',.00001],['b',.00002]],'Distance overview must use actual recorded host-relative vectors');
+const fitted=view.fit(record),fitLayout=view.project(record,fitted,viewport);
+assert.equal(fitLayout.positions.length,3);assert(fitted.targetPosition.every(Number.isFinite));
+assert.deepEqual(view.model(record).located.map(item=>item.relative),model.located.map(item=>item.relative),'Fitting changes only the camera');
+const labels=[];const readoutContext=new Proxy({measureText:s=>({width:String(s).length*7}),createLinearGradient:()=>({addColorStop(){}}),createRadialGradient:()=>({addColorStop(){}}),fillText:s=>labels.push(s)},{get:(o,k)=>k in o?o[k]:()=>{}});
+view.draw(readoutContext,{w:1280,h:720,record,view:fitted,safeRect:viewport.safeRect});
+assert(labels.includes('RECORDED HOST-STAR SEPARATION'));assert(labels.includes('Linear AU · not orbital paths'));
+assert(labels.includes('UNLOCATED CONTACTS'));assert(labels.includes('1 record · no chart positions'));
+assert(!labels.some(label=>label.includes('WHEEL')),'A list without overflow must not advertise scrolling');
+assert.equal(JSON.stringify(record),before);
 console.log('System position ratios, unknown isolation, free projection, numeric guards and immutable records passed');

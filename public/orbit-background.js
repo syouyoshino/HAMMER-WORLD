@@ -25,12 +25,12 @@
   }
   // One bounded scratch bitmap and its last pose; never retain app composites.
   let skyCanvas,skyContext,skyPixels,lastSkyKey;
-  function drawHaze(ctx,w,h,p){
+  function drawHaze(ctx,w,h,p,theme='dark'){
     if(!root.document||w<=0||h<=0)return;
     if(!skyCanvas){skyCanvas=root.document.createElement('canvas');skyContext=skyCanvas.getContext('2d');}
     if(!skyContext)return;
     const width=Math.max(1,Math.round(128*w/Math.max(w,h))),height=Math.max(1,Math.round(128*h/Math.max(w,h)));
-    const key=[w,h,p.cx,p.cy,p.scale,...p.frame.N,...p.frame.E,...p.frame.U].join(',');
+    const key=[theme,w,h,p.cx,p.cy,p.scale,...p.frame.N,...p.frame.E,...p.frame.U].join(',');
     if(key!==lastSkyKey){
       if(skyCanvas.width!==width||skyCanvas.height!==height){
         skyCanvas.width=width;skyCanvas.height=height;skyPixels=skyContext.createImageData(width,height);
@@ -46,7 +46,7 @@
           const support=ramp(.36,.64,noise(dx*1.1+18.3,dy*1.1+5.7,dz*1.1+23.1));
           const occlusion=ramp(.48,.68,noise(dx*4.5+2.8,dy*4.5+21.4,dz*4.5+11.6));
           const light=support*ramp(.43,.65,field)*(1-.65*occlusion),i=(y*width+x)*4;
-          pixels[i]=7+23*light;pixels[i+1]=11+29*light;pixels[i+2]=16+36*light;pixels[i+3]=255;
+          if(theme==='light'){pixels[i]=207+35*light;pixels[i+1]=218+29*light;pixels[i+2]=217+26*light;}else{pixels[i]=7+23*light;pixels[i+1]=11+29*light;pixels[i+2]=16+36*light;}pixels[i+3]=255;
         }
       }
       skyContext.putImageData(skyPixels,0,0);lastSkyKey=key;
@@ -77,16 +77,16 @@
     ctx.restore();
     return point;
   }
-  function draw(ctx,w,h,view,rect={left:0,top:0,width:w,height:h},star=null){
-    ctx.save();ctx.fillStyle="#070b10";ctx.fillRect(0,0,w,h);
+  function draw(ctx,w,h,view,rect={left:0,top:0,width:w,height:h},star=null,theme='dark'){
+    const lightTheme=theme==='light';ctx.save();ctx.fillStyle=lightTheme?'#dce5e5':'#070b10';ctx.fillRect(0,0,w,h);
     const frame=root.HWPlanetOrbit?.basis(view.latitude,view.longitude);
     if(!frame){ctx.restore();return;}
     const p=projection(view,rect,frame);
-    drawHaze(ctx,w,h,p);
+    drawHaze(ctx,w,h,p,theme);
     for(const star of stars){
       const point=project(star.direction,p);
       if(!point||point.x< -star.radius||point.x>w+star.radius||point.y< -star.radius||point.y>h+star.radius)continue;
-      ctx.fillStyle=star.color;ctx.beginPath();ctx.arc(point.x,point.y,star.radius,0,TAU);ctx.fill();
+      ctx.fillStyle=lightTheme?'rgba(61,78,86,.38)':star.color;ctx.beginPath();ctx.arc(point.x,point.y,star.radius,0,TAU);ctx.fill();
     }
     const point=drawRecordedStar(ctx,star,p,view,rect,w,h);
     ctx.restore();

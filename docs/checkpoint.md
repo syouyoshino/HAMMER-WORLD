@@ -361,3 +361,20 @@ review accepts the revised candidate. Facility identities remain indistinct at
 globe scale; WebKit/Safari/hardware rendering are unverified. Orbital structures
 remain a documented future saved-entity contract, not invented stations. See
 `docs/reviews/night-infrastructure-and-readability.md` for evidence and limits.
+
+5 November coherent-navigation continuation: compatible Galaxy/Sector atlas,
+unlocated-contact trays without invented anchors, readable System actions and
+recorded host-star separations, prepared native-globe bridge and exact reverse
+camera/bearing preservation. Direct Orbit stays Orbit and restores usable controls.
+Browser checks pass on frozen source for hierarchy/zoom, camera restore, source
+retention during cold preparation, campaign/private/logout/history stale work,
+celestial mouse/touch/keyboard navigation, tinted light/dark panels, night lighting,
+CSS150% desktop reachability and stable canvas/handlers. Backend hashes match the
+retained 10k gate. Read `docs/reviews/coherent-chart-navigation.md` for the independent
+critique ledger, full motion evidence and limits; no commercial/Google Earth parity,
+hardware/Safari validation, deployment or recovered cloud data is claimed.
+
+Final same-critic scoped atlas/bridge RC acceptance recorded in
+`docs/reviews/coherent-chart-navigation.md`; actual 97-second native journey and
+all exercised regressions pass. Preparation pauses and software readback remain
+material limits; no Earth-like fluidity or continuously watched MP4 verdict.

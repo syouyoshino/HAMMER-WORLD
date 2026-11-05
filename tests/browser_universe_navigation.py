@@ -1,6 +1,7 @@
 """Read-only outward zoom, qualitative fog and authorized Universe navigation."""
 import hashlib
 import json
+import math
 import os
 from pathlib import Path
 from playwright.sync_api import sync_playwright
@@ -62,6 +63,29 @@ def main():
         public=page.request.get(base+'/api/player/campaigns/'+cid+'/map?level=galactic').json()
         allowed={n['id'] for group in public['groups'] for n in [group['region'],*group['sectors']]}
         contacts=audit['record']['nodes'];assert {n['id'] for n in contacts}==allowed
+        def has_location(node):
+            return node.get('knowledge') not in ['detected','hidden'] and all(isinstance(node.get(axis),(int,float)) and math.isfinite(node[axis]) for axis in ['x','y'])
+        located_allowed={n['id'] for group in public['groups'] if has_location(group['region']) for n in [group['region'],*group['sectors']] if has_location(n)}
+        unlocated_allowed=allowed-located_allowed
+        def assert_contact_layout(audit,fit=False):
+            layout=audit['layout'];positions=layout['positions'];anchors=layout['contactAnchors'];targets=layout['hitTargets'];safe=layout['safeRect']
+            position_ids={point['n']['id'] for point in positions}
+            assert position_ids<=located_allowed,'Only located contacts may receive chart positions'
+            assert {point['n']['id'] for point in anchors}==located_allowed,'All located contacts retain focus anchors, including offscreen contacts'
+            assert {point['n']['id'] for point in targets if point.get('uiOnly')}==unlocated_allowed,'Every unlocated public contact must remain in the explicit tray'
+            assert {point['n']['id'] for point in targets if not point.get('uiOnly')}==position_ids
+            for collection in [positions,anchors,targets]:
+                assert len(collection)==len({point['n']['id'] for point in collection}),'A public contact cannot receive duplicate targets'
+                assert all(point['n']['id'] in allowed and point['n']['knowledge']!='hidden' for point in collection)
+            assert all(not point.get('uiOnly') and math.isfinite(point['baseX']) and math.isfinite(point['baseY']) for point in anchors)
+            for point in targets:
+                hit=point['hitRect'];assert hit and safe['left']<=hit['left']<hit['right']<=safe['right'] and safe['top']<=hit['top']<hit['bottom']<=safe['bottom'],point
+            if fit:
+                assert position_ids==located_allowed,'Fit must show every located public contact'
+                assert {point['n']['id'] for point in targets}==allowed,'Located markers and the unlocated tray must cover every public contact'
+                for point in positions:
+                    frame=point['frameRect'];assert safe['left']<=frame['left']<frame['right']<=safe['right'] and safe['top']+48<=frame['top']<frame['bottom']<=safe['bottom'],point
+        assert_contact_layout(audit,fit=True)
         assert all(n['knowledge']!='hidden' for n in contacts)
         assert not any('level=universe' in url for url in requests),'UI level must not broaden backend map API'
         assert 'unknown' in page.locator('#detail-status').inner_text().lower() or 'unknown' in page.locator('#map-coordinates').inner_text().lower()
@@ -96,14 +120,22 @@ def main():
         sector=next(n for n in contacts if n['kind']=='sector' and n['knowledge']=='surveyed')
         page.select_option('#universe-contact-select',sector['id']);page.locator('#universe-open').click();wait_level('sector')
         page.select_option('#map-level','universe');wait_level('universe')
+        # Panning may clip located markers, but must preserve their focus anchors.
+        # Tray rows remain fixed UI controls and never become spatial anchors.
+        page.locator('#zoom-reset').click();page.wait_for_timeout(100)
+        page.mouse.move(600,500);page.mouse.down();page.mouse.move(2400,500,steps=8);page.mouse.up()
+        page.wait_for_function('__universeAudit.panX>1400')
+        clipped=page.evaluate('__universeAudit');assert_contact_layout(clipped)
+        assert not clipped['layout']['positions'],'Offscreen located markers must leave the visible hit set'
+        page.locator('#zoom-reset').click();page.wait_for_timeout(100);assert_contact_layout(page.evaluate('__universeAudit'),fit=True)
         page.set_viewport_size({'width':1280,'height':720});page.evaluate("document.documentElement.style.zoom='1.5'");page.wait_for_timeout(300);page.locator('#zoom-reset').click();page.wait_for_timeout(100)
         small=page.evaluate('__universeAudit');s=small['layout']['safeRect']
-        assert {p['n']['id'] for p in small['layout']['positions']}==allowed,'Fit must retain all reviewed contacts on short desktop chart'
-        for point in small['layout']['positions']:
-            assert point['y']-22>=s['top']+45 and point['hitRect']['bottom']<=s['bottom'],point
+        assert_contact_layout(small,fit=True)
         snap('05-desktop-zoom')
         for selector in ['#universe-contact-select','#universe-open','#universe-return','#map-level']:
-            r=page.locator(selector).bounding_box();assert r and r['x']>=0 and r['y']>=0 and r['x']+r['width']<=1281 and r['y']+r['height']<=721,(selector,r)
+            control=page.locator(selector);r=control.bounding_box();assert r and r['x']>=0 and r['y']>=0 and r['x']+r['width']<=1281 and r['y']+r['height']<=721,(selector,r)
+            assert control.is_enabled(),selector
+            control.click(trial=True)  # Visible bounds must also be reachable through real hit testing.
         page.evaluate("document.documentElement.style.zoom='1'");page.set_viewport_size({'width':1440,'height':1000})
         # History uses its own authorized response; any rederived origin stays historical.
         page.locator('#hw-command').click();page.locator('#command-menu [data-open="history"]').click()
@@ -162,7 +194,7 @@ def main():
             private_verified=True;secure.close()
         assert not errors and initial==hashes(),errors
         context.tracing.stop(path=str(out/'workflow-trace.zip'))
-        report={'browser':browser.version,'steps':steps,'surface_orbit_system_universe_outward':True,'same_system_camera_return':True,'separate_root_cameras':True,'authorized_contacts_only':True,'historical_fog_context':True,'held_response_campaign_isolation':True,'dark_light':True,'private_logout_held_response':private_verified,'desktop_css_zoom':True,'same_canvas':True,'stable_canvas_handlers':True,'universe_draw_calls':len(frame_times),'universe_draw_ms_median':sorted(frame_times)[len(frame_times)//2],'universe_draw_ms_max':max(frame_times),'records_unchanged':True,'page_errors':errors,'source_hashes':hashes(),'limits':'Qualitative schematic fog; no physical explored-area data. Reduced-motion Chromium software graphics; no motion smoothness, native browser zoom or Safari claim.'}
+        report={'browser':browser.version,'steps':steps,'surface_orbit_system_universe_outward':True,'same_system_camera_return':True,'separate_root_cameras':True,'authorized_contacts_only':True,'located_and_unlocated_partition':True,'clipped_locations_retain_anchors':True,'historical_fog_context':True,'held_response_campaign_isolation':True,'dark_light':True,'private_logout_held_response':private_verified,'desktop_css_zoom':True,'same_canvas':True,'stable_canvas_handlers':True,'universe_draw_calls':len(frame_times),'universe_draw_ms_median':sorted(frame_times)[len(frame_times)//2],'universe_draw_ms_max':max(frame_times),'records_unchanged':True,'page_errors':errors,'source_hashes':hashes(),'limits':'Qualitative schematic fog; no physical explored-area data. Reduced-motion Chromium software graphics; no motion smoothness, native browser zoom or Safari claim.'}
         (out/'report.json').write_text(json.dumps(report,indent=2));print(json.dumps(report));browser.close()
 
 

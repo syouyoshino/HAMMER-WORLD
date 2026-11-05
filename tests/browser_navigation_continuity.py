@@ -6,10 +6,11 @@ from pathlib import Path
 from playwright.sync_api import sync_playwright
 from tests.browser_planet_orbit import HOOK
 
-HOOK_HIERARCHY='''(()=>{const t=setInterval(()=>{if(!window.HWMapRenderer)return;clearInterval(t);
+HOOK_HIERARCHY='''(()=>{const t=setInterval(()=>{if(!window.HWMapRenderer||!window.HWUniverseView)return;clearInterval(t);
 const m=HWMapRenderer,draw=m.drawHierarchy;m.drawHierarchy=function(ctx,o){const result=draw.call(this,ctx,o);
 window.__hierarchyAudit={level:o.record.level,parent:o.record.parent?.id,zoom:o.zoom,panX:o.panX,panY:o.panY,
 positions:result.positions.map(p=>({id:p.n.id,x:p.x,y:p.y}))};return result;};
+const strategic=HWUniverseView.drawStrategic;HWUniverseView.drawStrategic=function(ctx,o){const result=strategic.call(this,ctx,o);window.__hierarchyAudit={level:o.record.level,parent:o.record.parent?.id,zoom:o.zoom,panX:o.panX,panY:o.panY,positions:result.positions.map(p=>({id:p.n.id,x:p.x,y:p.y}))};return result;};
 window.__zoomFrames=[];const timer=setInterval(()=>{const r=window.__orbitEngine;if(!r)return;clearInterval(timer);
 const render=r.render;r.render=function(...args){const start=performance.now(),result=render.apply(this,args);
 __zoomFrames.push({distance:args[4].distance,time:start,scale:args[7]??1,renderCallMs:performance.now()-start,buffer:[r.canvas.width,r.canvas.height]});

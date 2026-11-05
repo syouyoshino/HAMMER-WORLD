@@ -16,7 +16,9 @@ const gradient={addColorStop(){}};const ctx=new Proxy({measureText:s=>({width:St
 for(const theme of ['light','dark']){
  const prior=JSON.stringify(record),layout=view.draw(ctx,{w:1440,h:1000,record,safe:{left:12,right:1428,top:220,bottom:920,width:1416,height:700},zoom:1,panX:0,panY:0,theme});
  assert.equal(JSON.stringify(record),prior,'Drawing must not mutate contact records');
- assert.deepEqual(new Set(layout.positions.map(p=>p.n.id)),new Set(['r','a','b']));
+ assert.deepEqual(new Set(layout.positions.map(p=>p.n.id)),new Set(['r','a']));
+ assert(layout.hitTargets.some(p=>p.n.id==='b'&&p.uiOnly),'Unlocated contact must remain available in its tray');
+ assert(!layout.contactAnchors.some(p=>p.id==='b'),'An unlocated contact cannot get a spatial focus anchor');
  assert(layout.positions.every(p=>Number.isFinite(p.x)&&Number.isFinite(p.y)));
  const hiddenTargets=layout.hitTargets.filter(p=>p.n.id==='hidden');assert.equal(hiddenTargets.length,0);
  const second=view.draw(ctx,{w:1440,h:1000,record:view.fromGalactic({...input,groups:[{region:{...region,x:999999,y:-999999},sectors:[{...a,x:-88,y:23},b]}]}),safe:{left:12,right:1428,top:220,bottom:920,width:1416,height:700},zoom:1,panX:0,panY:0,theme});
@@ -25,14 +27,14 @@ for(const theme of ['light','dark']){
 for(const theme of ['light','dark']){
  const safe={left:0,right:800,top:218,bottom:398,width:800,height:180};
  const layout=view.draw(ctx,{w:800,h:480,record,safe,zoom:1,panX:0,panY:0,theme});
- assert.equal(layout.positions.length,3);
+ assert.equal(layout.positions.length,2);
  for(const point of layout.positions){const r=point.frameRect;assert(r);assert(r.top>=safe.top+48&&r.bottom<=safe.bottom&&r.left>=safe.left&&r.right<=safe.right,'Full label frames must fit below captions on short desktop');}
  const boxes=layout.positions.map(p=>p.frameRect);
  for(let i=0;i<boxes.length;i++)for(let j=i+1;j<boxes.length;j++){const a=boxes[i],b=boxes[j];assert(!(a.left<b.right&&a.right>b.left&&a.top<b.bottom&&a.bottom>b.top),'Compact contact labels overlap');}
 }
 const offscreen=view.draw(ctx,{w:1440,h:1000,record,safe:{left:12,right:1428,top:220,bottom:920,width:1416,height:700},zoom:1,panX:5000,panY:0});
 assert.equal(offscreen.positions.length,0,'Clipped contacts must not remain hit targets');
-assert.deepEqual(new Set(offscreen.contactAnchors.map(p=>p.id)),new Set(['r','a','b']),'Offscreen contacts must retain focus anchors');
+assert.deepEqual(new Set(offscreen.contactAnchors.map(p=>p.id)),new Set(['r','a']),'Offscreen located contacts must retain focus anchors');
 assert(offscreen.contactAnchors.every(p=>Number.isFinite(p.baseX)&&Number.isFinite(p.baseY)));
 const empty=view.fromGalactic({groups:[],level:'galactic'});assert.deepEqual(empty.nodes,[]);
 view.draw(ctx,{w:1280,h:720,record:empty,safe:{left:10,right:1270,top:180,bottom:680,width:1260,height:500}});

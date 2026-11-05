@@ -485,3 +485,24 @@ descent altitude, preserving the actual star and brighter daylight. No new camer
 persistence field. Orbital batteries remain settlement defense; future stations
 need public saved entities/positions and snapshot authorization before rendering.
 Evidence and limitations: `docs/reviews/night-infrastructure-and-readability.md`.
+
+## 5 November 2026 — Compatible atlas lenses and native globe bridge
+
+Keep Universe and Galactic reachable as schematic information lenses. Reuse the
+atlas composition for higher charts; parent-local coordinates are not universal
+astronomy. Unlocated or detected contacts, including located-looking children of
+an unlocated parent, belong in a UI-only tray without spatial/focus anchors. Only
+existing authorized system links may imply connectivity. System Fit changes the
+camera from recorded vectors; separation bars explicitly are not orbital paths.
+
+Following one bounded Sol high review, prepare an authorized native globe frame
+before the System/Planet bridge, transform only its measured circle, and restore
+the exact source camera on return. Preview assets coalesce requests and retain at
+most two raw records/16 MiB of declared wire bytes plus 24 lightweight sprites;
+this is not a heap-size claim. Keep public planet and geometry IDs independent.
+One native 2D frame is keyed by authorization/snapshot/texture/style/overlay/pose/
+viewport/DPR/render scale to avoid duplicate GPU readback. Invalidate on mismatch,
+context loss and authority changes. Reduced motion skips bridge animation. No new
+simulation, persistence, renderer framework or fabricated campaign geography.
+Evidence and remaining performance/browser limits are in
+`docs/reviews/coherent-chart-navigation.md`.

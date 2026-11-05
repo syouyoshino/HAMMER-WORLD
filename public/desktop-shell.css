@@ -239,3 +239,13 @@ body { display: block; min-height: 100%; overflow: hidden; }
 #desktop-shell.is-universe #universe-open:not(:disabled) { color: #fff; background: var(--selection-blue); border-color: var(--selection-blue); font-weight: 700; }
 #desktop-shell.is-universe #universe-open:not(:disabled):hover { background: color-mix(in srgb, var(--selection-blue) 82%, #000); }
 #desktop-shell.is-universe #universe-open { max-width: 190px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* System actions keep one clear route into the selected world's orbit. */
+#chart-heading #system-selection { padding-block: 6px; }
+#chart-heading #system-selection > label,
+#chart-heading #system-selection > span,
+#chart-heading #system-selection > button { font-size: 12px; }
+#chart-heading #system-selection > span { color: var(--muted); }
+#chart-heading #system-selection.has-selection > span { color: var(--ink); }
+#chart-heading #system-selection > .system-primary-action:not(:disabled) { color: #f5f9fc; background: #285f83; border-color: #648fa9; font-weight: 700; }
+#chart-heading #system-selection > .system-primary-action:not(:disabled):hover { background: #34769b; }

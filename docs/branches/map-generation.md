@@ -1010,3 +1010,40 @@ no merge, deployment, data reset or character-branch change.
 
 Verified atlas-orientation implementation: `494c1e4`, pushed to
 `origin/map-generation` (baseline `4867696`).
+
+## Coherent charts and native globe handoff — 5 November 2026
+
+User feedback on the full transition video exposed weak Galaxy/Sector/System
+finish and abrupt native-globe entry. Higher charts now reuse a compatible atlas
+composition with full breadcrumbs, honest unlocated-contact trays, existing public
+links and readable system actions. System Fit uses recorded vectors, its AU
+separation overview explicitly avoids claiming orbital paths, and Enter orbit is
+primary. Irrelevant surface controls are hidden in space. Light/dark and tinted
+shell surfaces remain available.
+
+Authorized planet details are coalesced/reused with bounded retention. The globe
+handoff transforms a prepared native transparent globe instead of enlarging the
+cheap preview or the background. Reverse entry preserves the current bearing and
+restores the exact System camera; direct Orbit no longer descends unexpectedly or
+leaves zoom disabled. One keyed native frame removes identical GPU copies.
+
+Frozen-source actual Chromium checks pass for hierarchy/zoom, direct Orbit,
+close camera round trips, mouse/touch/keyboard celestial focus, historical readonly,
+private logout/held stale responses, night emission/readability, same map canvas,
+stable handlers, light/dark tint and desktop CSS150% reachability. Existing backend
+hashes match the retained 10,000-turn gate. No backend, planet shader, terrain engine,
+generator, schema, campaign records or character-relationships edits.
+
+Read `docs/reviews/coherent-chart-navigation.md` for independent critique and
+corrections, source-matched browser/motion evidence, actual reference research,
+performance limits and continuation steps. System-to-Orbit warm entry measured
+2.203 s versus baseline 4.614 s in one software-Chromium fixture sample; remaining
+GPU/readback latency prevents a Google Earth-like fluidity claim. WebKit, native
+Safari, hardware GPUs and production density remain unverified. This is an
+interface release candidate; original cloud cartography/database recovery and
+physical exploration coverage are not claimed.
+
+Final same-critic scoped atlas/bridge RC acceptance recorded in
+`docs/reviews/coherent-chart-navigation.md`; actual 97-second native journey and
+all exercised regressions pass. Preparation pauses and software readback remain
+material limits; no Earth-like fluidity or continuously watched MP4 verdict.

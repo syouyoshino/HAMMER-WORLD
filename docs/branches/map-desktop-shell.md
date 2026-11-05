@@ -223,3 +223,18 @@ the separate public/geometry IDs when integrating unrecovered cartography.
 This milestone is locally committed but not pushed: Git authentication is invalid
 and connector write approval is disabled by the environment. Remote branch stays
 at `c88e3d9`; push the existing commits once write access is restored.
+
+5 November continuation on `map-generation` improves the compatible higher atlas,
+System hierarchy/actions/recorded-distance overview and bidirectional native-globe
+handoff. Permanent canvas, tinted light/dark shell, management destinations,
+authorized history and exact per-level cameras are preserved. Details, retained
+independent findings, browser evidence, software-renderer limits and integration
+contracts: `docs/reviews/coherent-chart-navigation.md`. Integrate only the relevant
+UI modules; no terrain engine, planet shader, backend, schema or campaign records
+changed. Keep public planet IDs distinct from geometry IDs and preserve native
+frame/preview invalidation by authorization and selected snapshot.
+
+Final same-critic scoped atlas/bridge RC acceptance recorded in
+`docs/reviews/coherent-chart-navigation.md`; actual 97-second native journey and
+all exercised regressions pass. Preparation pauses and software readback remain
+material limits; no Earth-like fluidity or continuously watched MP4 verdict.
