@@ -378,3 +378,8 @@ Final same-critic scoped atlas/bridge RC acceptance recorded in
 `docs/reviews/coherent-chart-navigation.md`; actual 97-second native journey and
 all exercised regressions pass. Preparation pauses and software readback remain
 material limits; no Earth-like fluidity or continuously watched MP4 verdict.
+
+Verified implementation/tests/review: `e64a24f`, pushed successfully to
+`origin/map-generation` on 5 November 2026, including the previously unpushed
+night-light and research commits. Earlier credential blocking did not recur in
+this ordinary Git push. No merge, deployment or data reset.

@@ -236,3 +236,9 @@ blocked by approval policy `never`; do not claim remote delivery without observi
 it. Integrate recovered cartography through the retained boundaries above. A
 future hardware-GPU motion assessment should measure presented-frame latency and
 native readback before deciding whether renderer composition needs replacement.
+
+Final delivery: implementation, tests and this review committed as `e64a24f`.
+The ordinary `git push origin map-generation` succeeded on 5 November 2026,
+advancing the remote from `c88e3d9` to `e64a24f` and including earlier local
+night-infrastructure/research commits. Earlier authentication blocking did not
+recur. No generated media, credentials, private records or databases were committed.
