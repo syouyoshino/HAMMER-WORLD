@@ -254,3 +254,6 @@ performance tradeoffs and final delivery are in
 The permanent input map and existing management destinations remain; direct native
 globe presentation is a separate layer. No character branch, campaign records,
 backend mechanics, history, geography or missing-cloud recovery was modified.
+
+Verified continuation `2e6c4b8` is pushed on `map-generation`; final scoped
+independent acceptance and browser/video evidence are recorded in the review.

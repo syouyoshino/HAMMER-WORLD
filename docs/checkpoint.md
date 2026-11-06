@@ -4,7 +4,7 @@ Read `AGENTS.md`, `plan.md` and `docs/decisions.md`, then inspect actual source/
 
 ## Every-view interface continuation — 6 November 2026
 
-Branch `map-generation`, baseline `04a405c`. Read
+Verified/pushed implementation `2e6c4b8` on `map-generation`, baseline `04a405c`. Read
 `docs/reviews/deep-view-critique.md` for the retained adverse findings, rejected
 candidates, source-matched browser evidence and limits; latest branch record is
 `docs/branches/map-generation.md`. Keep the current native transparent globe layer,

@@ -411,3 +411,15 @@ without fabricating player records; integrate unrecovered cartography via existi
 optional renderer inputs. Do not claim deployment, operational security or backup
 verification. This milestone is an interface release candidate with explicit
 software-renderer limits, not complete-game/commercial parity.
+
+
+## Delivery
+
+Implementation, tests and retained review: `2e6c4b8`, pushed successfully to
+`origin/map-generation` on6 November2026. The same critic confirmed the final
+condition fulfilled after the refreshed selected-sector screenshot and final
+hash/observed-behavior reports: scoped RC accepted, no unresolved critical/major
+impediment in examined desktop evidence. No further product edits followed.
+Final actual MP4:62.97seconds,5,333,232bytes,20chapters; decode/faststart checks pass.
+Generated evidence/media, private contexts and databases remain excluded from Git.
+No merge, deployment, reset, missing-record recovery or public phone hosting.
