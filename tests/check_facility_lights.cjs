@@ -19,9 +19,10 @@ assert.deepEqual(model(-1),[]);
 const sandbox={window:{}};require('node:vm').runInNewContext(require('node:fs').readFileSync('public/planet-orbit.js','utf8'),sandbox);const orbit=sandbox.window.HWPlanetOrbit;
 for(const descent of [1.01,1.12,1.4]){
   assert.equal(orbit.nightReadability(descent,descent),1);
-  assert.equal(orbit.nightReadability(1+4*(descent-1),descent),0);
+  assert.equal(orbit.nightReadability(2.45,descent),0);
+  assert(orbit.nightReadability(1.75,descent)>=.25,'Useful Orbit distance receives analytical night detail');
   let previous=0;
-  for(let step=40;step>=0;step--){const lift=orbit.nightReadability(1+(descent-1)*(1+step/10),descent);assert(lift>=previous-1e-12&&lift>=0&&lift<=1);previous=lift;}
+  for(let step=40;step>=0;step--){const lift=orbit.nightReadability(descent+(2.45-descent)*step/40,descent);assert(lift>=previous-1e-12&&lift>=0&&lift<=1);previous=lift;}
 }
 assert.equal(orbit.nightReadability(NaN,1.1),0);
 function painted(records){

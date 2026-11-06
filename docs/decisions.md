@@ -506,3 +506,36 @@ context loss and authority changes. Reduced motion skips bridge animation. No ne
 simulation, persistence, renderer framework or fabricated campaign geography.
 Evidence and remaining performance/browser limits are in
 `docs/reviews/coherent-chart-navigation.md`.
+
+## 6 November 2026 — Direct globe presentation and readable map hierarchy
+
+Following bounded Sol high architecture/performance diagnosis, mount the existing
+transparent WebGL canvas below labels and controls instead of copying every pose
+into the 2D map. Preserve the permanent input canvas and the current renderer,
+projection, saved IDs, albedo, relief, sun and emission rules. The forward bridge
+transforms a prepared native circle and retains its valid arrival frame. A return
+sprite is one bounded128px readback after a forced fresh draw, because an
+unpreserved GL drawing buffer cannot be reused for later capture.
+
+Bound output to2048px per side/2,097,152pixels. Coalesce pointer work with RAF and
+adapt output using session-only, context-guarded measured presentation throughput;
+retain physical short-side detail floors160px moving/450px stable, limited by
+requested quality, with recent-median robustness and bounded recovery. Reject a
+faster candidate whose output made the enlarged globe unreadable. This is a
+software-profile compromise, not a promised display frame rate. Do not simplify
+the shader or fabricate detail to hide inherited resolution limits.
+
+Use named level navigation, real public Galaxy ancestry, explicit schematic
+Region→Sector→System grouping, source-named celestial return, known moon parents,
+and grouped camera/cartography controls. Unknown records stay unknown. UI content
+counts must distinguish charted contacts from all known records. Readable body
+names matter more than the number of label rectangles; use collision-free labels
+with leader lines and the existing body chooser. Retain focused DOM elements on
+incidental redraw rather than rebuilding/reparenting controls. Clear native globe
+presentation on settled Surface, including reduced motion.
+
+Measure actual shell height for compact desktop zoom layout; media viewport
+height alone does not describe available CSS space under root zoom. Adapt only
+schematic chart placement, never saved astronomy vectors. Test visible destination
+content and actual navigation, not solely hit-testable toolbar controls. Full
+findings, evidence and limits: `docs/reviews/deep-view-critique.md`.

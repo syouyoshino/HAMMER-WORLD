@@ -1,14 +1,11 @@
 # Map generation — interface release candidate
 
-Latest continuation (1 November 2026): night infrastructure and close analytical
-readability in `eae4f8e`, based on `c88e3d9`. See
-`docs/reviews/night-infrastructure-and-readability.md` for final design, independent
-critique/correction, browser/GPU evidence and orbital-structure integration
-contract. No campaign records, terrain generation, geography or schema changes.
-Delivery note: `eae4f8e` and `0d85bc6` are local commits. Remote publishing is
-blocked by invalid Git credentials and unavailable connector write approval;
-remote `map-generation` remains `c88e3d9`. Restore write access and push these
-commits, without rebuilding or resetting data.
+Latest continuation (6 November 2026): every-view critique/correction on top of
+`04a405c`. See `docs/reviews/deep-view-critique.md` for retained adverse findings,
+rejected motion candidates, final browser evidence, performance and limitations.
+The earlier credential blocker was resolved: the preceding milestones were pushed
+to `map-generation` on 5 November. This branch remains an interface release
+candidate; no merge, deployment or missing-cloud-data recovery is claimed.
 
 Date: 22 October 2026 UTC. Branch: `map-generation`, created from `edf243e` on `feature/map-desktop-shell`. The preceding military interface implementation is `2379356`; owned movement projection milestone is `3e97811`. The source branch was clean and its push reported up to date before this branch was created.
 
@@ -1052,3 +1049,50 @@ Verified implementation/tests/review: `e64a24f`, pushed successfully to
 `origin/map-generation` on 5 November 2026, including the previously unpushed
 night-light and research commits. Earlier credential blocking did not recur in
 this ordinary Git push. No merge, deployment or data reset.
+
+## Every-view critique and correction — 6 November 2026
+
+Continuation from `04a405c`; retained issue/evidence ledger:
+`docs/reviews/deep-view-critique.md`. Design decisions are also recorded in
+`docs/decisions.md`. Luna built the initial bounded candidates; measured rendering
+and integration failures received localized Sol medium correction and bounded
+Sol high diagnosis. Independent Sol medium review retained adverse findings and
+rejected weak screenshot/performance claims rather than averaging a score.
+
+- Permanent map input and existing geography remain; the native transparent globe
+  is presented directly below labels/UI. Coalesced input, bounded output,
+  session-only adaptive quality and retained bridge arrival remove repeated full
+  WebGL→2D copies. Exactly one bounded return sprite remains necessary.
+- Named level ladder, actual Galaxy ancestry and Region→Sector→System containment
+  improve strategic orientation. Camera, view and cartography controls are grouped.
+  Source-named celestial return preserves the exact saved strategic context.
+- Theme-correct body selection, known moon parent identity, readable system names,
+  focus-preserving redraw and explicit unsupported actions use only public records.
+- Earlier close analytical night readability preserves recorded sun/night and
+  owned facility emission. Surface hover/selection/entry have distinct treatment.
+  Transparent tinted reading panels retain text contrast.
+- Final critique additionally found keyboard Focus loss, reduced-motion Surface
+  globe residue, rich-label collisions, Universe annotation collision and clipped
+  CSS150% chart actions. These are tracked as defects, not dismissed by passing
+  toolbar tests; fresh final evidence/resolutions are in the review ledger.
+
+This is interface work: no terrain regeneration, schema/history/rule changes,
+private-record export or character-relationships work. Recovered cloud work is
+still unavailable; no recovery is claimed. The optional Surface hover input and
+presentation layer should integrate separately from unrecovered cartography.
+References actually examined remain the explicitly bounded text/image research in
+`docs/reviews/universe-research-and-redesign.md`; no commercial game parity is
+asserted. Preserve unknown astronomy/terrain and the distinction between schematic
+chart placement and saved System vectors.
+
+Final verification:13 targeted Node suites and9 frozen-source browser suites pass.
+A subsequent local selected-atlas badge correction passes the relevant coherent,
+Universe/private-context and reflow suites; the final20-step capture is refreshed.
+Independent Sol medium accepts scoped desktop visual/interaction RC with no
+unresolved critical/major navigation defect, retaining minor label/detail limits.
+It does not endorse fluid motion: software Chromium median trusted-drag completion
+80.30ms, warm System→Orbit0.952s, two648×450 native arrival draws, and an observed
+~287ms bridge gap. These are bounded local observations, not hardware FPS.
+Chromium154/Linux covered; WebKit executable absent, native Safari/hardware/phone
+unverified. No merge/deployment. Detailed source hashes, artifacts, final verdict
+and next validation steps are in the review ledger.

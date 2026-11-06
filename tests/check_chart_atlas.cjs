@@ -21,7 +21,10 @@ for(const theme of ['light','dark']){
  assert.deepEqual(layout.hitTargets.filter(p=>p.uiOnly).map(p=>p.id).sort(),['b','c','d','t']);
  for(const p of layout.hitTargets){assert(p.hitRect.left>=safe.left&&p.hitRect.right<=safe.right&&p.hitRect.top>=safe.top&&p.hitRect.bottom<=safe.bottom);}
  assert(text.includes('Known link: Cinder'),'Unlocated connection must be described without geometry');
- assert(text.includes('2 surveyed systems · Reach'),'Survey count is grammatical and public');
+ assert(text.includes('2 surveyed systems'),'Survey count is grammatical and public');
+ assert(text.includes('Reach · REGION')&&text.includes('Hearth · SECTOR'),'Actual region and sector containment must be prominent');
+ assert(text.indexOf('Reach · REGION')<text.indexOf('Hearth · SECTOR'),'Region is the parent presentation group');
+ assert(layout.contactAnchors[0].baseX>safe.left+safe.width*.2,'Actionable system group is composed toward the chart center');
  const offscreen=view.drawStrategic(ctx,{w:1240,h:900,record,publicState,safe,theme,panX:5000});
  assert.equal(offscreen.positions.length,0);assert.deepEqual(offscreen.contactAnchors.map(p=>p.id),['a']);
  assert(offscreen.hitTargets.every(p=>p.uiOnly));
@@ -34,7 +37,7 @@ for(const height of [180,700]){
  assert(layout.hitTargets.some(p=>p.id==='t'&&p.uiOnly));
  assert(!layout.positions.some(p=>p.id==='t'));
 }
-assert(text.includes('VIEW ORIGIN · ANCESTOR'));
+assert(text.includes('Origin: system'));
 assert(text.includes('Known sectors in Reach'));
 // With no located pair, the only chart line is the sector heading rule.
 const lineStart=lines.length;
@@ -57,3 +60,12 @@ assert.deepEqual(annotation.positions.map(point=>point.n.id),['a'],'Planet names
 const systemHit=annotation.hitTargets.find(point=>point.id==='a');
 assert(systemHit.hitRect.bottom>=systemHit.y+115,'Open system cue must share the clickable system hit target');
 console.log('Atlas location semantics, public links, clipping, themes and immutability passed');
+
+const galaxy={id:'galaxy-review',kind:'galaxy',name:'Fictional Review Galaxy',knowledge:'surveyed'};
+const reviewRegion={...region,parent_id:galaxy.id,name:'Fictional Review Region'};
+const scope=view.galacticContext([galaxy,reviewRegion,sector,system],system.id);
+assert.equal(scope.name,'Fictional Review Galaxy');
+assert.deepEqual(scope.chain.map(node=>node.name),['Fictional Review Galaxy','Fictional Review Region','Hearth','Cinder']);
+assert.equal(scope.chain.filter(node=>node.id===galaxy.id).length,1,'Actual galaxy appears once');
+assert.equal(view.galacticContext([galaxy,{...galaxy,id:'other',name:'Other'}]).name,'Known galaxies','Do not choose an arbitrary galaxy');
+assert.equal(view.galacticContext([{...galaxy,knowledge:'hidden'}]).name,'Galactic chart','Hidden roots are excluded');

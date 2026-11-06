@@ -34,14 +34,16 @@
   }
   function element(tag,className,text){const node=document.createElement(tag);if(className)node.className=className;if(text!==undefined)node.textContent=String(text);return node;}
   function row(root,label,value){const line=element('div','inspector-row');line.append(element('span','',label),element('b','',value));root.append(line);}
-  function renderFocus(root,node,record,onBack,nodes,onSelect,mapped=false){
+  function renderFocus(root,node,record,onBack,nodes,onSelect,mapped=false,backLabel='Back to origin map'){
     root.replaceChildren();root.hidden=false;root.dataset.bodyFocus='true';
     const kind=node.kind,detected=node.knowledge!=='surveyed';
     root.className='body-focus-view'+(mapped?' body-focus-mapped':'');root.dataset.bodyId=node.id;root.dataset.bodyKind=kind;root.dataset.bodyKnowledge=node.knowledge;root.setAttribute('role','region');root.setAttribute('aria-label',`${node.name||kind} focused record`);
     const stage=element('div','body-focus-stage');stage.setAttribute('aria-hidden','true');
     stage.append(element('div',`body-focus-illustration body-focus-${kind}`),element('span','body-focus-caption',kind==='star'?'ILLUSTRATIVE STELLAR DISC · NOT TO SCALE':'SCHEMATIC SILHOUETTE · SURFACE UNKNOWN'));
     const reading=element('div','body-focus-reading');
-    const heading=element('h2','inspector-planet',node.name||`Unknown ${kind}`);heading.tabIndex=-1;
+    const parent=(nodes||[]).find(item=>item.id===node.parent_id),identity=kind==='moon'?`${node.name||'Unknown moon'} · ${parent?.name||'Parent unknown'}`:node.name||`Unknown ${kind}`;
+    root.setAttribute('aria-label',`${identity} focused record`);
+    const heading=element('h2','inspector-planet',identity);heading.tabIndex=-1;
     reading.append(heading,element('div','inspector-sub',`${(node.knowledge||'unknown').toUpperCase()} RECORD · ${kind.toUpperCase()} FOCUS`));
     if(kind==='star'){
       row(reading,'Stellar class',node.stellar_class||'Unknown');
@@ -50,12 +52,13 @@
       row(reading,'Motion',record?'Frozen at epoch 0':'Unknown · astronomy not recorded');
       reading.append(element('div','note-box','Illustrative star glow. No stellar activity, flare, or event data is recorded.'));
     }else{
+      if(kind==='moon')row(reading,'Parent planet',parent?.name||'Unknown');
       row(reading,'Physical radius',node.radius_m!=null?`${node.radius_m} m`:record?.radius_km!=null?`${record.radius_km} km`:'Unknown');
       row(reading,'Surface',mapped?'Recorded planetary survey':'Unknown · no detailed surface recorded');
       row(reading,'Saved position',Array.isArray(record?.position)?`${record.position.join(', ')} micro-AU`:'Unknown');
       reading.append(element('div','note-box',mapped?'The recorded planetary map remains available.':'Neutral silhouette only. No terrain, craters, or coordinates are inferred.'));
     }
-    const back=element('button','button small','Back to origin map');back.type='button';back.id='body-focus-back';back.addEventListener('click',onBack);reading.append(back);
+    const back=element('button','button small',backLabel);back.type='button';back.id='body-focus-back';back.addEventListener('click',onBack);reading.append(back);
     renderKnownBodies(reading,nodes,onSelect,node.id);root.append(stage,reading);
   }
   function renderKnownBodies(root,nodes,onSelect,selectedId=null){
@@ -69,7 +72,7 @@
     for(const moon of known.filter(n=>n.kind==='moon'&&!ordered.includes(n)))ordered.push(moon);
     for(const node of ordered){
       const button=element('button','known-body-row'+(node.kind==='moon'?' known-body-moon':''));button.type='button';button.dataset.bodyId=node.id;if(node.id===selectedId)button.setAttribute('aria-current','true');
-      button.append(element('span','known-body-name',node.name||`Unknown ${node.kind}`),element('span','known-body-meta',`${(node.knowledge||'unknown').toUpperCase()} · ${node.kind.toUpperCase()}`));
+      button.append(element('span','known-body-name',node.kind==='moon'?`${node.name||'Unknown moon'} · ${known.find(item=>item.id===node.parent_id)?.name||'Parent unknown'}`:node.name||`Unknown ${node.kind}`),element('span','known-body-meta',`${(node.knowledge||'unknown').toUpperCase()} · ${node.kind.toUpperCase()}`));
       button.title=node.kind==='planet'&&node.knowledge==='surveyed'?'Open recorded planet map':`Focus ${node.name||node.kind}`;button.addEventListener('click',()=>onSelect(node));list.append(button);
     }
     section.append(list);root.append(section);

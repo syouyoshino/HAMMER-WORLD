@@ -5,7 +5,7 @@ from playwright.sync_api import sync_playwright
 from tests.browser_planet_orbit import HOOK
 from tests.browser_navigation_continuity import HOOK_SYSTEM
 
-ATLAS_HOOK='''(()=>{const t=setInterval(()=>{const a=window.HWUniverseView;if(!a)return;clearInterval(t);for(const k of ['draw','drawStrategic']){const f=a[k];a[k]=function(c,o){const r=f.call(this,c,o);window.__chartAudit={level:o.record.level,theme:o.theme,layout:r};return r;}}},5)})()'''
+ATLAS_HOOK='''(()=>{const t=setInterval(()=>{const a=window.HWUniverseView;if(!a)return;clearInterval(t);for(const k of ['draw','drawStrategic']){const f=a[k];a[k]=function(c,o){const textRects=[],original=c.fillText;c.fillText=function(s,x,y,max){if(s==='DESTINATION'||s==='Hearth'||s.startsWith('Origin:')||s.startsWith('Known sectors in ')){const w=Math.min(c.measureText(s).width,max||Infinity),left=c.textAlign==='center'?x-w/2:c.textAlign==='right'?x-w:x;textRects.push(s==='DESTINATION'?{text:s,left:x-3,right:x+109,top:y-11,bottom:y+6}:{text:s,left,right:left+w,top:y-12,bottom:y+3});}return original.apply(this,arguments);};let r;try{r=f.call(this,c,o);}finally{c.fillText=original;}window.__chartAudit={level:o.record.level,theme:o.theme,layout:r,textRects};return r;}}},5)})()'''
 
 def main():
     base='http://127.0.0.1:4213';out=Path(os.environ.get('WOLD_COHERENT_OUT','data/coherent-navigation/candidate'));out.mkdir(parents=True,exist_ok=True)
@@ -27,6 +27,17 @@ def main():
             assert all(t['n']['knowledge']!='detected' for t in layout['positions'])
             for control in ['#feature-name-toggle','#feature-list-button','#map-style']:assert page.locator(control).is_hidden(),control
             snapshot('01-'+value)
+            if value=='universe':
+                hearth=next(n for n in before['state']['nodes'] if n.get('name')=='Hearth' and n['kind']=='sector');page.select_option('#universe-contact-select',hearth['id'])
+                for theme in ['light','dark']:
+                    page.evaluate('(t)=>HWTheme.set(t)',theme);page.wait_for_function('t=>__chartAudit.theme===t',arg=theme);rects=page.evaluate('__chartAudit.textRects');origins=[r for r in rects if r['text'].startswith('Origin:')];parents=[r for r in rects if r['text'].startswith('Known sectors in ')];assert origins and parents
+                    for a in origins:
+                        for b in parents:assert not (a['left']<b['right'] and a['right']>b['left'] and a['top']<b['bottom'] and a['bottom']>b['top']),(a,b)
+                    destination=next(r for r in rects if r['text']=='DESTINATION');selected=next(p for p in page.evaluate('__chartAudit.layout.positions') if p['n']['id']==hearth['id']);safe=page.evaluate('__chartAudit.layout.safeRect');assert safe['left']<=destination['left']<destination['right']<=safe['right'] and safe['top']<=destination['top']<destination['bottom']<=safe['bottom']
+                    for other in parents+origins+[r for r in rects if r['text']=='Hearth']:
+                        assert not (destination['left']<other['right'] and destination['right']>other['left'] and destination['top']<other['bottom'] and destination['bottom']>other['top']),(destination,other)
+                    dx=selected['x']-max(destination['left'],min(selected['x'],destination['right']));dy=selected['y']-max(destination['top'],min(selected['y'],destination['bottom']));assert dx*dx+dy*dy>selected['radius']**2
+                    snapshot('01-universe-'+theme)
         assert 'Kestrel Reach' in page.locator('#map-breadcrumbs').inner_text()
         page.evaluate("HWTheme.set('light')");page.wait_for_function('__chartAudit.theme==="light"');snapshot('02-light-sector');page.evaluate("HWTheme.set('dark')")
         page.select_option('#map-level','system');level('system');page.wait_for_function('window.__systemAudit?.layout.supported');page.wait_for_function('HWSystemPreviewService.stateFor("nav-demo-planet-reach")==="ready"&&HWSystemPreviewService.stateFor("nav-demo-planet-ash")==="ready"',timeout=90000)

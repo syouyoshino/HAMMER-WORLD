@@ -24,11 +24,12 @@ def main():
         assert mask['facilities']==len(eligible) and mask['litPixels']>0,mask
         assert 'schematic' in page.locator('.map-footer').inner_text().lower()
         page.screenshot(path=str(out/'01-night-infrastructure.png'));far=page.evaluate('__orbitAudit.view');sun=page.evaluate('__orbitAudit.starDirection')
-        for _ in range(5):
-            if page.evaluate('__orbitAudit.view.nightReadability')>.65:break
+        assert .25<far['nightReadability']<.8,'Useful orbit should reveal night terrain while retaining a day/night distinction'
+        for _ in range(8):
+            if page.evaluate('__orbitAudit.view.nightReadability')>=.85:break
             page.locator('#zoom-in').click();page.wait_for_timeout(120)
             assert page.locator('#orbit-toggle').inner_text()=='Surface','Readability must improve before descent'
-        near=page.evaluate('__orbitAudit.view');assert near['nightReadability']>far['nightReadability']+.5,(far,near)
+        near=page.evaluate('__orbitAudit.view');assert near['nightReadability']>=.85 and near['nightReadability']>far['nightReadability']+.15,(far,near)
         assert page.evaluate('__orbitAudit.starDirection')==sun,'Zoom cannot move the saved sun'
         page.screenshot(path=str(out/'02-close-readable.png'));page.locator('#orbit-toggle').click();page.wait_for_function('document.querySelector("#orbit-toggle").textContent==="Orbit"');page.screenshot(path=str(out/'03-surface.png'))
         # Direct GPU fixtures isolate light masking from synthetic terrain/albedo.

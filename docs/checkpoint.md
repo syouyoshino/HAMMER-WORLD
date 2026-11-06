@@ -2,6 +2,17 @@
 
 Read `AGENTS.md`, `plan.md` and `docs/decisions.md`, then inspect actual source/tests and Git state. The existing repository is accessible and the scheduled continuation resumed the same work. Preserve the existing implementation. Do not duplicate completed acceptance runs without a relevant change.
 
+## Every-view interface continuation — 6 November 2026
+
+Branch `map-generation`, baseline `04a405c`. Read
+`docs/reviews/deep-view-critique.md` for the retained adverse findings, rejected
+candidates, source-matched browser evidence and limits; latest branch record is
+`docs/branches/map-generation.md`. Keep the current native transparent globe layer,
+permanent map input, public/geometry ID separation and stale-context guards.
+No backend/data/generator/character changes. The retained10,000-turn gate still
+matches all17 backend hashes. Do not rerun expensive simulation stress for cosmetic
+follow-ups or claim hardware/Safari/production/commercial parity from these checks.
+
 ## Saved stellar astronomy continuation
 
 Implementation/tests/review: `1887986` on `map-generation`.

@@ -64,11 +64,19 @@
     const overlaps=(a,b)=>a.left<b.right+3&&a.right>b.left-3&&a.top<b.bottom+3&&a.bottom>b.top-3;
     const shorten=(value,width)=>{let label=String(value);if(measure(label)<=width)return label;while(label.length&&measure(label+'…')>width)label=label.slice(0,-1);return label+'…';};
     for(const point of labelItems){
-      const maxWidth=Math.max(20,Math.min(260,scene.right-scene.left-8)),label=shorten(point.n.name||point.n.kind,maxWidth-12),radius=point.radius,secondary=point.n.kind==='star'?'Host star':point.n.kind==='planet'?`${(Math.hypot(...point.relative)/1_000_000).toFixed(3)} AU from host star`:'',labelWidth=Math.min(maxWidth,Math.max(42,measure(label)+12,secondary?measure(secondary)+12:0)),labelHeight=secondary?42:24,gap=point===selectedPoint?16:10,candidates=[[point.x-labelWidth/2,point.y+radius+gap],[point.x-labelWidth/2,point.y-radius-gap-labelHeight],[point.x+radius+gap,point.y-labelHeight/2],[point.x-radius-gap-labelWidth,point.y-labelHeight/2],[point.x+radius*.7,point.y-radius-gap-labelHeight],[point.x-radius*.7-labelWidth,point.y+radius+gap]];
-      if(point===selectedPoint)for(let y=scene.top+38;y+labelHeight<scene.bottom-28;y+=labelHeight+9){candidates.push([scene.left+4,y],[scene.right-labelWidth-4,y]);}
+      const maxWidth=Math.max(20,scene.right-scene.left-8),label=shorten(point.n.name||point.n.kind,maxWidth-12),radius=point.radius,secondary=point.n.kind==='star'?'Host star':point.n.kind==='planet'?`${(Math.hypot(...point.relative)/1_000_000).toFixed(3)} AU from host star`:'',labelWidth=Math.min(maxWidth,Math.max(42,measure(label)+12,secondary?measure(secondary)+12:0)),labelHeight=secondary?42:24,gap=point===selectedPoint?16:10,candidates=[[point.x-labelWidth/2,point.y+radius+gap],[point.x-labelWidth/2,point.y-radius-gap-labelHeight],[point.x+radius+gap,point.y-labelHeight/2],[point.x-radius-gap-labelWidth,point.y-labelHeight/2],[point.x+radius*.7,point.y-radius-gap-labelHeight],[point.x-radius*.7-labelWidth,point.y+radius+gap]];
+      // Prefer local labels, then use free full-name slots with leader lines.
+      const alternatives=[];
+      for(let y=scene.top+38;y+labelHeight<=scene.bottom-26;y+=labelHeight+9){
+        for(let x=scene.left+4;x+labelWidth<=scene.right-2;x+=Math.max(40,labelWidth/2))alternatives.push([x,y]);
+        alternatives.push([scene.right-labelWidth-4,y]);
+      }
+      alternatives.sort((a,b)=>Math.hypot(a[0]+labelWidth/2-point.x,a[1]+labelHeight/2-point.y)-Math.hypot(b[0]+labelWidth/2-point.x,b[1]+labelHeight/2-point.y));candidates.push(...alternatives);
       let labelRect=null;
       if(!point.contextOccluded)for(const [left,top]of candidates){const box={left,top,right:left+labelWidth,bottom:top+labelHeight};if(box.left<scene.left+2||box.right>scene.right-2||box.top<scene.top+38||box.bottom>scene.bottom-26||occupied.some(other=>overlaps(box,other)))continue;labelRect=box;break;}
-      point.labelPrimary=label;point.labelSecondary=secondary;point.labelRect=labelRect;
+      let renderedLabel=label,renderedSecondary=secondary;
+      if(!labelRect&&!point.contextOccluded){const compactWidth=Math.min(112,Math.max(64,scene.right-scene.left-8)),shortLabel=shorten(point.n.name||point.n.kind,compactWidth-10);for(const [left,top] of [[point.x+radius+4,point.y-10],[point.x-radius-compactWidth-4,point.y-10],[point.x-compactWidth/2,point.y+radius+5],[point.x-compactWidth/2,point.y-radius-25]]){const box={left,top,right:left+compactWidth,bottom:top+20};if(box.left<scene.left+2||box.right>scene.right-2||box.top<scene.top+38||box.bottom>scene.bottom-26||occupied.some(other=>overlaps(box,other)))continue;labelRect=box;renderedLabel=shortLabel;renderedSecondary='';break;}}
+      point.labelPrimary=renderedLabel;point.labelSecondary=renderedSecondary;point.labelRect=labelRect;
       const symbol={left:point.x-radius-5,right:point.x+radius+5,top:point.y-radius-5,bottom:point.y+radius+5};
       point.hitRect=labelRect?{left:Math.min(symbol.left,labelRect.left),top:Math.min(symbol.top,labelRect.top),right:Math.max(symbol.right,labelRect.right),bottom:Math.max(symbol.bottom,labelRect.bottom)}:symbol;
       if(labelRect)occupied.push(labelRect);
@@ -82,7 +90,7 @@
   }
 
   function draw(ctx,{w,h,record,view={},thumbnailsMap=new Map(),suppressBodyId=null,safeRect,theme='dark',forceControlRect=null}={}){
-    const safe=safeRect||{left:0,top:0,right:w,bottom:h},dark=theme==='dark';ctx.font='12px "Noto Instrument Mono",monospace';
+    const safe=safeRect||{left:0,top:0,right:w,bottom:h},dark=theme==='dark';ctx.font='600 13px "Noto Instrument Mono",monospace';
     const layout=project(record,view,{width:w,height:h,safeRect:safe,forceControlRect,measureText:value=>ctx.measureText(value).width});
     const background=ctx.createLinearGradient(0,safe.top,0,safe.bottom);background.addColorStop(0,dark?'#0b1722':'#dce5e5');background.addColorStop(1,dark?'#111d27':'#e9ece6');ctx.fillStyle=background;ctx.fillRect(0,0,w,h);
     if(root.HWOrbitBackground?.draw)root.HWOrbitBackground.draw(ctx,w,h,{latitude:view.pitch??.62,longitude:view.yaw??-.55,distance:2.45},{left:layout.sceneRect.left,top:layout.sceneRect.top,width:layout.sceneRect.right-layout.sceneRect.left,height:layout.sceneRect.bottom-layout.sceneRect.top},null,theme);
@@ -129,7 +137,7 @@
     if(data.separations.length){
       const left=layout.sceneRect.left+16,top=layout.sceneRect.top+51,width=Math.min(420,layout.sceneRect.right-left-16),rows=data.separations.slice(0,Math.max(1,Math.floor((safe.bottom-top-130)/28))),height=60+rows.length*28;
       const overview={left,top,right:left+width,bottom:top+height};
-      const occludesBody=layout.positions.some(point=>point.x+point.radius>overview.left&&point.x-point.radius<overview.right&&point.y+point.radius>overview.top&&point.y-point.radius<overview.bottom);
+      const occludesBody=layout.positions.some(point=>point.x+point.radius>overview.left&&point.x-point.radius<overview.right&&point.y+point.radius>overview.top&&point.y-point.radius<overview.bottom||point.labelRect&&point.labelRect.left<overview.right&&point.labelRect.right>overview.left&&point.labelRect.top<overview.bottom&&point.labelRect.bottom>overview.top);
       if(width>=260&&!occludesBody){
         layout.separationRect=overview;layout.forceObstacles.push(overview);
         ctx.fillStyle=dark?'rgba(7,17,26,.87)':'rgba(241,245,239,.94)';ctx.fillRect(left,top,width,height);

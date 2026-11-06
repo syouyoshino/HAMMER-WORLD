@@ -8,7 +8,9 @@
     const toggle = document.createElement('button');
     toggle.type = 'button';
     toggle.className = 'button small';
-    toggle.textContent = 'Forces';
+    toggle.textContent = 'Military layers';
+    toggle.title = 'Show or hide recorded forces and movement routes';
+    toggle.setAttribute('aria-label', 'Show or hide military map layers');
     toggle.setAttribute('aria-pressed', 'false');
     const cancelButton = document.createElement('button');
     cancelButton.type = 'button';

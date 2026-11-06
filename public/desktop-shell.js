@@ -77,8 +77,8 @@
     heading.append(root.querySelector('.commandbar'),root.querySelector('#resource-shell'),title,crumb,document.querySelector('#live-banner'),document.querySelector('#system-selection'),document.querySelector('#universe-selection'));root.append(heading);
     const readouts=document.createElement('div');readouts.id='chart-readouts';
     readouts.append(panel.querySelector('.map-caption'),panel.querySelector('#map-legend'),panel.querySelector('.map-footer'));panel.append(readouts);
-    const measureHeading=()=>root.style.setProperty('--chart-heading-height',`${heading.offsetHeight}px`);
-    new ResizeObserver(measureHeading).observe(heading);measureHeading();
+    const measureHeading=()=>{root.classList.toggle('is-short',root.clientHeight<600);root.style.setProperty('--chart-heading-height',`${heading.offsetHeight}px`);};
+    const headingObserver=new ResizeObserver(measureHeading);headingObserver.observe(heading);headingObserver.observe(root);measureHeading();
     const menu=root.querySelector('#command-menu'),menuGrid=menu.querySelector('.menu-grid');
     const previewStatus=document.createElement('span');previewStatus.id='command-preview';previewStatus.textContent='PREVIEW READY';previewStatus.hidden=true;root.querySelector('.command-indicators').insertBefore(previewStatus,root.querySelector('#command-history'));
     const appearanceLabel=document.createElement('label');appearanceLabel.className='appearance-setting';appearanceLabel.htmlFor='appearance-select';appearanceLabel.append(document.createTextNode('Appearance'));const appearanceSelect=document.createElement('select');appearanceSelect.id='appearance-select';appearanceSelect.setAttribute('aria-label','Appearance');for(const [value,label] of [['system','System'],['light','Light'],['dark','Dark']])appearanceSelect.append(new Option(label,value));appearanceSelect.value=window.HWTheme?.preference||'system';appearanceSelect.onchange=()=>window.HWTheme?.set(appearanceSelect.value);appearanceLabel.append(appearanceSelect);menu.append(appearanceLabel);

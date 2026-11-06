@@ -31,6 +31,7 @@ body { display: block; min-height: 100%; overflow: hidden; }
   touch-action: none;
 }
 #map-backdrop canvas { display: block; width: 100%; height: 100%; image-rendering: pixelated; cursor: grab; }
+#map-backdrop canvas.planet-orbit-layer { position: absolute; inset: 0; z-index: 2; image-rendering: auto; visibility: hidden; pointer-events: none; }
 #map-backdrop canvas.is-grabbing { cursor: grabbing; }
 #map-backdrop canvas.is-targeting { cursor: crosshair; }
 #map-overview-button { position:absolute; z-index:4; right:12px; display:grid; gap:4px; width:156px; padding:6px; color:var(--ink); background:var(--paper); border:1px solid var(--line-strong); text-align:left; cursor:pointer; }
@@ -249,3 +250,51 @@ body { display: block; min-height: 100%; overflow: hidden; }
 #chart-heading #system-selection.has-selection > span { color: var(--ink); }
 #chart-heading #system-selection > .system-primary-action:not(:disabled) { color: #f5f9fc; background: #285f83; border-color: #648fa9; font-weight: 700; }
 #chart-heading #system-selection > .system-primary-action:not(:disabled):hover { background: #34769b; }
+
+/* Persistent named scope and grouped map controls. */
+#desktop-shell #map-breadcrumbs { display:flex !important; align-items:stretch; gap:4px; max-width:calc(100% - 24px); margin:4px 12px 7px; padding:0; overflow-x:auto; color:var(--ink); pointer-events:auto; scrollbar-width:thin; }
+#desktop-shell #map-breadcrumbs .map-level-step { display:grid; flex:0 0 auto; gap:3px; min-height:44px; padding:6px 12px; color:var(--ink); background:var(--map-glass-strong); border:1px solid var(--line-strong); text-align:left; text-decoration:none; }
+#desktop-shell #map-breadcrumbs .map-level-step small { color:var(--muted); font:600 12px/1.1 var(--mono); text-transform:uppercase; }
+#desktop-shell #map-breadcrumbs .map-level-step strong { font:600 13px/1.15 var(--mono); }
+#desktop-shell #map-breadcrumbs .map-level-step[aria-current] { border-color:#598aa0; box-shadow:inset 0 -3px #598aa0; background:color-mix(in srgb,var(--paper) 84%,#5285a0); }
+#desktop-shell #map-breadcrumbs .map-level-step:is(:hover,:focus-visible) { background:var(--selection); color:var(--selection-ink); }
+#desktop-shell #map-breadcrumbs .map-level-step:is(:hover,:focus-visible) small { color:inherit; }
+#desktop-shell #map-breadcrumbs .map-level-step:focus-visible { outline:2px solid currentColor; outline-offset:-4px; }
+#desktop-shell #view-title h1,#desktop-shell.is-universe #view-title h1 { font-size:17px; line-height:1.25; letter-spacing:0; }
+#chart-heading #view-title { align-items:center; gap:8px 16px; padding-block:7px; }
+#chart-heading .map-tools { display:flex; flex-wrap:wrap; gap:8px; }
+#chart-heading .map-control-group { display:flex; flex-wrap:wrap; align-items:center; gap:6px; padding:4px 8px; border:1px solid var(--line); background:var(--map-glass); }
+#chart-heading .map-control-group[hidden] { display:none; }
+#chart-heading .map-control-group::before { content:attr(aria-label); color:var(--muted); font:600 11px var(--mono); }
+#chart-heading .map-tools :is(button,select),#chart-heading .map-zoom-controls > button { min-height:32px; font-size:12px; }
+#chart-heading .map-tools label { font-size:11px; }
+#chart-heading .map-tools button:disabled { color:var(--muted); opacity:.72; }
+#chart-heading .map-zoom-controls { padding:4px 8px; border:1px solid var(--line); background:var(--map-glass); }
+#chart-heading .map-zoom-controls::before { content:'Camera'; color:var(--muted); font:600 11px var(--mono); }
+#chart-heading #orbit-toggle { color:var(--ink); border-color:#598aa0; box-shadow:inset 0 -2px #598aa0; font-weight:700; }
+#desktop-shell .body-focus-view { background:transparent; }
+#desktop-shell .body-focus-reading { background:color-mix(in srgb,color-mix(in srgb,var(--paper) 94%,#58869a) 90%,transparent); -webkit-backdrop-filter:blur(8px); backdrop-filter:blur(8px); }
+#desktop-shell .body-focus-reading :is(.inspector-sub,.inspector-row,.note-box) { font-size:12px; line-height:1.5; }
+#desktop-shell .known-body-meta { font-size:10px; }
+#desktop-shell .known-body-name { font-size:12px; }
+#desktop-shell .body-focus-reading .inspector-planet { font-size:19px; }
+#desktop-shell #chart-readouts .map-footer { font-size:12px; }
+@container (max-width:1000px) {
+ #chart-heading #view-title { flex-wrap:wrap; }
+ #chart-heading .map-control-group::before,#chart-heading .map-zoom-controls::before { display:none; }
+ #desktop-shell #map-breadcrumbs .map-level-step { padding-inline:8px; }
+}
+
+#chart-heading .map-tools { min-width:0; max-width:100%; }
+#chart-heading .map-control-group { max-width:100%; }
+
+#chart-heading #system-selection > #system-framing-status { flex:0 0 auto; min-width:0; white-space:normal; overflow:visible; font-size:12px; }
+
+/* Use measured CSS height so browser/CSS zoom also preserves chart space. */
+#desktop-shell.is-short #resource-shell { display:none; }
+#desktop-shell.is-short #view-title { padding-block:2px; gap:2px 8px; }
+#desktop-shell.is-short .map-control-group,#desktop-shell.is-short .map-zoom-controls { padding:2px 4px; gap:3px; }
+#desktop-shell.is-short #map-breadcrumbs { margin-block:2px; gap:3px; }
+#desktop-shell.is-short #map-breadcrumbs .map-level-step { min-height:34px; padding:3px 7px; gap:1px; }
+#desktop-shell.is-short #map-breadcrumbs .map-level-step small { font-size:10px; }
+#desktop-shell.is-short #map-breadcrumbs .map-level-step strong { font-size:11px; }

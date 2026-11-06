@@ -4,6 +4,30 @@
   const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
   const wrapLon = value => ((value + Math.PI) % TAU + TAU) % TAU - Math.PI;
 
+  // Session-only presentation throughput; no campaign or saved camera data.
+  // Two RAFs include a compositor opportunity, unlike the WebGL API call time.
+  function createOutputProfile() {
+    let pixelsPerMs=Infinity;
+    const recent=[];
+    return {
+      scale(width,height,dpr,requested=1){
+        const base=Math.min(2,dpr||1,MAX_SIDE/Math.max(1,width),MAX_SIDE/Math.max(1,height),Math.sqrt(MAX_PIXELS/Math.max(1,width*height)));
+        const moving=requested<1,budget=pixelsPerMs*(moving?32:80),detailFloor=(moving?160:450)/Math.max(1,Math.min(width,height)*base);
+        // Detail floors are physical output, limited by the requested quality.
+        return Math.max(.03125,Math.min(requested,Math.max(detailFloor,Math.sqrt(budget/Math.max(1,width*height))/base)));
+      },
+      observe(pixels,elapsed){
+        if(!Number.isFinite(elapsed)||!Number.isFinite(pixels)||pixels<=0||elapsed<=0)return;
+        if(pixelsPerMs===Infinity&&elapsed<=80)return;
+        // Recent median rejects isolated stalls; recovery is gradual rather
+        // than permanently retaining the slowest observation of the session.
+        recent.push(pixels/Math.max(16,elapsed-32));if(recent.length>5)recent.shift();
+        const median=[...recent].sort((a,b)=>a-b)[Math.floor(recent.length/2)];
+        pixelsPerMs=pixelsPerMs===Infinity?median:clamp(median,pixelsPerMs*.75,pixelsPerMs*1.2);
+      }
+    };
+  }
+
   function basis(latitude, longitude) {
     const p = clamp(latitude, -Math.PI / 2, Math.PI / 2), l = wrapLon(longitude), sp = Math.sin(p), cp = Math.cos(p), sl = Math.sin(l), cl = Math.cos(l);
     return { N:[cp*sl,sp,cp*cl], E:[cl,0,-sl], U:[-sp*sl,cp,-sp*cl] };
@@ -59,8 +83,7 @@
   }
   function nightReadability(distance,descentDistance){
     if(!Number.isFinite(distance)||!Number.isFinite(descentDistance))return 0;
-    const altitude=Math.max(0,distance-1),descent=Math.max(.001,descentDistance-1);
-    const t=clamp((altitude-descent)/(3*descent),0,1);
+    const t=clamp((distance-descentDistance)/(2.45-descentDistance),0,1);
     return 1-(t*t*(3-2*t));
   }
   function powerOfTwoSize(width,height) {
@@ -82,8 +105,8 @@
     const gl=canvas?.getContext?.("webgl",{alpha:true,antialias:true,premultipliedAlpha:true,preserveDrawingBuffer:false});
     if(!gl)return null;
     const vs=`attribute vec2 p; varying vec2 v; void main(){v=p*.5+.5;gl_Position=vec4(p,0.,1.);}`;
-    const gradientSampling=gl.getExtension("OES_standard_derivatives")&&gl.getExtension("EXT_shader_texture_lod");
-    const fs=`${gradientSampling?"#extension GL_OES_standard_derivatives : enable\n#extension GL_EXT_shader_texture_lod : enable\n":""}#ifdef GL_FRAGMENT_PRECISION_HIGH
+    const derivatives=gl.getExtension("OES_standard_derivatives"),gradientSampling=derivatives&&gl.getExtension("EXT_shader_texture_lod");
+    const fs=`${derivatives?"#extension GL_OES_standard_derivatives : enable\n":""}${gradientSampling?"#extension GL_EXT_shader_texture_lod : enable\n":""}#ifdef GL_FRAGMENT_PRECISION_HIGH
 precision highp float;
 #else
 precision mediump float;
@@ -99,6 +122,9 @@ void main(){
  vec2 q=(v-.5)*viewSize*2.777777777777778;
  vec3 ro=vec3(0.,0.,D),rd=normalize(vec3(q,-D));
  float b=dot(ro,rd),h=b*b-(dot(ro,ro)-1.);
+ // Fade coverage only inside the exact silhouette, over one output pixel.
+ float edgeWidth=max(.000001,${derivatives?"fwidth(h)":"2.*sqrt(max(D*D-1.,0.))*pixelAngle"});
+ float edgeCoverage=smoothstep(0.,edgeWidth,h);
  // Outside-sphere helper lanes must stay finite through the derivatives.
  float t=-b-sqrt(max(h,0.));
  vec3 hit=ro+rd*t,w=normalize(E*hit.x+U*hit.y+N*hit.z);
@@ -152,7 +178,8 @@ void main(){
  vec3 emission=emissionSample.rgb*emissionSample.a;
  float limb=smoothstep(-.2,.3,normal.z);
  vec3 lit=color.rgb*light+emission*(1.-smoothstep(-.12,.06,incidence))*(1.-.25*clamp(nightReadability,0.,1.));
- gl_FragColor=vec4(lit,color.a*limb);
+ // The transparent canvas uses premultiplied alpha; coverage scales both channels.
+ gl_FragColor=vec4(lit*edgeCoverage,color.a*limb*edgeCoverage);
 }`;
     const shader=(type,src)=>{const s=gl.createShader(type);gl.shaderSource(s,src);gl.compileShader(s);if(!gl.getShaderParameter(s,gl.COMPILE_STATUS))throw Error(gl.getShaderInfoLog(s));return s;};
     try {
@@ -181,9 +208,11 @@ void main(){
             else {gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,1,1,0,gl.RGBA,gl.UNSIGNED_BYTE,new Uint8Array([0,0,0,255]));gl.generateMipmap(gl.TEXTURE_2D);}
             this.uploaded=revision;
           }
-          const scale=Math.max(.25,Math.min(1,Number.isFinite(renderScale)?renderScale:1)),dpr=Math.min(2,window.devicePixelRatio||1)*scale,targetW=Math.max(1,Math.round(width*dpr)),targetH=Math.max(1,Math.round(height*dpr));if(canvas.width!==targetW||canvas.height!==targetH){canvas.width=targetW;canvas.height=targetH;}if(this.lostState.value){this.lostState.value=false;this.uploaded=null;return false;}gl.clearColor(0,0,0,0);gl.clear(gl.COLOR_BUFFER_BIT);gl.viewport(Math.round(rect.left*dpr),Math.round((height-rect.top-rect.height)*dpr),Math.round(rect.width*dpr),Math.round(rect.height*dpr));gl.useProgram(program);gl.bindBuffer(gl.ARRAY_BUFFER,buffer);gl.enableVertexAttribArray(this.locations.p);gl.vertexAttribPointer(this.locations.p,2,gl.FLOAT,false,0,0);const f=basis(view.latitude,view.longitude),short=Math.max(1,Math.min(rect.width,rect.height)),illustrativeSun=[-.42,.5,.76],sourceLight=starDirection||illustrativeSun,light=[dot(sourceLight,f.E),dot(sourceLight,f.U),dot(sourceLight,f.N)];
-          gl.uniform3fv(this.locations.N,f.N);gl.uniform3fv(this.locations.E,f.E);gl.uniform3fv(this.locations.U,f.U);gl.uniform3fv(this.locations.lightDirection,light);gl.uniform2f(this.locations.viewSize,rect.width/short,rect.height/short);gl.uniform1f(this.locations.D,view.distance??2.45);gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,texture);gl.uniform1i(this.locations.tex,0);gl.activeTexture(gl.TEXTURE1);gl.bindTexture(gl.TEXTURE_2D,poleMean);gl.uniform1i(this.locations.poleMean,1);gl.activeTexture(gl.TEXTURE2);gl.bindTexture(gl.TEXTURE_2D,reliefTexture);gl.uniform1i(this.locations.reliefTex,2);gl.activeTexture(gl.TEXTURE3);gl.bindTexture(gl.TEXTURE_2D,emissionTexture);gl.uniform1i(this.locations.emissionTex,3);gl.uniform1f(this.locations.hasRelief,source.hwOrbitRelief?1:0);gl.uniform1f(this.locations.nightReadability,view.nightReadability??0);gl.uniform2f(this.locations.textureSize,dims.width,dims.height);gl.uniform1f(this.locations.pixelAngle,Math.max(.000001,(view.distance-1)/(short*.36*view.distance*dpr)));gl.drawArrays(gl.TRIANGLES,0,6);return !gl.isContextLost();}};
+          // Keep CSS geometry equal to the measured viewport while bounding the
+          // backing store to 2048px per side and 2,097,152 output pixels.
+          const scale=Math.max(.03125,Math.min(1,Number.isFinite(renderScale)?renderScale:1)),boundedDpr=Math.min(2,window.devicePixelRatio||1,2048/Math.max(1,width),2048/Math.max(1,height),Math.sqrt(2_097_152/Math.max(1,width*height))),dpr=boundedDpr*scale,targetW=Math.max(1,Math.floor(width*dpr)),targetH=Math.max(1,Math.floor(height*dpr)),dprX=targetW/Math.max(1,width),dprY=targetH/Math.max(1,height);if(canvas.width!==targetW||canvas.height!==targetH){canvas.width=targetW;canvas.height=targetH;}if(this.lostState.value){this.lostState.value=false;this.uploaded=null;return false;}gl.clearColor(0,0,0,0);gl.clear(gl.COLOR_BUFFER_BIT);gl.viewport(Math.round(rect.left*dprX),Math.round((height-rect.top-rect.height)*dprY),Math.round(rect.width*dprX),Math.round(rect.height*dprY));gl.useProgram(program);gl.bindBuffer(gl.ARRAY_BUFFER,buffer);gl.enableVertexAttribArray(this.locations.p);gl.vertexAttribPointer(this.locations.p,2,gl.FLOAT,false,0,0);const f=basis(view.latitude,view.longitude),short=Math.max(1,Math.min(rect.width,rect.height)),illustrativeSun=[-.42,.5,.76],sourceLight=starDirection||illustrativeSun,light=[dot(sourceLight,f.E),dot(sourceLight,f.U),dot(sourceLight,f.N)];
+          gl.uniform3fv(this.locations.N,f.N);gl.uniform3fv(this.locations.E,f.E);gl.uniform3fv(this.locations.U,f.U);gl.uniform3fv(this.locations.lightDirection,light);gl.uniform2f(this.locations.viewSize,rect.width/short,rect.height/short);gl.uniform1f(this.locations.D,view.distance??2.45);gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,texture);gl.uniform1i(this.locations.tex,0);gl.activeTexture(gl.TEXTURE1);gl.bindTexture(gl.TEXTURE_2D,poleMean);gl.uniform1i(this.locations.poleMean,1);gl.activeTexture(gl.TEXTURE2);gl.bindTexture(gl.TEXTURE_2D,reliefTexture);gl.uniform1i(this.locations.reliefTex,2);gl.activeTexture(gl.TEXTURE3);gl.bindTexture(gl.TEXTURE_2D,emissionTexture);gl.uniform1i(this.locations.emissionTex,3);gl.uniform1f(this.locations.hasRelief,source.hwOrbitRelief?1:0);gl.uniform1f(this.locations.nightReadability,view.nightReadability??0);gl.uniform2f(this.locations.textureSize,dims.width,dims.height);gl.uniform1f(this.locations.pixelAngle,Math.max(.000001,(view.distance-1)/(short*.36*view.distance*Math.min(dprX,dprY))));gl.drawArrays(gl.TRIANGLES,0,6);return !gl.isContextLost();}};
     } catch { return null; }
   }
-  window.HWPlanetOrbit={basis,unit,screenPoint,projectRecordedDirection,projectRecordedStar,inversePoint,focusFlatCamera,distanceForTile,nightReadability,powerOfTwoSize,rowMeans,create};
+  window.HWPlanetOrbit={createOutputProfile,basis,unit,screenPoint,projectRecordedDirection,projectRecordedStar,inversePoint,focusFlatCamera,distanceForTile,nightReadability,powerOfTwoSize,rowMeans,create};
 })();

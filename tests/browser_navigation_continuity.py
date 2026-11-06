@@ -57,10 +57,12 @@ def main():
         snap('01-globe')
         page.evaluate('__zoomFrames=[]');page.locator('#zoom-in').click();page.wait_for_timeout(1100)
         frames=page.evaluate('__zoomFrames');assert frames
-        assert any(f['scale']==.5 for f in frames) and frames[-1]['scale']==1,frames
+        assert all(0<f['scale']<=1 and f['buffer'][0]*f['buffer'][1]<=2_097_152 for f in frames),frames
+        assert all('throughGlobeCopyMs' not in f for f in frames),'Ordinary zoom must present directly without continuous GPU-to-2D copies'
         zoom_distances=sorted(set(round(f['distance'],7) for f in frames))
+        assert len(zoom_distances)>1,'Normal motion must expose intermediate camera distances'
         drag();orbit=page.evaluate('({...__orbitAudit.view})');snap('02-globe-moved')
-        assert page.evaluate('__orbitAudit.renderScale')==1,'Drag release must restore full resolution'
+        assert page.evaluate('Math.min(__orbitEngine.canvas.width,__orbitEngine.canvas.height)>=Math.min(450,document.querySelector("#planet-map").parentElement.clientWidth,document.querySelector("#planet-map").parentElement.clientHeight)'),'Idle refinement must retain the physical detail floor while respecting measured device cost'
         navigate('system');snap('03-system')
         system_before=page.evaluate('__systemAudit.view')
         drag();page.locator('#zoom-in').click();page.wait_for_timeout(300)

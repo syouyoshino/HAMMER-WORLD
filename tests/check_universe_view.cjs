@@ -6,6 +6,16 @@ const b={id:'b',parent_id:'r',kind:'sector',knowledge:'detected',name:'Unsurveye
 const hidden={id:'hidden',kind:'sector',knowledge:'hidden',name:'Hidden canary',x:2,y:3};
 const input={campaign_id:'c',snapshot_id:'s',turn:3,level:'galactic',groups:[{region,sectors:[a,b,hidden]}],nodes:[a,b],links:[],records:[]};
 const before=JSON.stringify(input),record=view.fromGalactic(input);
+assert.equal(view.strategicRecordLabel(input),'2 SECTOR RECORDS','Include the public unlocated sector, exclude hidden records');
+assert.equal(view.strategicRecordLabel({...input,nodes:[]}), '2 SECTOR RECORDS','Galactic count comes from groups, not a stale node list');
+assert.equal(view.strategicRecordLabel({level:'galactic'}),'SECTOR RECORDS UNKNOWN');
+assert.equal(view.strategicRecordLabel({level:'galactic',groups:[{region}]}),'SECTOR RECORDS UNKNOWN');
+assert.equal(view.strategicRecordLabel({level:'galactic',groups:[]}), '0 SECTOR RECORDS');
+assert.equal(view.strategicRecordLabel({level:'galactic',groups:[{region:{...region,knowledge:'hidden'},sectors:[a]}]}),'0 SECTOR RECORDS');
+const knownSystem={id:'system',kind:'system',knowledge:'detected',x:null,y:null};
+assert.equal(view.strategicRecordLabel({level:'sector',nodes:[knownSystem,a,{...knownSystem,id:'hidden-system',knowledge:'hidden'}]}),'1 SYSTEM RECORD');
+assert.equal(view.strategicRecordLabel({level:'sector',nodes:[]}),'0 SYSTEM RECORDS');
+assert.equal(view.strategicRecordLabel({level:'sector'}),'SYSTEM RECORDS UNKNOWN');
 assert.equal(JSON.stringify(input),before,'Derivation must not change the public input');
 assert.equal(record.level,'universe');assert.equal(record.campaign_id,'c');assert.equal(record.snapshot_id,'s');
 assert.deepEqual(record.nodes.map(n=>n.id),['r','a','b']);
@@ -13,6 +23,13 @@ assert.deepEqual(record.nodes.find(n=>n.id==='b'),b,'Unknown coordinates must re
 assert.deepEqual(record.nodes.find(n=>n.id==='r'),region,'Chart coordinates must not become universal distances');
 assert(!view.fromGalactic({groups:[{region:{...region,knowledge:'hidden'},sectors:[a]}]}).nodes.length);
 const gradient={addColorStop(){}};const ctx=new Proxy({measureText:s=>({width:String(s).length*7}),createRadialGradient:()=>gradient,createLinearGradient:()=>gradient},{get:(o,k)=>k in o?o[k]:()=>{}});
+const strategicLabels=[];
+ctx.fillText=label=>strategicLabels.push(label);
+const strategic=view.drawStrategic(ctx,{w:1440,h:1000,record:input,publicState:{nodes:[region,a,b]},safe:{left:12,right:1428,top:220,bottom:920,width:1416,height:700}});
+assert(strategicLabels.includes('1 charted sector · known containment'),'Containment describes charted entries, not all sector records');
+assert(!strategicLabels.includes('1 recorded sector · known containment'));
+assert(strategic.hitTargets.some(target=>target.n.id==='b'&&target.uiOnly),'Unlocated sector remains an explicit public record');
+assert.equal(JSON.stringify(input),before,'Counting and drawing must preserve records and unknown coordinates');
 for(const theme of ['light','dark']){
  const prior=JSON.stringify(record),layout=view.draw(ctx,{w:1440,h:1000,record,safe:{left:12,right:1428,top:220,bottom:920,width:1416,height:700},zoom:1,panX:0,panY:0,theme});
  assert.equal(JSON.stringify(record),prior,'Drawing must not mutate contact records');

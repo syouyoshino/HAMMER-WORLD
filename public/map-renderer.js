@@ -755,6 +755,7 @@
       style = "orbital",
       theme = "light",
       selectedProvince = null,
+      hoveredProvince = null,
       selectedFeatureId = null,
       featureNamesVisible = false,
       overlay = "terrain",
@@ -864,7 +865,7 @@
     }
     if (!(v7 && overlay === "terrain")) ctx.stroke();
     if (selectedProvince && !selectedFeatureId) {
-      ctx.strokeStyle = "#90c9ef";
+      ctx.strokeStyle = theme === "dark" ? "#90c9ef" : "#14547a";
       ctx.lineWidth = Math.max(2.2, Math.min(3.2, tile * 0.15));
       ctx.beginPath();
       for (const t of tiles) {
@@ -902,6 +903,23 @@
         }
       }
       ctx.stroke();
+    }
+    if (hoveredProvince && hoveredProvince !== selectedProvince && !selectedFeatureId) {
+      ctx.strokeStyle = theme === "dark" ? "#ffe27a" : "#173d58";
+      ctx.lineWidth = Math.max(1.8, Math.min(2.8, tile * 0.12));
+      ctx.setLineDash([5, 4]);
+      ctx.beginPath();
+      for (const t of tiles) {
+        if (t.province_id !== hoveredProvince || t.terrain === "ocean") continue;
+        const x=ox+t.x*tile,y=oy+t.y*tile;
+        for(const [dx,dy] of [[0,-1],[1,0],[0,1],[-1,0]]){
+          const nx=cylinder&&dx?(t.x+dx+cols)%cols:t.x+dx,ny=t.y+dy,n=nx>=0&&ny>=0&&nx<cols&&ny<rows?tiles[ny*cols+nx]:null;
+          if(n?.province_id===hoveredProvince&&n.terrain!=="ocean")continue;
+          ctx.moveTo(x+(dx<0?0:dx>0?tile:0),y+(dy<0?0:dy>0?tile:0));ctx.lineTo(x+(dx<0?0:dx>0?tile:tile),y+(dy<0?0:dy>0?tile:tile));
+        }
+      }
+      ctx.stroke();
+      ctx.setLineDash([]);
     }
     }
     if (renderPhase === "base") return null;

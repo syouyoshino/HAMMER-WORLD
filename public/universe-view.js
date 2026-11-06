@@ -17,6 +17,18 @@
     return {...record, sourceLevel: record?.level, level: 'universe', nodes: contacts.map(contact => contact.n), contacts};
   }
 
+  function strategicRecordLabel(record) {
+    const galactic=record?.level==='galactic',kind=galactic?'sector':'system';
+    let entries=null;
+    if(galactic&&Array.isArray(record.groups)){
+      const groups=record.groups.filter(group=>group?.region&&group.region.knowledge!=='hidden');
+      if(groups.every(group=>Array.isArray(group.sectors)))entries=groups.flatMap(group=>group.sectors);
+    }else if(record?.level==='sector'&&Array.isArray(record.nodes))entries=record.nodes;
+    if(entries===null)return `${kind.toUpperCase()} RECORDS UNKNOWN`;
+    const count=entries.filter(node=>node&&node.knowledge!=='hidden'&&node.kind===kind).length;
+    return `${count} ${kind.toUpperCase()} ${count===1?'RECORD':'RECORDS'}`;
+  }
+
   function hash(value) {
     let h = 2166136261;
     for (const char of String(value)) h = Math.imul(h ^ char.charCodeAt(0), 16777619);
@@ -96,7 +108,7 @@
     ctx.globalAlpha=1;
   }
 
-  function draw(ctx, {w,h,record,safe,zoom=1,panX=0,panY=0,theme='dark',selectedContactId=null,originContactIds=[],time=0}) {
+  function draw(ctx, {w,h,record,safe,zoom=1,panX=0,panY=0,theme='dark',selectedContactId=null,originContactIds=[],originName='system',time=0}) {
     const dark = theme === 'dark', cx = (safe.left + safe.right) / 2, cy = (safe.top + safe.bottom) / 2;
     const contacts = [...(record?.contacts || [])].sort((a,b)=>String(a.contactLevel).localeCompare(String(b.contactLevel))||String(a.n?.id).localeCompare(String(b.n?.id))), allRegions=contacts.filter(c=>c.contactLevel==='region'), regionById=new Map(allRegions.map(c=>[c.n.id,c])), regions = allRegions.filter(c => hasChartLocation(c.n)), sectors = contacts.filter(c => c.contactLevel === 'sector' && hasChartLocation(c.n) && hasChartLocation(regionById.get(c.regionId)?.n));
     const compact = safe.height < 340;
@@ -117,7 +129,7 @@
     if (compact) {
       const columns = Math.max(1, Math.min(contacts.length, Math.floor(safe.width / 205))), cell = safe.width / columns;
       [...regions,...sectors].forEach((contact, i) => {
-        const row = Math.floor(i / columns), x = safe.left + cell * (i % columns + .5), y = content.top + 25 + row * 91 + (contact.contactLevel === 'sector' ? 12 : 0);
+        const row = Math.floor(i / columns), x = safe.left + cell * (i % columns + .5), y = content.top + 25 + row * 140 + (contact.contactLevel === 'sector' ? 12 : 0);
         (contact.contactLevel === 'region' ? regionLayout : sectorLayout).set(contact.n.id, {x,y,contact});
       });
     } else {
@@ -196,11 +208,15 @@
         ctx.strokeStyle=color;ctx.lineWidth=1.4;ctx.beginPath();
         for(const [x,y,sx,sy] of [[frameRect.left,frameRect.top,1,1],[frameRect.right,frameRect.top,-1,1],[frameRect.left,frameRect.bottom,1,-1],[frameRect.right,frameRect.bottom,-1,-1]]){ctx.moveTo(x+sx*arm,y);ctx.lineTo(x,y);ctx.lineTo(x,y+sy*arm);}
         ctx.stroke();
-        const tagX=p.x+(level==='region'?23:14),tagY=Math.max(content.top+12,Math.min(content.bottom-4,p.y-(level==='region'?20:16)));
-        ctx.fillStyle=dark?'rgba(5,14,22,.9)':'rgba(245,248,246,.94)';ctx.fillRect(tagX-3,tagY-11,37,14);
-        ctx.fillStyle=color;ctx.textAlign='left';ctx.font='700 9px "Noto Instrument Mono",monospace';ctx.fillText('DEST',tagX,tagY);
+        const tagX=Math.max(content.left+3,Math.min(content.right-109,p.x+28)),tagY=Math.max(content.top+12,Math.min(content.bottom-6,p.y-2));
+        ctx.fillStyle=dark?'rgba(5,14,22,.9)':'rgba(245,248,246,.94)';ctx.fillRect(tagX-3,tagY-11,112,17);
+        ctx.fillStyle=color;ctx.textAlign='left';ctx.font='700 11px "Noto Instrument Mono",monospace';ctx.fillText('DESTINATION',tagX,tagY,108);
       }
-      if (origin) { ctx.font='600 11px "Noto Instrument Mono",monospace'; ctx.textAlign='center'; ctx.fillStyle=dark?'#8fc8ee':'#28668b'; ctx.fillText('VIEW ORIGIN · ANCESTOR',p.x,p.y-31,210); }
+      if (origin) {
+        ctx.font='600 11px "Noto Instrument Mono",monospace';ctx.fillStyle=dark?'#8fc8ee':'#28668b';
+        const x=Math.max(content.left,Math.min(content.right,p.x-28)),available=x-content.left;
+        ctx.textAlign='right';ctx.fillText(`Origin: ${originName}`,x,p.y+4,Math.max(1,Math.min(220,available)));
+      }
       const target={id:n.id,n,...p,baseX:slot.x,baseY:slot.y,anchorX:p.x,anchorY:p.y,radius:level==='region'?17:12,frameRect,hitRect:hit,contactLevel:level,regionId:slot.contact.regionId||n.id};
       contactAnchors.push(target);
       if(hit && p.x>=content.left && p.x<=content.right && p.y>=content.top && p.y<=content.bottom) positions.push(target);
@@ -230,7 +246,7 @@
   }
 
   function drawStrategic(ctx,{w,h,record,publicState,safe,zoom=1,panX=0,panY=0,theme='dark',forceControlRect=null}) {
-    const dark=theme==='dark',level=record?.level==='sector'?'sector':'galactic';
+    const dark=theme==='dark',level=record?.level==='sector'?'sector':'galactic',short=safe.height<420;
     const nodes=(publicState?.nodes||[]).filter(node=>node.knowledge!=='hidden'),byId=new Map(nodes.map(node=>[node.id,node]));
     const parent=record?.parent||byId.get(record?.parent_id)||null;
     const descendants=id=>nodes.filter(node=>node.kind==='system'&&node.parent_id===id);
@@ -247,28 +263,45 @@
     const bounded=rect=>{const r={left:Math.max(safe.left,rect.left),right:Math.min(safe.right,rect.right),top:Math.max(safe.top,rect.top),bottom:Math.min(safe.bottom,rect.bottom)};return r.left<r.right&&r.top<r.bottom?r:null;};
     ctx.fillStyle=dark?'#07111c':'#e7ecea';ctx.fillRect(0,0,w,h);ctx.save();ctx.beginPath();ctx.rect(safe.left,safe.top,safe.width,safe.height);ctx.clip();
     drawArtwork(ctx,{safe,dark,time:0,panX,panY});
-    ctx.fillStyle=dark?'rgba(4,10,19,.26)':'rgba(227,233,233,.25)';ctx.fillRect(safe.left,safe.top,safe.width,safe.height);
+    ctx.fillStyle=dark?'rgba(4,10,19,.83)':'rgba(227,233,233,.83)';ctx.fillRect(safe.left,safe.top,safe.width,safe.height);
     const trayWidth=Math.min(330,Math.max(220,safe.width*.27)),trayLeft=safe.right-trayWidth-12;
     const trayTop=Math.max(safe.top+18,forceControlRect&&forceControlRect.right>trayLeft?forceControlRect.bottom+12:safe.top+18);
     const chartRight=unlocated.length&&safe.width>650?trayLeft-28:safe.right-24;
     const chartWidth=Math.max(150,chartRight-safe.left-24),cols=Math.max(1,Math.floor(chartWidth/360));
-    const frameW=chartWidth/Math.min(cols,Math.max(1,groups.length)),frameH=Math.min(300,Math.max(170,(safe.height-90)/Math.max(1,Math.ceil(groups.length/cols))));
+    const regionGroups=[...new Set(groups.map(group=>group.region?.id||'unknown'))].map(id=>({region:groups.find(group=>(group.region?.id||'unknown')===id)?.region,sectors:groups.filter(group=>(group.region?.id||'unknown')===id)}));
+    const frameW=Math.min(520,chartWidth/Math.min(cols,Math.max(1,groups.length))),frameH=Math.max(short?128:300,...groups.map(group=>(short?24:170)+Math.ceil(group.systems.filter(hasChartLocation).length/Math.max(1,Math.ceil(Math.sqrt(group.systems.filter(hasChartLocation).length))))*(short?128:170)));
+    const contentWidth=Math.min(chartWidth,frameW*Math.min(cols,Math.max(1,groups.length))),contentLeft=safe.left+24+(chartWidth-contentWidth)/2;
+    const blockHeight=block=>(short?30:65)+Math.ceil(block.sectors.length/cols)*frameH;
+    const totalHeight=regionGroups.reduce((sum,block)=>sum+blockHeight(block),0),layout=new Map();
+    let blockTop=safe.top+(short?18:65)+Math.max(0,(safe.height-(short?30:85)-totalHeight)/2);
     const coords=new Map(),positions=[],contactAnchors=[],forceObstacles=[];
-    ctx.textAlign='left';ctx.font='11px "Noto Instrument Mono",monospace';ctx.fillStyle=muted;
-    ctx.fillText('KNOWN SPACE · SCHEMATIC · DISTANCES UNKNOWN',safe.left+24,safe.top+21,Math.max(160,chartWidth));
+    for(const block of regionGroups){
+      const start=project(contentLeft,blockTop),height=blockHeight(block),width=contentWidth*zoom;
+      ctx.fillStyle=dark?'rgba(13,32,45,.85)':'rgba(233,242,241,.94)';ctx.fillRect(start.x-14,start.y-24,width+28,height*zoom-12);
+      ctx.strokeStyle=edge;ctx.lineWidth=1;ctx.strokeRect(start.x-14,start.y-24,width+28,height*zoom-12);
+      ctx.textAlign='left';ctx.font=`700 ${short?15:20}px "Noto Instrument Mono",monospace`;ctx.fillStyle=bright;
+      ctx.fillText(level==='galactic'?`${block.region?.name||'Region unknown'} · REGION`:`${parent?.name||'Sector unknown'} · SECTOR`,start.x,start.y,width-20);
+      if(!short){ctx.font='12px "Noto Instrument Mono",monospace';ctx.fillStyle=muted;ctx.fillText(level==='galactic'?`${block.sectors.length} charted ${block.sectors.length===1?'sector':'sectors'} · known containment`:`Within ${block.region?.name||'Region unknown'} · recorded systems`,start.x,start.y+23,width-20);}
+      block.sectors.forEach((group,index)=>layout.set(group,{left:contentLeft+(index%cols)*frameW,top:blockTop+(short?30:65)+Math.floor(index/cols)*frameH}));
+      const obstacle=bounded({left:start.x-14,right:start.x+width+14,top:start.y-24,bottom:start.y+30});if(obstacle)forceObstacles.push(obstacle);
+      blockTop+=height;
+    }
+    if(!short){ctx.textAlign='left';ctx.font='700 12px "Noto Instrument Mono",monospace';ctx.fillStyle=bright;
+    ctx.fillText(level==='galactic'?'GALACTIC · REGIONS CONTAIN SECTORS':'SECTOR · RECORDED SYSTEMS',safe.left+24,safe.top+21,Math.max(160,chartWidth));
+    ctx.font='11px "Noto Instrument Mono",monospace';ctx.fillStyle=muted;ctx.fillText('KNOWN CONTACTS · SCHEMATIC · DISTANCES UNKNOWN',safe.left+24,safe.top+39,Math.max(160,chartWidth));}
     groups.forEach((group,index)=>{
-      const left=safe.left+24+(index%cols)*frameW,top=safe.top+65+Math.floor(index/cols)*frameH;
+      const {left,top}=layout.get(group);
       const p=project(left,top),count=group.systems.filter(node=>node.knowledge==='surveyed').length;
       ctx.font='600 15px "Noto Instrument Mono",monospace';ctx.fillStyle=bright;ctx.textAlign='left';
-      ctx.fillText(group.sector.name||'Sector · name unknown',p.x,p.y,frameW-30);
+      if(!short||level==='galactic')ctx.fillText(level==='galactic'?`${group.sector.name||'Name unknown'} · SECTOR`:'RECORDED SYSTEMS',p.x,p.y,frameW-30);
       ctx.font='12px "Noto Instrument Mono",monospace';ctx.fillStyle=muted;
-      ctx.fillText(`${count} surveyed ${count===1?'system':'systems'} · ${group.region?.name||'Region unknown'}`,p.x,p.y+22,frameW-30);
-      ctx.strokeStyle=edge;ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(p.x,p.y+34);ctx.lineTo(p.x+Math.min(360,frameW-30)*zoom,p.y+34);ctx.stroke();
+      if(!short){ctx.fillText(`${count} surveyed ${count===1?'system':'systems'}`,p.x,p.y+22,frameW-30);
+      ctx.strokeStyle=edge;ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(p.x,p.y+34);ctx.lineTo(p.x+Math.min(360,frameW-30)*zoom,p.y+34);ctx.stroke();}
       const children=group.systems.filter(hasChartLocation).sort((a,b)=>String(a.id).localeCompare(String(b.id))),columns=Math.max(1,Math.ceil(Math.sqrt(children.length)));
       children.forEach((node,i)=>{
-        const x=left+Math.min(360*columns,frameW-30)*(i%columns+.5)/columns,y=top+100+Math.floor(i/columns)*170,point=project(x,y);
+        const x=left+Math.min(360*columns,frameW-30)*(i%columns+.5)/columns,y=top+(short?24:100)+Math.floor(i/columns)*(short?128:170),point=project(x,y);
         const labelWidth=Math.min(300,Math.max(130,frameW/columns-20));
-        const hitRect=bounded({left:point.x-labelWidth/2-8,right:point.x+labelWidth/2+8,top:point.y-25,bottom:point.y+124});
+        const hitRect=bounded({left:point.x-labelWidth/2-8,right:point.x+labelWidth/2+8,top:point.y-25,bottom:point.y+(short?88:124)});
         const anchor={id:node.id,n:node,...point,baseX:x,baseY:y,anchorX:point.x,anchorY:point.y,radius:16,contactLevel:'system',regionId:group.sector.id,labelWidth,hitRect};
         coords.set(node.id,anchor);contactAnchors.push(anchor);
         if(hitRect&&point.x>=safe.left&&point.x<=safe.right&&point.y>=safe.top&&point.y<=safe.bottom)positions.push(anchor);
@@ -292,24 +325,24 @@
       // This is an annotated system symbol. Child names are a public record
       // list, never planetary positions or a claim of a complete system census.
       ctx.fillStyle=dark?'rgba(4,13,24,.88)':'rgba(245,248,246,.92)';
-      ctx.fillRect(x-labelWidth/2-6,y+20,labelWidth+12,103);
+      ctx.fillRect(x-labelWidth/2-6,y+(short?12:20),labelWidth+12,short?75:103);
       ctx.strokeStyle=dark?'#9dd7e1':'#426d77';ctx.fillStyle=ctx.strokeStyle;ctx.lineWidth=1.5;
       ctx.beginPath();ctx.arc(x,y,13,0,Math.PI*2);ctx.stroke();
       ctx.beginPath();ctx.arc(x,y,6,0,Math.PI*2);ctx.stroke();ctx.fillRect(x-2,y-2,4,4);
       ctx.fillRect(x-21,y-.5,5,1);ctx.fillRect(x+16,y-.5,5,1);ctx.fillRect(x-.5,y-21,1,5);ctx.fillRect(x-.5,y+16,1,5);
       ctx.font='600 15px "Noto Instrument Mono",monospace';ctx.textAlign='center';ctx.fillStyle=bright;
-      ctx.fillText(n.name||'System · name unknown',x,y+39,labelWidth);
+      ctx.fillText(n.name||'System · name unknown',x,y+(short?28:39),labelWidth);
       ctx.font='11px "Noto Instrument Mono",monospace';ctx.fillStyle=muted;
-      ctx.fillText(`System · ${n.knowledge==='surveyed'?'Surveyed':'Known'}`,x,y+57,labelWidth);
+      ctx.fillText(`System · ${n.knowledge==='surveyed'?'Surveyed':'Known'}`,x,y+(short?44:57),labelWidth);
       ctx.font='12px "Noto Instrument Mono",monospace';
-      childLines.slice(0,2).forEach((line,index)=>{
+      childLines.slice(0,short?1:2).forEach((line,index)=>{
         let visible=line;
         while(visible.length>1&&ctx.measureText(visible).width>labelWidth-8)visible=visible.slice(0,-1);
         if(visible!==line)visible=visible.slice(0,-1)+'…';
-        ctx.fillText(visible,x,y+78+index*17,labelWidth);
+        ctx.fillText(visible,x,y+(short?61:78)+index*17,labelWidth);
       });
       ctx.font='600 12px "Noto Instrument Mono",monospace';ctx.fillStyle=dark?'#a7d3e0':'#356f80';
-      ctx.fillText('Open system ›',x,y+115,labelWidth);
+      ctx.fillText('Open system ›',x,y+(short?80:115),labelWidth);
       if(n.id===record?.selected_id){ctx.strokeStyle=dark?'#f1c777':'#7b5930';ctx.lineWidth=1;ctx.strokeRect(point.hitRect.left,point.hitRect.top,point.hitRect.right-point.hitRect.left,point.hitRect.bottom-point.hitRect.top);}
       forceObstacles.push(point.hitRect);
     }
@@ -339,7 +372,14 @@
     return{hierarchy:true,positions,hitTargets,safeRect:safe,sceneRect:safe,contactAnchors,forceObstacles,model:{groups,systems,links}};
   }
 
-  const api = {fromGalactic, draw, drawStrategic};
+  function galacticContext(nodes=[],nodeId=null){
+    const visible=nodes.filter(node=>node.knowledge!=='hidden'),byId=new Map(visible.map(node=>[node.id,node])),chain=[],seen=new Set();
+    let node=byId.get(nodeId);
+    while(node&&!seen.has(node.id)){seen.add(node.id);chain.unshift(node);node=byId.get(node.parent_id);}
+    const galaxies=visible.filter(node=>node.kind==='galaxy'),galaxy=chain.find(node=>node.kind==='galaxy')||(galaxies.length===1?galaxies[0]:null);
+    return {galaxy,chain,name:galaxy?.name||(galaxies.length>1?'Known galaxies':'Galactic chart')};
+  }
+  const api = {fromGalactic, draw, drawStrategic, galacticContext, strategicRecordLabel};
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   if (typeof window !== 'undefined') window.HWUniverseView = api;
 })();

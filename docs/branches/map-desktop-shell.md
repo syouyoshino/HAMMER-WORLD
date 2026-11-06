@@ -243,3 +243,14 @@ Verified implementation/tests/review: `e64a24f`, pushed successfully to
 `origin/map-generation` on 5 November 2026, including the previously unpushed
 night-light and research commits. Earlier credential blocking did not recur in
 this ordinary Git push. No merge, deployment or data reset.
+
+## Every-view continuation on map-generation — 6 November 2026
+
+The simplified strategic shell now supplies grouped map controls, a prominent named
+scope ladder, tinted celestial records and consistent return/focus behavior on
+`map-generation` (baseline `04a405c`). Full retained critique, regression evidence,
+performance tradeoffs and final delivery are in
+`docs/reviews/deep-view-critique.md` and `docs/branches/map-generation.md`.
+The permanent input map and existing management destinations remain; direct native
+globe presentation is a separate layer. No character branch, campaign records,
+backend mechanics, history, geography or missing-cloud recovery was modified.
