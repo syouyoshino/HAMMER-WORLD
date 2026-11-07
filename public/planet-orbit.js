@@ -12,7 +12,7 @@
     return {
       scale(width,height,dpr,requested=1){
         const base=Math.min(2,dpr||1,MAX_SIDE/Math.max(1,width),MAX_SIDE/Math.max(1,height),Math.sqrt(MAX_PIXELS/Math.max(1,width*height)));
-        const moving=requested<1,budget=pixelsPerMs*(moving?32:80),detailFloor=(moving?160:450)/Math.max(1,Math.min(width,height)*base);
+        const moving=requested<1,budget=pixelsPerMs*(moving?16:80),detailFloor=(moving?160:450)/Math.max(1,Math.min(width,height)*base);
         // Detail floors are physical output, limited by the requested quality.
         return Math.max(.03125,Math.min(requested,Math.max(detailFloor,Math.sqrt(budget/Math.max(1,width*height))/base)));
       },
@@ -115,7 +115,7 @@ varying vec2 v;
 uniform sampler2D tex,poleMean,reliefTex,emissionTex;
 uniform vec3 N,E,U;
 uniform vec2 viewSize,textureSize;
-uniform float D,pixelAngle,hasRelief,nightReadability;
+uniform float D,pixelAngle,hasRelief,nightReadability,movingKernel;
 uniform vec3 lightDirection;
 vec4 linearPremul(vec4 c){return vec4(pow(c.rgb,vec3(2.2))*c.a,c.a);}
 void main(){
@@ -139,6 +139,26 @@ void main(){
  // Retain the exact ray/sphere coverage after all helper-lane derivatives.
  if(h<0.||t<=0.)discard;
  vec4 sum=vec4(0.);vec3 reliefSum=vec3(0.);
+ ${gradientSampling?`if(movingKernel>.5&&meanWeight==0.&&longitudeSpan*textureSize.x<=2.*max(1.,max(abs(dx.y),abs(dy.y))*textureSize.y)){`:""}
+${gradientSampling?` float sampleStep=longitudeSpan*3.14159265359,firstLon=lon-1.5*sampleStep;
+ float firstU=uv.x-1.5*longitudeSpan*.5,uStep=longitudeSpan*.5;
+ vec2 tangentDirection=vec2(1.,0.),stepDirection=vec2(1.,0.);
+ if(hasRelief>.5){tangentDirection=vec2(cos(firstLon),sin(firstLon));stepDirection=vec2(cos(sampleStep),sin(sampleStep));}
+ for(int i=0;i<4;i++){
+  vec2 at=vec2(fract(firstU+float(i)*uStep),uv.y);
+  sum+=linearPremul(${gradientSampling?"texture2DGradEXT(tex,at,dx,dy)":"texture2D(tex,at)"});
+  if(hasRelief>.5){
+   vec2 slope=(${gradientSampling?"texture2DGradEXT(reliefTex,at,dx,dy)":"texture2D(reliefTex,at)"}).rg;
+   slope=(slope*255.-vec2(128.))/127.;
+   float sampleSin=tangentDirection.y,sampleCos=tangentDirection.x;
+   vec3 east=vec3(sampleCos,0.,-sampleSin);
+   vec3 north=vec3(-w.y*sampleSin,radial,-w.y*sampleCos);
+   reliefSum+=east*slope.x+north*slope.y;
+   tangentDirection=vec2(sampleCos*stepDirection.x-sampleSin*stepDirection.y,sampleSin*stepDirection.x+sampleCos*stepDirection.y);
+  }
+ }
+ sum/=4.;reliefSum*=2.;
+ }else{`:""}
  float sampleStep=longitudeSpan*1.57079632679,firstLon=lon-3.5*sampleStep;
  float firstU=uv.x-3.5*longitudeSpan*.25,uStep=longitudeSpan*.25;
  vec2 tangentDirection=vec2(1.,0.),stepDirection=vec2(1.,0.);
@@ -157,6 +177,7 @@ void main(){
   }
  }
  sum/=8.;
+ ${gradientSampling?"}":""}
  vec4 mean=linearPremul(texture2D(poleMean,vec2(.5,uv.y)));
  // The unique endpoint row mean also defines the exact mathematical pole.
  if(radial<.000001)meanWeight=1.;
@@ -191,8 +212,8 @@ void main(){
       const emissionTexture=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,emissionTexture);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR_MIPMAP_LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.REPEAT);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
       const loc=name=>gl.getUniformLocation(program,name),lostState={value:false};
       canvas.addEventListener?.("webglcontextlost",event=>{event.preventDefault();lostState.value=true;});canvas.addEventListener?.("webglcontextrestored",()=>{lostState.value=true;});
-      return {canvas,gl,program,buffer,texture,poleMean,reliefTexture,emissionTexture,locations:{p:gl.getAttribLocation(program,"p"),N:loc("N"),E:loc("E"),U:loc("U"),lightDirection:loc("lightDirection"),viewSize:loc("viewSize"),D:loc("D"),tex:loc("tex"),poleMean:loc("poleMean"),reliefTex:loc("reliefTex"),emissionTex:loc("emissionTex"),textureSize:loc("textureSize"),pixelAngle:loc("pixelAngle"),hasRelief:loc("hasRelief"),nightReadability:loc("nightReadability")}, uploaded:null, lostState,
-        render(source,revision,width,height,view,rect={left:0,top:0,width,height},starDirection=null,renderScale=1){if(this.lostState.value||gl.isContextLost()||!source)return false;const dims=powerOfTwoSize(source.width,source.height);if(this.uploaded!==revision){let image=source;if(dims.width!==source.width||dims.height!==source.height){const tmp=document.createElement("canvas");tmp.width=dims.width;tmp.height=dims.height;tmp.getContext("2d").drawImage(source,0,0,dims.width,dims.height);image=tmp;}
+      return {canvas,gl,program,buffer,texture,poleMean,reliefTexture,emissionTexture,locations:{p:gl.getAttribLocation(program,"p"),N:loc("N"),E:loc("E"),U:loc("U"),lightDirection:loc("lightDirection"),viewSize:loc("viewSize"),D:loc("D"),tex:loc("tex"),poleMean:loc("poleMean"),reliefTex:loc("reliefTex"),emissionTex:loc("emissionTex"),textureSize:loc("textureSize"),pixelAngle:loc("pixelAngle"),hasRelief:loc("hasRelief"),nightReadability:loc("nightReadability"),movingKernel:loc("movingKernel")}, uploaded:null, lostState,
+        render(source,revision,width,height,view,rect={left:0,top:0,width,height},starDirection=null,renderScale=1,movingKernel=false){if(this.lostState.value||gl.isContextLost()||!source)return false;const dims=powerOfTwoSize(source.width,source.height);if(this.uploaded!==revision){let image=source;if(dims.width!==source.width||dims.height!==source.height){const tmp=document.createElement("canvas");tmp.width=dims.width;tmp.height=dims.height;tmp.getContext("2d").drawImage(source,0,0,dims.width,dims.height);image=tmp;}
             gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,texture);gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,true);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,image);gl.generateMipmap(gl.TEXTURE_2D);
             const meanCanvas=document.createElement("canvas");meanCanvas.width=1;meanCanvas.height=dims.height;const meanContext=meanCanvas.getContext("2d"),data=meanContext.createImageData(1,dims.height);data.data.set(rowMeans(image.getContext("2d").getImageData(0,0,dims.width,dims.height).data,dims.width,dims.height));meanContext.putImageData(data,0,0);gl.bindTexture(gl.TEXTURE_2D,poleMean);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,meanCanvas);
             // Albedo, pole means and relief belong to the same source revision.
@@ -211,7 +232,7 @@ void main(){
           // Keep CSS geometry equal to the measured viewport while bounding the
           // backing store to 2048px per side and 2,097,152 output pixels.
           const scale=Math.max(.03125,Math.min(1,Number.isFinite(renderScale)?renderScale:1)),boundedDpr=Math.min(2,window.devicePixelRatio||1,2048/Math.max(1,width),2048/Math.max(1,height),Math.sqrt(2_097_152/Math.max(1,width*height))),dpr=boundedDpr*scale,targetW=Math.max(1,Math.floor(width*dpr)),targetH=Math.max(1,Math.floor(height*dpr)),dprX=targetW/Math.max(1,width),dprY=targetH/Math.max(1,height);if(canvas.width!==targetW||canvas.height!==targetH){canvas.width=targetW;canvas.height=targetH;}if(this.lostState.value){this.lostState.value=false;this.uploaded=null;return false;}gl.clearColor(0,0,0,0);gl.clear(gl.COLOR_BUFFER_BIT);gl.viewport(Math.round(rect.left*dprX),Math.round((height-rect.top-rect.height)*dprY),Math.round(rect.width*dprX),Math.round(rect.height*dprY));gl.useProgram(program);gl.bindBuffer(gl.ARRAY_BUFFER,buffer);gl.enableVertexAttribArray(this.locations.p);gl.vertexAttribPointer(this.locations.p,2,gl.FLOAT,false,0,0);const f=basis(view.latitude,view.longitude),short=Math.max(1,Math.min(rect.width,rect.height)),illustrativeSun=[-.42,.5,.76],sourceLight=starDirection||illustrativeSun,light=[dot(sourceLight,f.E),dot(sourceLight,f.U),dot(sourceLight,f.N)];
-          gl.uniform3fv(this.locations.N,f.N);gl.uniform3fv(this.locations.E,f.E);gl.uniform3fv(this.locations.U,f.U);gl.uniform3fv(this.locations.lightDirection,light);gl.uniform2f(this.locations.viewSize,rect.width/short,rect.height/short);gl.uniform1f(this.locations.D,view.distance??2.45);gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,texture);gl.uniform1i(this.locations.tex,0);gl.activeTexture(gl.TEXTURE1);gl.bindTexture(gl.TEXTURE_2D,poleMean);gl.uniform1i(this.locations.poleMean,1);gl.activeTexture(gl.TEXTURE2);gl.bindTexture(gl.TEXTURE_2D,reliefTexture);gl.uniform1i(this.locations.reliefTex,2);gl.activeTexture(gl.TEXTURE3);gl.bindTexture(gl.TEXTURE_2D,emissionTexture);gl.uniform1i(this.locations.emissionTex,3);gl.uniform1f(this.locations.hasRelief,source.hwOrbitRelief?1:0);gl.uniform1f(this.locations.nightReadability,view.nightReadability??0);gl.uniform2f(this.locations.textureSize,dims.width,dims.height);gl.uniform1f(this.locations.pixelAngle,Math.max(.000001,(view.distance-1)/(short*.36*view.distance*Math.min(dprX,dprY))));gl.drawArrays(gl.TRIANGLES,0,6);return !gl.isContextLost();}};
+          gl.uniform3fv(this.locations.N,f.N);gl.uniform3fv(this.locations.E,f.E);gl.uniform3fv(this.locations.U,f.U);gl.uniform3fv(this.locations.lightDirection,light);gl.uniform2f(this.locations.viewSize,rect.width/short,rect.height/short);gl.uniform1f(this.locations.D,view.distance??2.45);gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,texture);gl.uniform1i(this.locations.tex,0);gl.activeTexture(gl.TEXTURE1);gl.bindTexture(gl.TEXTURE_2D,poleMean);gl.uniform1i(this.locations.poleMean,1);gl.activeTexture(gl.TEXTURE2);gl.bindTexture(gl.TEXTURE_2D,reliefTexture);gl.uniform1i(this.locations.reliefTex,2);gl.activeTexture(gl.TEXTURE3);gl.bindTexture(gl.TEXTURE_2D,emissionTexture);gl.uniform1i(this.locations.emissionTex,3);gl.uniform1f(this.locations.movingKernel,movingKernel?1:0);gl.uniform1f(this.locations.hasRelief,source.hwOrbitRelief?1:0);gl.uniform1f(this.locations.nightReadability,view.nightReadability??0);gl.uniform2f(this.locations.textureSize,dims.width,dims.height);gl.uniform1f(this.locations.pixelAngle,Math.max(.000001,(view.distance-1)/(short*.36*view.distance*Math.min(dprX,dprY))));gl.drawArrays(gl.TRIANGLES,0,6);return !gl.isContextLost();}};
     } catch { return null; }
   }
   window.HWPlanetOrbit={createOutputProfile,basis,unit,screenPoint,projectRecordedDirection,projectRecordedStar,inversePoint,focusFlatCamera,distanceForTile,nightReadability,powerOfTwoSize,rowMeans,create};

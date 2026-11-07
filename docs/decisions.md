@@ -539,3 +539,35 @@ height alone does not describe available CSS space under root zoom. Adapt only
 schematic chart placement, never saved astronomy vectors. Test visible destination
 content and actual navigation, not solely hit-testable toolbar controls. Full
 findings, evidence and limits: `docs/reviews/deep-view-critique.md`.
+
+## 6 November 2026 — Motion clocks follow prepared presentation
+
+The interface RC did not establish smooth movement. Fresh traces showed clocks
+advancing while native frames were being published, inconsistent destination
+footer heights causing a second arrival render, and full-map raster work on every
+Orbit/Surface opacity tick. Fix those causes rather than treating visual review
+or WebGL API enqueue time as motion acceptance.
+
+Give active Orbit footer/status layout one owner before measuring its native
+rectangle; retain strict complete frame keys. Publish the source pose before
+starting the420ms smoothstep bridge. Track every preparation/animation callback
+and reject obsolete ticket identities without canceling replacements. Pin moving
+output per gesture and refine once after idle.
+
+Keep the full8-tap renderer at rest and on fast devices. A measured, footprint-gated
+maximum4-tap motion path is allowed only for adaptive slow-device output, preserving
+8 taps for demanding/polar/unsupported cases. Keep gamma, pole means, relief limits,
+light/emission and geometry. Use a16ms moving budget with the existing160px floor;
+retain80ms/450px idle policy and train throughput from full-kernel observations.
+Fixed-buffer GPU tests compare against the committed8-tap renderer; idle/restored
+pixels must remain identical and moving errors are recorded, not concealed.
+
+For Orbit/Surface fades, retain the permanent input canvas and native GL child in
+one pointer-through presentation wrapper. One temporary opaque backdrop flattens
+with the globe; opacity belongs to the group. Prepare each surface once and publish
+near its source endpoint before arming the clock. During opacity ticks, perform
+no raster redraw or GL draw. On completion/interruption release the temporary
+canvas and settle the current authorized mode. Actual traces, video, callback
+interleavings and motion-specific independent review are required. See
+`docs/reviews/motion-continuity.md` for rejected hypotheses, measured results and
+remaining environment/browser limitations.

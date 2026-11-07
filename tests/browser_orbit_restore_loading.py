@@ -18,7 +18,10 @@ def main():
         page.select_option('#campaign-select','nav-demo');page.wait_for_function('window.__orbitAudit?.result',timeout=90000)
         origin=page.evaluate('__orbitAudit.view')
         page.select_option('#map-level','system');page.wait_for_function('window.__systemAudit?.layout.supported')
-        page.wait_for_timeout(300)
+        page.wait_for_timeout(900)
+        # Exercise the uncached path; ordinary returns may reuse validated preview detail.
+        page.evaluate('HWSystemPreviewService.clear()')
+        page.evaluate('''()=>{window.__savedBridge=[];const bridge=HWSystemView.bridgeCircle;HWSystemView.bridgeCircle=(from,to,t)=>{const circle=bridge(from,to,t);__savedBridge.push({time:performance.now(),progress:t,circle,from,to});return circle;};}''')
         held=[]
         def hold(route):held.append((route,route.fetch()))
         page.route('**/detail?**',hold)
@@ -38,8 +41,15 @@ def main():
         held[0][0].fulfill(response=held[0][1]);page.wait_for_timeout(300)
         assert 'Opening saved orbit' in page.locator('#detail-status').inner_text(),'Stale detail released the newer hold'
         for route,response in held[1:]:route.fulfill(response=response)
-        page.wait_for_function("document.querySelector('#orbit-toggle').textContent==='Surface'",timeout=90000)
+        page.wait_for_function("document.querySelector('#orbit-toggle').textContent==='Surface' && !document.querySelector('.section-title h1').textContent.includes('Opening')",timeout=90000)
         assert page.evaluate('__orbitAudit.view')==origin
+        frames=page.evaluate('__savedBridge');assert frames and frames[0]['progress']==0
+        moving=[f for f in frames if 0<f['progress']<1]
+        assert len(moving)>=8,frames
+        assert moving[0]['progress']<.1,frames
+        assert frames[-1]['progress']==1
+        for key in ['x','y','radius']:assert abs(frames[-1]['circle'][key]-frames[-1]['to'][key])<1e-8
+        (out/'bridge.json').write_text(json.dumps(frames,indent=2))
         assert page.locator('#overlay-select').input_value()=='population'
         page.screenshot(path=str(out/'02-restored-orbit.png'))
         assert not errors,errors

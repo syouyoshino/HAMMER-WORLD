@@ -257,3 +257,9 @@ backend mechanics, history, geography or missing-cloud recovery was modified.
 
 Verified continuation `2e6c4b8` is pushed on `map-generation`; final scoped
 independent acceptance and browser/video evidence are recorded in the review.
+
+Motion acceptance is now separate from the earlier UI verdict. The7November
+continuation on `map-generation` fixes prepared bridge/fade timing and saved-Orbit
+returns; independent motion review and corrected blocked findings are retained in
+`docs/reviews/motion-continuity.md`. Existing shell/character integration, public
+IDs, history, authentication and campaign data remain intact.

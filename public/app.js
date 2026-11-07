@@ -15,7 +15,7 @@
   let universeAnimationFrame=0,universeAnimationTime=0,universeCameraTween=null;
   const universeReducedMotion=window.matchMedia?.('(prefers-reduced-motion: reduce)')||null;
   let systemPreviews=window.HWSystemPreviews?.create(api,()=>{if(state.mapRecord?.level==='system'){renderSystemSelection();drawMap();}});window.HWSystemPreviewService=systemPreviews;
-  let orbitComposite=null,systemEntryCanvas=null,systemReturnPreview=null,systemBridgeSource=null,nativeOrbitFrame=null,orbitPointerDraw=0,orbitQualityTimer=0,orbitQualityUntil=0,orbitOutputProfile=null,orbitPresentationSample=null,orbitPresentationGeneration=0;
+  let orbitComposite=null,orbitPresentationLayer=null,systemEntryCanvas=null,systemReturnPreview=null,systemBridgeSource=null,nativeOrbitFrame=null,orbitPointerDraw=0,orbitQualityTimer=0,orbitQualityUntil=0,orbitOutputProfile=null,orbitMovingScale=null,orbitPresentationSample=null,orbitPresentationGeneration=0;
   let movementIntent=null;
   const movementRequests=[];
   const detailCountsCache=new WeakMap();
@@ -34,18 +34,18 @@
     if(!['galactic','universe'].includes(level)&&!validMapNode(level,nodeId))return;
     // A requested destination has not committed yet; the visible camera still belongs to context.
     const key=mapContextKey(level,nodeId),pending=state.pendingOrbitRestore;
-    const camera=pending?.record===record?pending.camera:{zoom:state.zoom,panX:state.panX,panY:state.panY,orbitActive:state.orbitActive,orbitView:{...state.orbitView},systemView:{...state.systemView},province:state.selectedProvince,entityId:state.selectedEntity?.id,featureId:state.selectedFeatureId,featurePlanetId:state.selectedFeaturePlanetId,featureReturnProvince:state.selectedFeatureReturnProvince,composition:state.selectedComposition?{...state.selectedComposition}:null};
+    const camera=state.systemSurfaceEntry?.savedCamera&&level==='planet'?state.systemSurfaceEntry.savedCamera:pending?.record===record?pending.camera:{zoom:state.zoom,panX:state.panX,panY:state.panY,orbitActive:state.orbitActive,orbitView:{...state.orbitView},systemView:{...state.systemView},province:state.selectedProvince,entityId:state.selectedEntity?.id,featureId:state.selectedFeatureId,featurePlanetId:state.selectedFeaturePlanetId,featureReturnProvince:state.selectedFeatureReturnProvince,composition:state.selectedComposition?{...state.selectedComposition}:null};
     state.mapCameras.delete(key);state.mapCameras.set(key,camera);
     while(state.mapCameras.size>24)state.mapCameras.delete(state.mapCameras.keys().next().value);
   }
   function restoreMapCamera(level,nodeId,data){
     const id=level==='planet'?data.selected_planet?.id||data.geometry?.planet?.id:nodeId;
     if(!['galactic','universe'].includes(level)&&!validMapNode(level,id))return false;
-    const saved=state.mapCameras.get(mapContextKey(level,id));if(!saved)return false;
+    const saved=level==='planet'&&state.systemSurfaceEntry?.planetId===id&&state.systemSurfaceEntry.savedCamera?state.systemSurfaceEntry.savedCamera:state.mapCameras.get(mapContextKey(level,id));if(!saved)return false;
     state.zoom=saved.zoom;state.panX=saved.panX;state.panY=saved.panY;
     state.orbitView={...saved.orbitView};state.systemView={...(saved.systemView||state.systemView)};
     const detailKey=level==='planet'&&data.geometry?.detail_ref?`${state.contextEpoch}:${state.campaignId}:${state.snapshot?.id}:${id}:${data.geometry.detail_ref.sha256}`:null;
-    const deferOrbit=Boolean(saved.orbitActive&&level==='planet'&&detailKey&&(!state.detailAsset||state.detailKey!==detailKey));
+    const deferOrbit=Boolean(saved.orbitActive&&level==='planet'&&detailKey&&(state.systemSurfaceEntry?.savedCamera||!state.detailAsset||state.detailKey!==detailKey));
     state.orbitActive=Boolean(saved.orbitActive&&level==='planet'&&!deferOrbit);
     state.pendingOrbitRestore=deferOrbit?{epoch:state.contextEpoch,campaignId:state.campaignId,snapshotId:state.snapshot?.id,planetId:id,detailKey,record:data,mapRequest:state.mapLoadSeq,camera:saved}:null;
     state.selectedProvince=data.geometry?.provinces?.some(item=>item.id===saved.province)?saved.province:null;
@@ -55,9 +55,9 @@
     return true;
   }
   function completeOrbitRestore(record,key,request){
-    const pending=state.pendingOrbitRestore;if(!pending)return;
+    const pending=state.pendingOrbitRestore;if(!pending||state.systemSurfaceEntry?.savedCamera)return;
     if(pending.record!==record||pending.detailKey!==key||pending.detailRequest!==request||pending.mapRequest!==state.mapLoadSeq||pending.epoch!==state.contextEpoch||pending.campaignId!==state.campaignId||pending.snapshotId!==state.snapshot?.id)return;
-    state.orbitView={...pending.camera.orbitView};state.orbitActive=true;state.orbitFade=null;state.pendingOrbitRestore=null;
+    state.orbitView={...pending.camera.orbitView};state.orbitActive=true;cancelOrbitFade();state.pendingOrbitRestore=null;
   }
   function validateDetailSelection(geometry){
     if(state.selectedFeatureId&&!hydrographyFor(geometry)?.features?.some(item=>item.id===state.selectedFeatureId))clearFeatureSelection();
@@ -68,6 +68,13 @@
     if(level==='universe'||level==='galactic')nodeId=null;else if(!validMapNode(level,nodeId,s))return;
     if(!preparedEntry)cancelSystemSurfaceEntry();
     let bridge=preparedEntry;
+    const saved=level==='planet'&&currentRecord?.level==='system'?state.mapCameras.get(mapContextKey(level,nodeId)):null;
+    if(!bridge&&saved?.orbitActive&&validMapNode('planet',nodeId)?.parent_id===currentRecord.parent?.id){
+      bridge=bridgeTicket(nodeId,'enter','orbit');bridge.savedCamera=structuredClone(saved);
+      bridge.preview=systemPreviews?.getPlanet(nodeId,bridge.style)||null;
+      const layout=renderSystemBridgeSource(currentRecord,state.systemView,nodeId),point=layout.positions.find(item=>item.n.id===nodeId);
+      bridge.from=point?{x:point.x,y:point.y,radius:point.radius}:null;
+    }
     if(!bridge&&level==='system'&&currentRecord?.level==='planet'&&state.orbitActive&&currentRecord.selected_planet?.parent_id===nodeId){
       if(state.orbitView.distance<2.45){startSystemReturnPullback(currentRecord.selected_planet.id,nodeId);return;}
       bridge=captureNativeSystemReturn(currentRecord.selected_planet.id,nodeId);
@@ -78,7 +85,7 @@
     if(!skipCameraSave)saveMapCamera();state.pendingOrbitRestore=null;cancelSystemZoom();clearBodyFocus();state.orbitActive=false;cancelOrbitFrames();state.selectedEntity=null;clearFeatureSelection();
     state.mapLevel=level;state.mapNodeId=nodeId;$('#map-level').value=level;
     state.systemSurfaceEntry=null;loadMap();
-    if(bridge){bridge.mapRequest=state.mapLoadSeq;bridge.loading=true;state.systemSurfaceEntry=bridge;drawMap();}
+    if(bridge){bridge.mapRequest=state.mapLoadSeq;bridge.loading=true;state.systemSurfaceEntry=bridge;renderMapHeading();drawMap();}
   }
 
   function publicNodeChain(nodeId,s=liveState()){
@@ -273,7 +280,7 @@
     const focused=bodyFocusBlocksMap(),root=$('#body-focus-view');document.body.classList.toggle('has-body-focus',Boolean(state.bodyFocus));document.body.classList.toggle('has-body-focus-blocked',focused);
     const selected=state.bodyFocus&&resolveBodyNode(state.bodyFocus.id);
     if(focused&&selected){text($('.section-title h1'),`${selected.name||'Unknown body'}${selected.kind==='moon'?` · ${resolveBodyNode(selected.parent_id)?.name||'Parent unknown'}`:''} · ${titleCase(selected.kind)} focus`);text($('.eyebrow'),'CELESTIAL RECORD');}
-    else if(state.mapRecord){const record=state.mapRecord,level=record.level||'planet',subject=level==='universe'?'Known space':level==='galactic'?window.HWUniverseView.galacticContext(liveState()?.nodes,state.mapNodeId).name:record.selected_planet?.name||record.parent?.name||'Map';text($('.section-title h1'),`${subject} · ${titleCase(level)}`);text($('.eyebrow'),`${titleCase(level).toUpperCase()} CARTOGRAPHY`);}
+    else if(state.mapRecord){const record=state.mapRecord,level=record.level||'planet',subject=level==='universe'?'Known space':level==='galactic'?window.HWUniverseView.galacticContext(liveState()?.nodes,state.mapNodeId).name:record.selected_planet?.name||record.parent?.name||'Map';text($('.section-title h1'),`${subject} · ${titleCase(level)}${level==='planet'?` · ${state.systemSurfaceEntry?.savedCamera?'Opening saved orbit':state.orbitActive?'Orbit':'Surface'}`:''}`);text($('.eyebrow'),`${titleCase(level).toUpperCase()} CARTOGRAPHY`);}
     if(root&&state.bodyFocus){
       const mapFrame=$('.map-frame'),frame=mapFrame.getBoundingClientRect(),crumb=$('#map-breadcrumbs').getBoundingClientRect(),title=$('#view-title').getBoundingClientRect();
       // DOM rectangles are screen pixels; positioned offsets belong to the zoomed frame's CSS space.
@@ -500,12 +507,14 @@
   function renderLog(s){const root=$('#command-log');root.replaceChildren();if(!s){root.append(el('div','empty-note','No events recorded.'));return;}if(s.narrative)root.append(el('div','',s.narrative));else root.append(el('div','empty-note',s.turn===0?'Initial demonstration state committed.':'No narrative supplied for this turn.'));}
 
   async function loadMap(){
-    if(state.systemSurfaceEntry?.loading)cancelSystemSurfaceEntry();
+    const replacingEntry=state.systemSurfaceEntry?.loading&&state.systemSurfaceEntry.savedCamera?state.systemSurfaceEntry:null;
+    if(state.systemSurfaceEntry?.loading&&!replacingEntry)cancelSystemSurfaceEntry();
     const campaignId=state.campaignId,s=liveState();if(!campaignId||!s){drawMap();return;}
     if(state.mapLevel!==state.mapRecord?.level||(state.mapLevel==='planet'&&state.mapNodeId&&state.mapNodeId!==(state.mapRecord?.selected_planet?.id||state.mapRecord?.geometry?.planet?.id)))clearOrbitLandmarks(true);
     const pendingCamera=state.pendingOrbitRestore;
     const request=++state.mapLoadSeq,epoch=state.contextEpoch,snapshotId=state.snapshot?.id,overlay=state.overlay,level=state.mapLevel,
       parentId=state.mapNodeId,priorProvince=state.selectedProvince,priorEntity=state.selectedEntity;
+    if(replacingEntry)replacingEntry.mapRequest=request;
     if(!s.nodes){state.mapLevel='planet';$('#map-level').value='planet';clearFeatureSelection();state.mapRecord={level:'planet',selected_planet:s.planet,geometry:{planet:s.planet,provinces:s.provinces,tiles:s.tiles},records:[]};state.committedMapContext={epoch,campaignId,snapshotId,request,level:'planet',nodeId:s.planet?.id};state.detailAsset=null;state.detailKey=null;state.detailStatus='STRATEGIC SURFACE';drawMap();renderMapLegend();renderMapBreadcrumbs();renderMapHeading();renderInspector(s,state.campaign);return;}
     const historical=isHistorical()?`&snapshot_id=${encodeURIComponent(state.snapshot.id)}`:'';
     const requestLevel=level==='universe'?'galactic':level;
@@ -513,6 +522,7 @@
     try{
       const data=await api(`/api/player/campaigns/${encodeURIComponent(campaignId)}/map?${query}&overlay=${encodeURIComponent(overlay)}`);
       if(request!==state.mapLoadSeq||epoch!==state.contextEpoch||campaignId!==state.campaignId||snapshotId!==state.snapshot?.id||level!==state.mapLevel||parentId!==state.mapNodeId||overlay!==state.overlay)return;
+      if(state.systemSurfaceEntry?.savedCamera&&(data.campaign_id!==campaignId||data.snapshot_id!==snapshotId||data.level!=='planet'||data.selected_planet?.id!==parentId||data.selected_planet?.knowledge!=='surveyed'))throw new Error('Saved orbit map did not match the selected campaign and snapshot.');
       if(level==='system')systemPreviews?.setContext({epoch,campaignId,snapshotId,style:state.mapStyle},data);else systemPreviews?.suspend();
       const mapData=level==='universe'?window.HWUniverseView.fromGalactic(data):data;
       const returnTicket=state.bodyReturnPending,restoringBodyReturn=Boolean(window.HWBodyFocus?.matches(returnTicket,state)&&returnTicket.mapLevel===level&&returnTicket.mapNodeId===parentId);
@@ -522,7 +532,7 @@
       const enteringPlanet=level==='planet'&&(state.mapRecord?.level!=='planet'||state.mapRecord?.selected_planet?.id!==mapData.selected_planet?.id);
       if(!restoringBodyReturn&&(level!=='planet'||enteringPlanet)){clearOrbitLandmarks(true);state.orbitActive=false;cancelOrbitFrames();state.orbitTexture=null;state.orbitTextureKey=null;state.orbitInitialKey=null;}
       const previousIdentity=state.mapCommittedKey,nextIdentity=`${level}:${level==='planet'?mapData.selected_planet?.id||mapData.geometry?.planet?.id||parentId||'':parentId||''}`;state.mapCommittedKey=nextIdentity;
-      state.mapRecord=mapData;state.committedMapContext={epoch,campaignId,snapshotId,request,level,nodeId:level==='planet'?mapData.selected_planet?.id||mapData.geometry?.planet?.id||parentId:parentId};syncUniverseShell();const restoredCamera=(!state.systemSurfaceEntry||state.systemSurfaceEntry.direction==='return')&&!restoringBodyReturn&&(previousIdentity!==nextIdentity||(pendingCamera?.epoch===epoch&&pendingCamera.campaignId===campaignId&&pendingCamera.snapshotId===snapshotId&&pendingCamera.planetId===nextPlanet))&&restoreMapCamera(level,parentId,mapData),catalog=hydrographyFor(mapData.geometry);
+      state.mapRecord=mapData;state.committedMapContext={epoch,campaignId,snapshotId,request,level,nodeId:level==='planet'?mapData.selected_planet?.id||mapData.geometry?.planet?.id||parentId:parentId};syncUniverseShell();const restoredCamera=(!state.systemSurfaceEntry||state.systemSurfaceEntry.direction==='return'||state.systemSurfaceEntry.savedCamera)&&!restoringBodyReturn&&(previousIdentity!==nextIdentity||(pendingCamera?.epoch===epoch&&pendingCamera.campaignId===campaignId&&pendingCamera.snapshotId===snapshotId&&pendingCamera.planetId===nextPlanet))&&restoreMapCamera(level,parentId,mapData),catalog=hydrographyFor(mapData.geometry);
       if(['universe','galactic','sector'].includes(level)&&previousIdentity!==nextIdentity&&!restoredCamera){state.zoom=1;state.panX=0;state.panY=0;}
       if(level==='system'&&previousIdentity!==nextIdentity&&!restoredCamera)state.systemView=window.HWSystemView.fit(state.mapRecord);
       if(!state.systemSurfaceEntry&&previousIdentity&&previousIdentity!==nextIdentity&&!matchMedia('(prefers-reduced-motion: reduce)').matches){const canvas=$('#planet-map');for(const animation of canvas.getAnimations())animation.cancel();canvas.animate([{opacity:.35},{opacity:1}],{duration:240,easing:'ease-out'});}
@@ -534,10 +544,10 @@
       if(!restoringBodyReturn&&!restoredCamera){state.selectedProvince=priorProvince&&mapData.geometry?.provinces?.some(x=>x.id===priorProvince)?priorProvince:null;state.selectedEntity=priorEntity;}
       const home=s.settlements?.find(item=>item.owned&&item.planet_id===nextPlanet),
         initialCamera=!state.systemSurfaceEntry&&!restoringBodyReturn&&!restoredCamera&&!state.bodyFocus&&!state.bodyReturnPending&&enteringPlanet&&isFineFirst(mapData.geometry)?{inputSeq:state.mapInputSeq,selection:state.selectedProvince,entity:state.selectedEntity,zoom:state.zoom,panX:state.panX,panY:state.panY,province:state.selectedProvince||home?.province_id}:null;
-      const entry=state.systemSurfaceEntry,entryPreview=entry?.preview;if(entry?.planetId===nextPlanet&&entry.style===state.mapStyle&&entryPreview?.detail&&entryPreview.sourceSha===mapData.geometry?.detail_ref?.sha256){const retained=systemPreviews?.getPlanet(nextPlanet,entry.style,entryPreview.sourceSha)||entryPreview;state.detailAsset=retained.detail;state.detailKey=`${epoch}:${campaignId}:${snapshotId}:${nextPlanet}:${retained.sourceSha}`;state.detailStatus='SAVED FINE SURFACE';attachDetailToGeometry(mapData.geometry,retained.detail);entry.preview=retained;}
+      const entry=state.systemSurfaceEntry,entryPreview=entry?.savedCamera?systemPreviews?.getPlanet(nextPlanet,entry.style,mapData.geometry?.detail_ref?.sha256):entry?.preview;if(entry?.planetId===nextPlanet&&entry.style===state.mapStyle&&entryPreview?.detail&&entryPreview.sourceSha===mapData.geometry?.detail_ref?.sha256){const retained=systemPreviews?.getPlanet(nextPlanet,entry.style,entryPreview.sourceSha)||entryPreview;state.detailAsset=retained.detail;state.detailKey=`${epoch}:${campaignId}:${snapshotId}:${nextPlanet}:${retained.sourceSha}`;state.detailStatus='SAVED FINE SURFACE';attachDetailToGeometry(mapData.geometry,retained.detail);entry.preview=retained;}
       if(level==='system'&&state.systemSurfaceEntry?.direction==='return'){state.detailAsset=null;state.detailKey=null;renderMapBreadcrumbs();renderMapHeading();renderMapLegend();renderInspector(s,state.campaign);completeSystemReturn();return;}
       loadPlanetDetail(mapData,{epoch,campaignId,snapshotId,request,initialCamera});drawMap();renderBodyFocusOverlay();renderMapBreadcrumbs();renderMapHeading();renderMapLegend();renderInspector(s,state.campaign);
-    }catch(error){if(epoch===state.contextEpoch&&campaignId===state.campaignId&&request===state.mapLoadSeq){cancelSystemSurfaceEntry();drawMap();if(state.pendingOrbitRestore){state.pendingOrbitRestore=null;state.orbitActive=false;drawMap();renderMapHeading();}notify(error.message,true);}}
+    }catch(error){if(epoch===state.contextEpoch&&campaignId===state.campaignId&&request===state.mapLoadSeq){if(state.systemSurfaceEntry?.savedCamera&&state.mapRecord?.level==='system'){state.mapLevel='system';state.mapNodeId=state.committedMapContext?.nodeId;state.committedMapContext.request=request;$('#map-level').value='system';}cancelSystemSurfaceEntry();drawMap();renderMapHeading();if(state.pendingOrbitRestore){state.pendingOrbitRestore=null;state.orbitActive=false;drawMap();renderMapHeading();}notify(error.message,true);}}
   }
   function attachDetailToGeometry(geometry,detail){geometry.province_anchors=detail.province_anchors;geometry.province_anchor_grid={width:detail.width,height:detail.height};geometry.detailHydrography=detail.hydrography;}
   async function loadPlanetDetail(record,context){
@@ -578,7 +588,7 @@
     const featureListButton=$('#feature-list-button'),featureListAvailable=state.mapRecord?.level==='planet'&&Boolean(mapGeometry?.planet)&&catalogAvailable;if(featureListButton){featureListButton.disabled=!featureListAvailable;featureListButton.title=featureListAvailable?'Open the recorded hydrography feature list':isFineFirst(mapGeometry)&&mapGeometry?.detail_ref?'Feature list loads with the fine map':'Feature list unavailable: planet geometry is not recorded';}
     const record=state.mapRecord,hints=[...document.querySelectorAll('.map-footer span')],universe=record?.level==='universe',strategic=universe||['galactic','sector'].includes(record?.level);$('#overlay-select').disabled=!available||strategic;for(const level of ['sector','system','planet'])$('#map-level').querySelector(`option[value="${level}"]`).disabled=universe;$('#map-level').title=universe?'Choose a known contact or Return to system to descend':'';for(const selector of ['.overlay-select','.map-style-select','#feature-name-toggle','#feature-list-button']){const control=$(selector);if(control)control.hidden=record?.level!=='planet';}
     if(!record){renderUniverseSelection();text($('.section-title h1'),state.campaign?(state.campaign.name||'No recorded geography'):'No campaign selected');text($('.eyebrow'),state.campaign?'CAMPAIGN GEOGRAPHY':'NO CAMPAIGN');text($('#map-coordinates'),state.campaign?'CAMPAIGN GEOGRAPHY · NOT RECORDED':'NO CAMPAIGN · NO GEOGRAPHY');text($('#map-scale'),'—');$('#map-scale').removeAttribute('title');if(hints.length){text(hints[0],'◉ No recorded map context');text(hints.at(-1),state.campaign?'No geography is recorded for this campaign':'Select a campaign to view recorded geography');}return;}
-    const level=record.level||'planet',subject=level==='universe'?'Universe atlas':level==='galactic'?window.HWUniverseView.galacticContext(liveState()?.nodes,state.mapNodeId).name:record.selected_planet?.name||record.parent?.name||'Map',mode=level==='planet'?(state.orbitActive?'Orbit':'Surface'):null;text($('.section-title h1'),level==='universe'?subject:`${subject} · ${titleCase(level)}${mode?` · ${mode}`:''}`);text($('.eyebrow'),`${titleCase(level).toUpperCase()} CARTOGRAPHY`);if(level!=='universe')$('#detail-status').removeAttribute('data-mode');
+    const level=record.level||'planet',subject=level==='universe'?'Universe atlas':level==='galactic'?window.HWUniverseView.galacticContext(liveState()?.nodes,state.mapNodeId).name:record.selected_planet?.name||record.parent?.name||'Map',mode=level==='planet'?(state.systemSurfaceEntry?.savedCamera?'Opening saved orbit':state.orbitActive?'Orbit':'Surface'):null;text($('.section-title h1'),level==='universe'?subject:`${subject} · ${titleCase(level)}${mode?` · ${mode}`:''}`);text($('.eyebrow'),`${titleCase(level).toUpperCase()} CARTOGRAPHY`);if(level!=='universe')$('#detail-status').removeAttribute('data-mode');
     const surface=record.geometry?.surface,surfaceVersion=surface?.version;
     const planetLabel=['planet-v10','planet-v11'].includes(surfaceVersion)?`PLANET MAP${surface.topology==='cylinder-x'?' · EAST–WEST CONTINUOUS':''}${surfaceVersion==='planet-v11'?' · PHYSICAL SCALE':''}`:['planet-v8','planet-v9'].includes(surfaceVersion)?`${surfaceVersion.toUpperCase()}${surface.geology==='cratered'?' · CRATERED':''} · EAST–WEST WRAPPING`:['planet-v4','planet-v5','planet-v6','planet-v7'].includes(surfaceVersion)?`${surfaceVersion.toUpperCase()} · ${String(surface.preset).toUpperCase()}${surfaceVersion==='planet-v7'?`${surface.geology==='cratered'?' · CRATERED':''} · EAST–WEST WRAPPING`:surfaceVersion==='planet-v6'?' · EAST–WEST WRAPPING':''}`:['planet-v2','planet-v3'].includes(surfaceVersion)?`${surfaceVersion.toUpperCase()} SURFACE`:'PLANET-V1 · TERRAIN ONLY';
     const systemModel=level==='system'?window.HWSystemView?.model(record):null;const gridToggle=$('#system-grid-toggle');if(gridToggle){gridToggle.hidden=level!=='system';gridToggle.setAttribute('aria-pressed',String(Boolean(state.systemView.showGrid)));gridToggle.textContent=state.systemView.showGrid?'Grid On':'Grid Off';}
@@ -590,7 +600,7 @@
     else if(level==='system'){text(scale,systemModel?.supported&&systemModel.normalizer?`${(systemModel.normalizer/1_000_000).toFixed(3)} AU MAX DIST`:'POSITIONS UNKNOWN');scale.title=systemModel?.supported?'Farthest saved star-relative position · frozen at epoch 0':'Astronomy not recorded for this system';}
     else if(['galactic','sector'].includes(level)){text(scale,window.HWUniverseView.strategicRecordLabel(record));scale.title='Known public records, including unlocated contacts; not a complete census';}
     else{text(scale,dimensions?`${dimensions} GRID`:`${(record.nodes||[]).length} RECORDED`);scale.title='Recorded map dimensions';}
-    if(hints.length){updateMapSelectionHint();text(hints.at(-1),level==='universe'?'Drag to pan · wheel to zoom · Select destination, then Open chart':level==='planet'?'Drag to pan · wheel or buttons to zoom':level==='system'?'Drag orbit · Shift-drag pan · wheel zoom · select body to enter':'Click a known marker · drag to pan · wheel to zoom');}
+    if(hints.length){updateMapSelectionHint();if(state.orbitActive)renderOrbitControl();else text(hints.at(-1),level==='universe'?'Drag to pan · wheel to zoom · Select destination, then Open chart':level==='planet'?'Drag to pan · wheel or buttons to zoom':level==='system'?'Drag orbit · Shift-drag pan · wheel zoom · select body to enter':'Click a known marker · drag to pan · wheel to zoom');}
     renderUniverseSelection();
     updateBodyFocusChrome();
   }
@@ -658,37 +668,42 @@
   const orbitSupported=()=>Boolean(state.mapRecord?.level==='planet'&&isFineFirst(state.mapRecord.geometry)&&state.detailAsset&&!state.orbitUnavailable&&window.HWPlanetOrbit);
   function orbitRect(){const frame=$('#planet-map').parentElement;return hierarchySafeRect(frame,frame.clientWidth,frame.clientHeight);}
   function renderOrbitControl(){
-    const record=state.mapRecord;if(record?.level==='planet'){const subject=record.selected_planet?.name||record.parent?.name||'Map',heading=$('.section-title h1'),title=`${subject} · Planet · ${state.orbitActive?'Orbit':'Surface'}`;if(heading&&heading.textContent!==title)heading.textContent=title;}
+    if(state.orbitActive&&(!state.systemSurfaceEntry?.loading||state.systemSurfaceEntry.phase==='destination')&&!state.pendingOrbitRestore)$('#detail-status').hidden=true;
+    const record=state.mapRecord;if(record?.level==='planet'){const subject=record.selected_planet?.name||record.parent?.name||'Map',heading=$('.section-title h1'),title=`${subject} · Planet · ${state.systemSurfaceEntry?.savedCamera?'Opening saved orbit':state.orbitActive?'Orbit':'Surface'}`;if(heading&&heading.textContent!==title)heading.textContent=title;}
     const systemSelection=$('#system-selection');if(systemSelection)systemSelection.hidden=state.mapRecord?.level!=='system'||['destination','bridge','pullback'].includes(state.systemSurfaceEntry?.phase);
     const entry=state.systemSurfaceEntry,entryPrepared=['destination','bridge'].includes(entry?.phase),button=$('#orbit-toggle'),status=$('#planet-orbit-status'),shown=orbitSupported()||entryPrepared,hasMap=Boolean(liveState()&&state.mapRecord),system=state.mapRecord?.level==='system';if(!button)return;
     const reset=$('#zoom-reset'),fit=$('#system-fit-view');text(reset,state.orbitActive?`Orbit ${state.orbitView.distance.toFixed(2)}R`:system?`Zoom ${(2.2/state.systemView.distance).toFixed(2)}×`:hasMap?zoomPercent():'—');reset.title=system?'Camera zoom relative to full-system fit (1×) · Reset framing':state.orbitActive?`Orbit radius ${state.orbitView.distance.toFixed(2)} planetary radii · Reset orbital distance`:'Reset surface zoom';reset.setAttribute('aria-label',reset.title);
     $('#zoom-in').title=state.orbitActive?'Descend toward surface':system?'Zoom into system':'Zoom in';$('#zoom-out').title=state.orbitActive?'Pull back from surface':system?'Zoom out of system':'Zoom out';
-    button.hidden=!shown;button.disabled=entryPrepared?!entry.preview?.detail:!state.detailAsset||!state.mapRecord?.geometry?.detail_ref;button.textContent=state.orbitActive||entryPrepared&&entry.destination==='orbit'?'Surface':'Orbit';button.setAttribute('aria-pressed',String(state.orbitActive||entryPrepared&&entry.destination==='orbit'));
+    button.hidden=!shown;button.disabled=entryPrepared?!state.detailAsset:!state.detailAsset||!state.mapRecord?.geometry?.detail_ref;button.textContent=state.orbitActive||entryPrepared&&entry.destination==='orbit'?'Surface':'Orbit';button.setAttribute('aria-pressed',String(state.orbitActive||entryPrepared&&entry.destination==='orbit'));
     if(fit){fit.hidden=!system;fit.disabled=!hasMap||Boolean(state.pendingOrbitRestore);}
     const locate=$('#orbit-star-locate');if(locate){const located=Boolean(recordedOrbitStar(state.mapRecord?.selected_planet?.id||state.mapRecord?.parent?.id));locate.hidden=!state.orbitActive;locate.disabled=!located;locate.textContent=located?'Locate star':'Star unlocated';locate.title=located?'Locate the recorded star':'Astronomical positions are not recorded for this snapshot';locate.setAttribute('aria-label',locate.title);}
     if(status){const star=Boolean(recordedOrbitStar(state.mapRecord?.selected_planet?.id||state.mapRecord?.parent?.id)),selected=system&&resolveBodyNode(state.systemView.selectedBodyId),analytical=state.orbitActive&&(window.HWPlanetOrbit?.nightReadability(state.orbitView.distance,orbitDescentDistance())||0)>.01;status.textContent=state.pendingOrbitRestore?'Opening saved orbit…':!hasMap?'Map controls unavailable until recorded geography is selected':state.mapRecord?.level==='universe'?'Drag to pan · wheel to zoom · Select destination, then Open chart':['galactic','sector'].includes(state.mapRecord?.level)?'Known systems · click a system to open · drag to pan · wheel to zoom':system?selected?`${selected.name||'Unknown body'} selected · Focus or Show full system to reframe`:'Drag to orbit · Shift-drag to pan · wheel to zoom · select a body to enter':state.orbitActive?`Drag to orbit · wheel or +/− to descend or pull back · click terrain to descend${analytical?' · analytical lighting ON · physical night':''}${star?' · click the named star to focus':' · illustrative lighting · star position unknown'}`:state.orbitUnavailable?'Orbit view unavailable · strategic surface remains available':state.overlay==='terrain'?'Drag to pan · wheel or buttons to zoom · hover terrain, click to inspect · choose Provinces overlay for boundaries · Recenter preserves scale':'Drag to pan · wheel or buttons to zoom · click to inspect · Recenter preserves scale';if(state.orbitActive&&state.orbitTexture?.hwOrbitFacilityCount>0)status.textContent+=' · Facility lights · schematic province anchors';status.dataset.mode=hasMap?(state.mapRecord?.level==='universe'?'universe':system?'system':state.orbitActive?'orbit':'surface'):'unavailable';const hint=document.querySelector('.map-footer span:last-child');if(hint)text(hint,!hasMap?(state.campaign?'This campaign has no recorded geography':'Select a campaign to view recorded geography'):status.textContent);}
   }
-  function ensureOrbitRenderer(){if(state.orbitRenderer)return state.orbitRenderer;if(state.orbitUnavailable||!window.HWPlanetOrbit)return null;try{state.orbitCanvas=document.createElement('canvas');state.orbitCanvas.className='planet-orbit-layer';state.orbitCanvas.setAttribute('aria-hidden','true');$('#planet-map').parentElement.append(state.orbitCanvas);state.orbitRenderer=window.HWPlanetOrbit.create(state.orbitCanvas);if(state.orbitRenderer)state.orbitCanvas.addEventListener('webglcontextlost',()=>{state.orbitUnavailable=true;cancelSystemSurfaceEntry();clearNativeOrbitFrame();state.orbitActive=false;state.orbitTexture=null;state.orbitTextureKey=null;cancelOrbitFrames();renderOrbitControl();drawMap();});}catch{}if(!state.orbitRenderer)state.orbitUnavailable=true;return state.orbitRenderer;}
-  function releaseOrbitComposite(){if(orbitComposite){orbitComposite.width=orbitComposite.height=1;orbitComposite=null;}}
-  function measureOrbitPresentation(start,pixels,w,h){
+  function ensureOrbitRenderer(){if(state.orbitRenderer)return state.orbitRenderer;if(state.orbitUnavailable||!window.HWPlanetOrbit)return null;try{state.orbitCanvas=document.createElement('canvas');state.orbitCanvas.className='planet-orbit-layer';state.orbitCanvas.setAttribute('aria-hidden','true');orbitPresentationLayer=document.createElement('div');orbitPresentationLayer.className='planet-orbit-presentation';orbitPresentationLayer.setAttribute('aria-hidden','true');$('#planet-map').parentElement.append(orbitPresentationLayer);orbitPresentationLayer.append(state.orbitCanvas);state.orbitRenderer=window.HWPlanetOrbit.create(state.orbitCanvas);if(state.orbitRenderer)state.orbitCanvas.addEventListener('webglcontextlost',()=>{state.orbitUnavailable=true;cancelSystemSurfaceEntry();clearNativeOrbitFrame();state.orbitActive=false;state.orbitTexture=null;state.orbitTextureKey=null;cancelOrbitFrames();renderOrbitControl();drawMap();});}catch{}if(!state.orbitRenderer)state.orbitUnavailable=true;return state.orbitRenderer;}
+  function releaseOrbitComposite(){if(orbitComposite){orbitComposite.width=orbitComposite.height=1;orbitComposite.remove();orbitComposite=null;}if(orbitPresentationLayer){orbitPresentationLayer.style.opacity='1';orbitPresentationLayer.style.willChange='';}}
+  function measureOrbitPresentation(start,pixels,w,h,fullKernel=true){
     const generation=++orbitPresentationGeneration;orbitPresentationSample=null;
-    if(document.visibilityState!=='visible')return;
+    if(!fullKernel||document.visibilityState!=='visible')return;
     const frame=$('#planet-map').parentElement,sample={generation,epoch:state.contextEpoch,campaign:state.campaignId,snapshot:state.snapshot?.id,record:state.mapRecord,style:state.mapStyle,overlay:state.overlay,canvas:state.orbitCanvas,width:state.orbitCanvas.width,height:state.orbitCanvas.height,dpr:window.devicePixelRatio||1};orbitPresentationSample=sample;
     const valid=()=>orbitPresentationSample===sample&&generation===orbitPresentationGeneration&&sample.epoch===state.contextEpoch&&sample.campaign===state.campaignId&&sample.snapshot===state.snapshot?.id&&sample.record===state.mapRecord&&sample.style===state.mapStyle&&sample.overlay===state.overlay&&sample.canvas===state.orbitCanvas&&sample.width===state.orbitCanvas.width&&sample.height===state.orbitCanvas.height&&frame.clientWidth===w&&frame.clientHeight===h&&sample.dpr===(window.devicePixelRatio||1)&&!state.orbitUnavailable;
     const discard=()=>{if(orbitPresentationSample===sample)orbitPresentationSample=null;};
     const finish=()=>{if(!valid()){discard();return;}discard();if(document.visibilityState==='visible')orbitOutputProfile?.observe(pixels,performance.now()-start);};
     requestAnimationFrame(()=>{if(!valid()){discard();return;}requestAnimationFrame(finish);});
   }
-  function clearNativeOrbitFrame(){orbitPresentationSample=null;nativeOrbitFrame=null;systemEntryCanvas=null;const canvas=state.orbitCanvas;if(canvas){canvas.style.visibility='hidden';canvas.style.transform='';canvas.style.transformOrigin='';canvas.style.clipPath='';canvas.style.opacity='1';if(canvas.width!==1||canvas.height!==1)canvas.width=canvas.height=1;}}
+  function clearNativeOrbitFrame(){cancelOrbitFade();orbitPresentationSample=null;nativeOrbitFrame=null;systemEntryCanvas=null;const canvas=state.orbitCanvas;if(canvas){canvas.style.visibility='hidden';canvas.style.transform='';canvas.style.transformOrigin='';canvas.style.clipPath='';canvas.style.opacity='1';if(canvas.width!==1||canvas.height!==1)canvas.width=canvas.height=1;}}
   function renderNativeOrbitFrame(texture,w,h,view,rect,sun,renderScale=1,forceDraw=false){
     const renderer=ensureOrbitRenderer();if(!renderer||!texture)return null;
-    const key=JSON.stringify([state.contextEpoch,state.campaignId,state.snapshot?.id,state.mapStyle,state.overlay,texture.key,w,h,window.devicePixelRatio||1,renderScale,view.latitude,view.longitude,view.distance,view.nightReadability??0,rect.left,rect.top,rect.width,rect.height,sun||null]);
-    if(!forceDraw&&nativeOrbitFrame?.key===key)return state.orbitCanvas;
     if(!orbitOutputProfile)orbitOutputProfile=window.HWPlanetOrbit?.createOutputProfile?.()||null;
-    const outputScale=orbitOutputProfile?.scale(w,h,window.devicePixelRatio||1,renderScale)??renderScale,started=performance.now();
-    if(!renderer.render(texture.source,texture.key,w,h,view,rect,sun||null,outputScale)){clearNativeOrbitFrame();return null;}
-    const canvas=state.orbitCanvas;measureOrbitPresentation(started,canvas.width*canvas.height,w,h);canvas.style.transform='';canvas.style.transformOrigin='';canvas.style.clipPath='';
-    nativeOrbitFrame={key,canvas,epoch:state.contextEpoch,campaignId:state.campaignId,snapshotId:state.snapshot?.id,style:state.mapStyle,overlay:state.overlay,w,h,dpr:window.devicePixelRatio||1};return canvas;
+    const moving=renderScale<1,scaleKey=`${w}:${h}:${window.devicePixelRatio||1}:${renderScale}`;
+    if(!moving)orbitMovingScale=null;
+    if(moving&&orbitMovingScale?.key!==scaleKey)orbitMovingScale={key:scaleKey,scale:orbitOutputProfile?.scale(w,h,window.devicePixelRatio||1,renderScale)??renderScale};
+    const outputScale=moving?orbitMovingScale.scale:(orbitOutputProfile?.scale(w,h,window.devicePixelRatio||1,renderScale)??renderScale),started=performance.now();
+    const movingKernel=moving&&outputScale<renderScale;
+    const key=JSON.stringify([state.contextEpoch,state.campaignId,state.snapshot?.id,state.mapStyle,state.overlay,texture.key,w,h,window.devicePixelRatio||1,renderScale,movingKernel,view.latitude,view.longitude,view.distance,view.nightReadability??0,rect.left,rect.top,rect.width,rect.height,sun||null]);
+    if(!forceDraw&&nativeOrbitFrame?.key===key)return state.orbitCanvas;
+    if(!renderer.render(texture.source,texture.key,w,h,view,rect,sun||null,outputScale,movingKernel)){clearNativeOrbitFrame();return null;}
+    const canvas=state.orbitCanvas;measureOrbitPresentation(started,canvas.width*canvas.height,w,h,!movingKernel);canvas.style.transform='';canvas.style.transformOrigin='';canvas.style.clipPath='';
+    nativeOrbitFrame={key,canvas,rect:{...rect},epoch:state.contextEpoch,campaignId:state.campaignId,snapshotId:state.snapshot?.id,style:state.mapStyle,overlay:state.overlay,w,h,dpr:window.devicePixelRatio||1};return canvas;
   }
   function releaseSystemEntryFrame(preserveNative=false){systemEntryCanvas=null;if(!preserveNative){nativeOrbitFrame=null;orbitPresentationSample=null;}if(state.orbitCanvas){if(!preserveNative)state.orbitCanvas.style.visibility='hidden';state.orbitCanvas.style.clipPath='';state.orbitCanvas.style.transform='';state.orbitCanvas.style.transformOrigin='';state.orbitCanvas.style.opacity='1';$('#planet-map').parentElement.classList.remove('is-orbit-bridging');}if(systemBridgeSource){systemBridgeSource.width=systemBridgeSource.height=1;systemBridgeSource=null;}}
   function bridgeTicket(planetId,direction,destination=null){
@@ -743,6 +758,7 @@
     ticket.raf=requestAnimationFrame(tick);
   }
   function drawSystemBridge(ticket){
+    if(state.orbitFade)cancelOrbitFade();
     if(ticket.phase!=='bridge'||!systemEntryCanvas||!systemBridgeSource)return false;
     const canvas=$('#planet-map'),ctx=canvas.getContext('2d'),{width:w,height:h,dpr}=ticket.viewport;
     if(!ticket.sourceDrawn){if(canvas.width!==Math.round(w*dpr))canvas.width=Math.round(w*dpr);if(canvas.height!==Math.round(h*dpr))canvas.height=Math.round(h*dpr);ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,w,h);ctx.drawImage(systemBridgeSource,0,0,w,h);ticket.sourceDrawn=true;}
@@ -755,12 +771,21 @@
     return true;
   }
   function animateSystemBridge(ticket,done){
+    if(!bridgeValid(ticket))return;
+    const valid=()=>{if(bridgeValid(ticket))return true;if(state.systemSurfaceEntry===ticket){cancelSystemSurfaceEntry();drawMap();}return false;};
     ticket.loading=false;ticket.phase='bridge';ticket.progress=0;renderMapHeading();
     const finish=()=>{if(!bridgeValid(ticket))return;state.systemSurfaceEntry=null;releaseSystemEntryFrame(ticket.direction==='enter'&&ticket.destination==='orbit'&&state.orbitActive);renderMapHeading();drawMap();done?.();};
     if(matchMedia('(prefers-reduced-motion: reduce)').matches||!ticket.from||!ticket.to){finish();return;}
-    const start=performance.now();
-    const tick=now=>{if(!bridgeValid(ticket)){cancelSystemSurfaceEntry();drawMap();return;}const t=Math.max(0,Math.min(1,(now-start-55)/420));ticket.progress=1-Math.pow(1-t,3);drawSystemBridge(ticket);if(t>=1){ticket.raf=null;finish();}else ticket.raf=requestAnimationFrame(tick);};
-    drawSystemBridge(ticket);ticket.raf=requestAnimationFrame(tick);
+    if(!drawSystemBridge(ticket)){finish();return;}
+    ticket.raf=requestAnimationFrame(()=>{
+      if(!valid())return;
+      ticket.raf=requestAnimationFrame(()=>{
+        if(!valid())return;
+        const start=performance.now();
+        const tick=now=>{if(!valid())return;const t=Math.max(0,Math.min(1,(now-start)/420));ticket.progress=t*t*(3-2*t);drawSystemBridge(ticket);if(t>=1){ticket.raf=null;finish();}else ticket.raf=requestAnimationFrame(tick);};
+        ticket.raf=requestAnimationFrame(tick);
+      });
+    });
   }
   function completeSystemReturn(){
     const ticket=state.systemSurfaceEntry;if(!bridgeValid(ticket)){cancelSystemSurfaceEntry();drawMap();return;}
@@ -769,24 +794,36 @@
     const layout=renderSystemBridgeSource(state.mapRecord,state.systemView,ticket.planetId,thumbnails),point=layout.positions.find(item=>item.n.id===ticket.planetId);
     ticket.to=point?{x:point.x,y:point.y,radius:point.radius}:null;animateSystemBridge(ticket);
   }
-  function paintOrbit(ctx,w,h,rect,alpha=1,star=null){
-    const cached=nativeOrbitFrame;if(cached&&(cached.epoch!==state.contextEpoch||cached.campaignId!==state.campaignId||cached.snapshotId!==state.snapshot?.id||cached.style!==state.mapStyle||cached.overlay!==state.overlay||cached.w!==w||cached.h!==h||cached.dpr!==(window.devicePixelRatio||1)))clearNativeOrbitFrame();
-    if(w<=0||h<=0){releaseOrbitComposite();return;}
-    const paint=target=>{if(window.HWOrbitBackground?.draw)window.HWOrbitBackground.draw(target,w,h,state.orbitView,rect,star);else{target.fillStyle='#070b10';target.fillRect(0,0,w,h);}};
-    if(alpha>=1){releaseOrbitComposite();paint(ctx);return;}
-    if(alpha<=0)return;
-    // Flatten the opaque backdrop and transparent globe before blending with the chart.
+  function paintOrbit(ctx,w,h,rect,star=null){
+    if(window.HWOrbitBackground?.draw)window.HWOrbitBackground.draw(ctx,w,h,state.orbitView,rect,star);
+    else{ctx.fillStyle='#070b10';ctx.fillRect(0,0,w,h);}
+  }
+  function cancelOrbitFade(){const fade=state.orbitFade;if(fade?.raf)cancelAnimationFrame(fade.raf);state.orbitFade=null;releaseOrbitComposite();}
+  function orbitFadeValid(fade){
+    const c=fade.context,frame=$('#planet-map').parentElement,v=c.viewport,view=state.orbitView;
+    return Boolean(state.orbitFade===fade&&c.epoch===state.contextEpoch&&c.campaign===state.campaignId&&c.snapshot===state.snapshot?.id&&c.record===state.mapRecord&&c.mapRequest===state.mapLoadSeq&&c.inputSeq===state.mapInputSeq&&c.style===state.mapStyle&&c.overlay===state.overlay&&c.active===state.orbitActive&&v.width===frame.clientWidth&&v.height===frame.clientHeight&&v.dpr===(window.devicePixelRatio||1)&&c.latitude===view.latitude&&c.longitude===view.longitude&&c.distance===view.distance&&c.zoom===state.zoom&&c.panX===state.panX&&c.panY===state.panY&&fade.native===nativeOrbitFrame&&c.canvasWidth===state.orbitCanvas?.width&&c.canvasHeight===state.orbitCanvas?.height&&!state.orbitUnavailable);
+  }
+  function presentOrbitFade(w,h,rect,star){
+    const fade=state.orbitFade;if(!fade||fade.phase!=='prepare'||!nativeOrbitFrame||!orbitPresentationLayer)return false;
+    const native=nativeOrbitFrame;if(native.epoch!==state.contextEpoch||native.campaignId!==state.campaignId||native.snapshotId!==state.snapshot?.id||native.style!==state.mapStyle||native.overlay!==state.overlay||native.w!==w||native.h!==h||native.dpr!==(window.devicePixelRatio||1))return false;
     const scale=Math.min(2,window.devicePixelRatio||1,2048/Math.max(1,w,h),Math.sqrt(2097152/Math.max(1,w*h))),cw=Math.max(1,Math.floor(w*scale)),ch=Math.max(1,Math.floor(h*scale));
-    if(!orbitComposite)orbitComposite=document.createElement('canvas');
-    if(orbitComposite.width!==cw||orbitComposite.height!==ch){orbitComposite.width=cw;orbitComposite.height=ch;}
-    const target=orbitComposite.getContext('2d');target.setTransform(cw/w,0,0,ch/h,0,0);paint(target);
-    ctx.save();ctx.globalAlpha=alpha;ctx.drawImage(orbitComposite,0,0,w,h);ctx.restore();
+    orbitComposite=document.createElement('canvas');orbitComposite.className='planet-orbit-backdrop';orbitComposite.width=cw;orbitComposite.height=ch;
+    const target=orbitComposite.getContext('2d');target.setTransform(cw/w,0,0,ch/h,0,0);paintOrbit(target,w,h,nativeOrbitFrame.rect||rect,star);orbitPresentationLayer.prepend(orbitComposite);
+    fade.native=nativeOrbitFrame;fade.context={epoch:state.contextEpoch,campaign:state.campaignId,snapshot:state.snapshot?.id,record:state.mapRecord,mapRequest:state.mapLoadSeq,inputSeq:state.mapInputSeq,style:state.mapStyle,overlay:state.overlay,active:state.orbitActive,viewport:{width:w,height:h,dpr:window.devicePixelRatio||1},latitude:state.orbitView.latitude,longitude:state.orbitView.longitude,distance:state.orbitView.distance,zoom:state.zoom,panX:state.panX,panY:state.panY,canvasWidth:state.orbitCanvas.width,canvasHeight:state.orbitCanvas.height};
+    clearOrbitLandmarks();$('#map-overview-button').hidden=true;$('#entry-focus-marker').hidden=true;
+    state.orbitCanvas.style.visibility='visible';state.orbitCanvas.style.opacity='1';orbitPresentationLayer.style.willChange='opacity';
+    const incoming=fade.from==='surface',epsilon=1/255;orbitPresentationLayer.style.opacity=String(incoming?epsilon:1-epsilon);fade.phase='publication';
+    const valid=()=>{if(state.orbitFade!==fade)return false;if(orbitFadeValid(fade))return true;cancelOrbitFade();drawMap();return false;};
+    fade.raf=requestAnimationFrame(()=>{if(!valid())return;fade.raf=requestAnimationFrame(()=>{
+      if(!valid())return;fade.phase='animate';const start=performance.now();
+      const tick=now=>{if(!valid())return;const t=Math.max(0,Math.min(1,(now-start)/fade.duration)),progress=t*t*(3-2*t);orbitPresentationLayer.style.opacity=String(incoming?epsilon+(1-epsilon)*progress:(1-epsilon)*(1-progress));if(t>=1){fade.raf=null;state.orbitFade=null;releaseOrbitComposite();drawMap();}else fade.raf=requestAnimationFrame(tick);};
+      fade.raf=requestAnimationFrame(tick);
+    });});return true;
   }
   function orbitFocus(){const t=state.transform,g=state.mapRecord?.geometry;if(!t||!g?.planet)return {latitude:0,longitude:0};const rect=orbitRect(),y=((rect.top+rect.bottom)/2-t.oy)/t.tile,x=((rect.left+rect.right)/2-t.ox)/t.tile;return {latitude:Math.PI*(.5-y/g.planet.height),longitude:x/g.planet.width*2*Math.PI-Math.PI};}
-  function scheduleOrbitDraw(){if(state.orbitFrame)return;state.orbitFrame=requestAnimationFrame(()=>{state.orbitFrame=null;if(state.orbitFade)drawMap();});}
-  function noteOrbitMotion(){orbitQualityUntil=performance.now()+180;clearTimeout(orbitQualityTimer);const context={epoch:state.contextEpoch,campaign:state.campaignId,snapshot:state.snapshot?.id,record:state.mapRecord};orbitQualityTimer=setTimeout(()=>{if(context.epoch!==state.contextEpoch||context.campaign!==state.campaignId||context.snapshot!==state.snapshot?.id||context.record!==state.mapRecord||!state.orbitActive)return;if(state.drag?.orbit||state.orbitZoomFrame){noteOrbitMotion();return;}drawMap();},180);}
+  function noteOrbitMotion(){orbitQualityUntil=performance.now()+180;clearTimeout(orbitQualityTimer);const context={epoch:state.contextEpoch,campaign:state.campaignId,snapshot:state.snapshot?.id,record:state.mapRecord};orbitQualityTimer=setTimeout(()=>{if(context.epoch!==state.contextEpoch||context.campaign!==state.campaignId||context.snapshot!==state.snapshot?.id||context.record!==state.mapRecord||!state.orbitActive)return;if(state.drag?.orbit||state.orbitZoomFrame){noteOrbitMotion();return;}orbitMovingScale=null;drawMap();},180);}
   function schedulePointerMapDraw(){if(orbitPointerDraw)return;orbitPointerDraw=requestAnimationFrame(()=>{orbitPointerDraw=0;drawMap();});}
-  function cancelOrbitFrames(){if(state.orbitFrame)cancelAnimationFrame(state.orbitFrame);if(state.orbitZoomFrame)cancelAnimationFrame(state.orbitZoomFrame);if(orbitPointerDraw)cancelAnimationFrame(orbitPointerDraw);if(orbitQualityTimer)clearTimeout(orbitQualityTimer);orbitPointerDraw=orbitQualityTimer=0;orbitQualityUntil=0;if(state.systemEntryTimer)clearTimeout(state.systemEntryTimer);state.systemEntryTimer=null;state.orbitFrame=state.orbitZoomFrame=null;state.orbitZoomTarget=null;state.orbitFade=null;releaseOrbitComposite();}
+  function cancelOrbitFrames(){cancelOrbitFade();if(state.orbitFrame)cancelAnimationFrame(state.orbitFrame);if(state.orbitZoomFrame)cancelAnimationFrame(state.orbitZoomFrame);if(orbitPointerDraw)cancelAnimationFrame(orbitPointerDraw);if(orbitQualityTimer)clearTimeout(orbitQualityTimer);orbitPointerDraw=orbitQualityTimer=0;orbitQualityUntil=0;orbitMovingScale=null;if(state.systemEntryTimer)clearTimeout(state.systemEntryTimer);state.systemEntryTimer=null;state.orbitFrame=state.orbitZoomFrame=null;state.orbitZoomTarget=null;state.orbitFade=null;releaseOrbitComposite();}
   function cancelOrbitZoom(){if(state.orbitZoomFrame)cancelAnimationFrame(state.orbitZoomFrame);if(state.systemEntryTimer)clearTimeout(state.systemEntryTimer);state.systemEntryTimer=null;state.orbitZoomFrame=null;state.orbitZoomTarget=null;}
   function cancelSystemZoom(){state.systemView.approachProgress=0;if(state.systemZoomFrame)cancelAnimationFrame(state.systemZoomFrame);state.systemZoomFrame=null;state.systemZoomTarget=null;state.systemEnterPending=null;}
   function renderSystemSelection(){
@@ -863,21 +900,29 @@
       if(t>=1){state.orbitView.distance=target;finish();if(!descend&&!parentSystem)drawMap();}else{drawMap();state.orbitZoomFrame=requestAnimationFrame(tick);}
     };state.orbitZoomFrame=requestAnimationFrame(tick);
   }
-  function startOrbitTransition(from){cancelOrbitFrames();if(matchMedia('(prefers-reduced-motion: reduce)').matches){state.orbitFade=null;return;}state.orbitFade={from,start:performance.now(),duration:420};}
+  function startOrbitTransition(from){cancelOrbitFrames();if(matchMedia('(prefers-reduced-motion: reduce)').matches){state.orbitFade=null;return;}state.orbitFade={from,phase:'prepare',duration:420,raf:null};}
   function completeSystemSurfaceEntry(record,context){
     const entry=state.systemSurfaceEntry;if(!entry||entry.direction!=='enter')return false;
     if(!bridgeValid(entry)||context.request!==entry.mapRequest||record!==state.mapRecord||record.selected_planet?.id!==entry.planetId){cancelSystemSurfaceEntry();drawMap();return false;}
     if(!state.detailAsset)return true;
     const preview=entry.preview;
-    if(!preview||record.geometry?.detail_ref?.sha256!==preview.sourceSha){cancelSystemSurfaceEntry();return false;}
-    state.pendingOrbitRestore=null;state.orbitView={latitude:preview.orientation?.latitude??0,longitude:preview.orientation?.longitude??0,distance:2.45};state.orbitActive=true;state.orbitFade=null;
-    entry.phase='destination';renderMapBreadcrumbs();renderMapLegend();renderOrbitControl();renderMapHeading();
-    if(!prepareSystemEntryFrame(entry)){cancelSystemSurfaceEntry();state.orbitActive=false;drawMap();renderMapHeading();return true;}
-    animateSystemBridge(entry,()=>{
-      if(entry.destination==='orbit')return;
-      const descent={epoch:state.contextEpoch,campaign:state.campaignId,snapshot:state.snapshot?.id,record:state.mapRecord,inputSeq:state.mapInputSeq};
-      const descend=()=>{state.systemEntryTimer=null;if(descent.epoch!==state.contextEpoch||descent.campaign!==state.campaignId||descent.snapshot!==state.snapshot?.id||descent.record!==state.mapRecord||descent.inputSeq!==state.mapInputSeq||!state.orbitActive)return;const g=state.mapRecord.geometry,rect=orbitRect(),tile=$('#planet-map').parentElement.clientWidth/(g.planet.width*.4),regional=window.HWPlanetOrbit.distanceForTile(rect,g.planet.height,tile),target=Math.max(orbitDescentDistance(),Math.min(2.45,regional));tweenOrbitDistance(target,true,null,descent);};
-      if(matchMedia('(prefers-reduced-motion: reduce)').matches)descend();else state.systemEntryTimer=setTimeout(descend,180);
+    if(!entry.savedCamera&&(!preview||record.geometry?.detail_ref?.sha256!==preview.sourceSha)){cancelSystemSurfaceEntry();return false;}
+    state.pendingOrbitRestore=null;state.orbitView=entry.savedCamera?{...entry.savedCamera.orbitView}:{latitude:preview.orientation?.latitude??0,longitude:preview.orientation?.longitude??0,distance:2.45};state.orbitActive=true;cancelOrbitFade();
+    entry.phase='destination';orbitTextureFor(record.geometry);$('#detail-status').hidden=true;renderMapBreadcrumbs();renderMapLegend();renderMapHeading();renderOrbitControl();
+    const valid=()=>bridgeValid(entry)&&context.request===entry.mapRequest&&record===state.mapRecord;
+    entry.raf=requestAnimationFrame(()=>{
+      if(!valid())return;
+      entry.raf=requestAnimationFrame(()=>{
+        if(!valid())return;
+        entry.raf=null;
+        if(!prepareSystemEntryFrame(entry)){cancelSystemSurfaceEntry();state.orbitActive=false;drawMap();renderMapHeading();return;}
+        animateSystemBridge(entry,()=>{
+          if(entry.destination==='orbit')return;
+          const descent={epoch:state.contextEpoch,campaign:state.campaignId,snapshot:state.snapshot?.id,record:state.mapRecord,inputSeq:state.mapInputSeq};
+          const descend=()=>{state.systemEntryTimer=null;if(descent.epoch!==state.contextEpoch||descent.campaign!==state.campaignId||descent.snapshot!==state.snapshot?.id||descent.record!==state.mapRecord||descent.inputSeq!==state.mapInputSeq||!state.orbitActive)return;const g=state.mapRecord.geometry,rect=orbitRect(),tile=$('#planet-map').parentElement.clientWidth/(g.planet.width*.4),regional=window.HWPlanetOrbit.distanceForTile(rect,g.planet.height,tile),target=Math.max(orbitDescentDistance(),Math.min(2.45,regional));tweenOrbitDistance(target,true,null,descent);};
+          if(matchMedia('(prefers-reduced-motion: reduce)').matches)descend();else state.systemEntryTimer=setTimeout(descend,180);
+        });
+      });
     });return true;
   }
   function enterInitialOrbit(initial){
@@ -941,26 +986,22 @@
   function universeAnimationEligible(){const canvas=$('#planet-map'),workspace=$('#command-workspace'),dialog=$('#command-dialog'),menu=$('#command-menu');return state.mapRecord?.level==='universe'&&state.mapLevel==='universe'&&!document.hidden&&!universeReducedMotion?.matches&&Boolean(canvas?.getClientRects().length)&&Boolean(workspace?.hidden)&&Boolean(dialog?.hidden)&&Boolean(menu?.hidden);}
   function stopUniverseAnimation(){if(universeAnimationFrame){cancelAnimationFrame(universeAnimationFrame);universeAnimationFrame=0;}universeAnimationTime=0;cancelUniverseCameraTween();}
   function syncUniverseAnimation(){if(!universeAnimationEligible()){stopUniverseAnimation();return;}if(universeAnimationFrame)return;universeAnimationFrame=requestAnimationFrame(timestamp=>{universeAnimationFrame=0;if(!universeAnimationEligible()){stopUniverseAnimation();return;}const tween=universeCameraTween;if(tween){if(!universeCameraContextValid(tween.context)){cancelUniverseCameraTween();}else{const t=Math.min(1,(timestamp-tween.start)/tween.duration),eased=1-Math.pow(1-t,3);state.zoom=tween.fromZoom+(tween.targetZoom-tween.fromZoom)*eased;state.panX=tween.fromPanX+(tween.targetPanX-tween.fromPanX)*eased;state.panY=tween.fromPanY+(tween.targetPanY-tween.fromPanY)*eased;universeAnimationTime=timestamp;drawMap(timestamp);if(t>=1&&universeCameraTween===tween){state.zoom=tween.targetZoom;state.panX=tween.targetPanX;state.panY=tween.targetPanY;universeCameraTween=null;drawMap(timestamp);if(universeCameraContextValid(tween.context))tween.complete?.();}}}else if(timestamp-universeAnimationTime>=1000/24){universeAnimationTime=timestamp;drawMap(timestamp);}syncUniverseAnimation();});}
-  function drawMap(animationTime=0){if(state.systemSurfaceEntry&&!bridgeValid(state.systemSurfaceEntry)){cancelSystemSurfaceEntry();}if(state.systemSurfaceEntry?.phase==='bridge'&&drawSystemBridge(state.systemSurfaceEntry))return;syncUniverseAnimation();$('#planet-map').setAttribute('aria-label',state.mapRecord?.level==='universe'?'Known-space atlas, schematic; distances unknown':state.mapRecord?.level==='system'?'Recorded star system map':state.mapRecord?.level==='planet'?(state.orbitActive?'Planetary globe':'Planetary terrain map'):`${titleCase(state.mapRecord?.level||'planetary')} map`);$('#entry-focus-marker').hidden=true;if(state.systemSurfaceEntry?.loading){state.transform=null;state.drag=null;clearOrbitLandmarks(true);$('#map-tooltip').hidden=true;$('#map-overview-button').hidden=true;const status=$('#detail-status');status.hidden=false;text(status,state.systemSurfaceEntry.direction==='return'?'Returning to saved System view…':state.systemSurfaceEntry.destination==='orbit'?'Preparing saved orbit…':'Preparing saved surface…');renderOrbitControl();return;}if(state.pendingOrbitRestore){state.transform=null;state.drag=null;clearOrbitLandmarks(true);$('#map-tooltip').hidden=true;$('#map-overview-button').hidden=true;const status=$('#detail-status');status.hidden=false;text(status,'Opening saved orbit…');renderOrbitControl();renderForceMap();return;}updateBodyFocusChrome();if(state.bodyFocus){renderBodyFocusOverlay();const node=resolveBodyNode(state.bodyFocus.id),mapped=node?.kind==='planet'&&node.knowledge==='surveyed'&&state.mapRecord?.selected_planet?.id===node.id&&Boolean(state.mapRecord?.geometry);if(!mapped){clearOrbitLandmarks(true);clearNativeOrbitFrame();$('#map-tooltip').hidden=true;return;}}if(!state.orbitFade||!state.mapRecord?.geometry||state.mapRecord.level!=='planet')releaseOrbitComposite();if(state.mapRecord?.level!=='planet'&&state.orbitCanvas)clearNativeOrbitFrame();if(forceMap?.targeting())clearOrbitLandmarks(true);else if(!state.orbitActive)clearOrbitLandmarks();const canvas=$('#planet-map'),ctx=canvas.getContext('2d'),frame=canvas.parentElement,s=liveState(),placeholder=$('#map-placeholder'),overviewButton=$('#map-overview-button');renderOrbitControl();canvas.classList.toggle('is-targeting',Boolean(forceMap?.targeting()));const dpr=state.mapRecord?.level==='universe'?Math.max(.5,Math.min(3,(window.devicePixelRatio||1)*frame.getBoundingClientRect().width/Math.max(1,frame.clientWidth))):(window.devicePixelRatio||1);const w=frame.clientWidth,h=frame.clientHeight,pixelWidth=Math.round(w*dpr),pixelHeight=Math.round(h*dpr);if(canvas.width!==pixelWidth)canvas.width=pixelWidth;if(canvas.height!==pixelHeight)canvas.height=pixelHeight;ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,w,h);placeholder.hidden=Boolean(s&&state.mapRecord);if(!s||!state.mapRecord){clearOrbitLandmarks(true);state.transform=null;overviewButton.hidden=true;$('#detail-status').hidden=true;renderForceMap();return;}
+  function drawMap(animationTime=0){if(state.orbitFade&&state.orbitFade.phase!=='prepare'){if(orbitFadeValid(state.orbitFade))return;cancelOrbitFade();}if(state.systemSurfaceEntry&&!bridgeValid(state.systemSurfaceEntry)){cancelSystemSurfaceEntry();}if(state.systemSurfaceEntry?.phase==='bridge'&&drawSystemBridge(state.systemSurfaceEntry))return;syncUniverseAnimation();$('#planet-map').setAttribute('aria-label',state.mapRecord?.level==='universe'?'Known-space atlas, schematic; distances unknown':state.mapRecord?.level==='system'?'Recorded star system map':state.mapRecord?.level==='planet'?(state.orbitActive?'Planetary globe':'Planetary terrain map'):`${titleCase(state.mapRecord?.level||'planetary')} map`);$('#entry-focus-marker').hidden=true;if(state.systemSurfaceEntry?.loading){state.transform=null;state.drag=null;clearOrbitLandmarks(true);$('#map-tooltip').hidden=true;$('#map-overview-button').hidden=true;const status=$('#detail-status');status.hidden=false;text(status,state.systemSurfaceEntry.direction==='return'?'Returning to saved System view…':state.systemSurfaceEntry.savedCamera?'Opening saved orbit…':state.systemSurfaceEntry.destination==='orbit'?'Preparing saved orbit…':'Preparing saved surface…');renderOrbitControl();return;}if(state.pendingOrbitRestore){state.transform=null;state.drag=null;clearOrbitLandmarks(true);$('#map-tooltip').hidden=true;$('#map-overview-button').hidden=true;const status=$('#detail-status');status.hidden=false;text(status,'Opening saved orbit…');renderOrbitControl();renderForceMap();return;}updateBodyFocusChrome();if(state.bodyFocus){renderBodyFocusOverlay();const node=resolveBodyNode(state.bodyFocus.id),mapped=node?.kind==='planet'&&node.knowledge==='surveyed'&&state.mapRecord?.selected_planet?.id===node.id&&Boolean(state.mapRecord?.geometry);if(!mapped){clearOrbitLandmarks(true);clearNativeOrbitFrame();$('#map-tooltip').hidden=true;return;}}if(!state.orbitFade||!state.mapRecord?.geometry||state.mapRecord.level!=='planet')releaseOrbitComposite();if(state.mapRecord?.level!=='planet'&&state.orbitCanvas)clearNativeOrbitFrame();if(forceMap?.targeting())clearOrbitLandmarks(true);else if(!state.orbitActive)clearOrbitLandmarks();const canvas=$('#planet-map'),ctx=canvas.getContext('2d'),frame=canvas.parentElement,s=liveState(),placeholder=$('#map-placeholder'),overviewButton=$('#map-overview-button');renderOrbitControl();canvas.classList.toggle('is-targeting',Boolean(forceMap?.targeting()));const dpr=state.mapRecord?.level==='universe'?Math.max(.5,Math.min(3,(window.devicePixelRatio||1)*frame.getBoundingClientRect().width/Math.max(1,frame.clientWidth))):(window.devicePixelRatio||1);const w=frame.clientWidth,h=frame.clientHeight,pixelWidth=Math.round(w*dpr),pixelHeight=Math.round(h*dpr);if(canvas.width!==pixelWidth)canvas.width=pixelWidth;if(canvas.height!==pixelHeight)canvas.height=pixelHeight;ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,w,h);placeholder.hidden=Boolean(s&&state.mapRecord);if(!s||!state.mapRecord){clearOrbitLandmarks(true);state.transform=null;overviewButton.hidden=true;$('#detail-status').hidden=true;renderForceMap();return;}
     const theme=document.documentElement.dataset.theme==='light'?'light':'dark';
-    if(state.mapRecord.level!=='planet'){clearOrbitLandmarks(true);text($('#zoom-reset'),state.mapRecord.level==='system'?`Zoom ${(2.2/state.systemView.distance).toFixed(2)}×`:state.mapRecord.level==='universe'?`${Math.round(state.zoom*100)}%`:zoomPercent());$('#zoom-reset').title=state.mapRecord.level==='system'?'Camera zoom relative to full-system fit (1×)':'Reset map scale';if(state.mapRecord.level==='system')$('#zoom-reset').setAttribute('aria-label',`Camera zoom ${(2.2/state.systemView.distance).toFixed(2)} times full-system fit`);state.orbitActive=false;state.orbitFade=null;renderOrbitControl();const safe=state.mapRecord.level==='system'?systemSafeRect(frame,w,h):hierarchySafeRect(frame,w,h),forceControlRect=hierarchyForceControlRect(frame);if(state.mapRecord.level==='system'&&window.HWSystemView){const thumbnails=systemPreviews?.thumbnails(state.mapRecord)||new Map();if(systemReturnPreview?.epoch===state.contextEpoch&&systemReturnPreview.campaignId===state.campaignId&&systemReturnPreview.snapshotId===state.snapshot?.id&&systemReturnPreview.style===state.mapStyle&&systemReturnPreview.systemId===state.mapRecord.parent?.id)thumbnails.set(systemReturnPreview.planetId,systemReturnPreview.sprite);state.transform=window.HWSystemView.draw(ctx,{w,h,record:state.mapRecord,view:state.systemView,thumbnailsMap:thumbnails,safeRect:safe,theme,forceControlRect});renderSystemSelection();const status=$('#detail-status');status.hidden=true;status.title='Saved coordinates are frozen; symbols enlarged; sky decorative. Unrecorded positions remain unknown.';}else if(state.mapRecord.level==='universe'){if(!animationTime)$('#map-tooltip').hidden=true;const origin=universeOriginDetails(),contactIds=new Set((state.mapRecord.contacts||[]).map(item=>item.n.id));state.transform=window.HWUniverseView.draw(ctx,{w,h,record:state.mapRecord,safe,zoom:state.zoom,panX:state.panX,panY:state.panY,theme,selectedContactId:state.universeContactId,originContactIds:(origin?.contactIds||[]).filter(id=>contactIds.has(id)),originName:origin?.system||'system',time:animationTime||performance.now()});renderSystemSelection();const selection=$('#universe-selection');if(selection)selection.hidden=false;const status=$('#detail-status');status.hidden=false;text(status,'Unexplored space · extent unknown');status.dataset.mode='universe';}else{state.transform=window.HWUniverseView.drawStrategic(ctx,{w,h,record:state.mapRecord,publicState:liveState(),safe,zoom:state.zoom,panX:state.panX,panY:state.panY,theme,forceControlRect});$('#detail-status').hidden=true;}overviewButton.hidden=true;renderForceMap();return;}
+    if(state.mapRecord.level!=='planet'){clearOrbitLandmarks(true);text($('#zoom-reset'),state.mapRecord.level==='system'?`Zoom ${(2.2/state.systemView.distance).toFixed(2)}×`:state.mapRecord.level==='universe'?`${Math.round(state.zoom*100)}%`:zoomPercent());$('#zoom-reset').title=state.mapRecord.level==='system'?'Camera zoom relative to full-system fit (1×)':'Reset map scale';if(state.mapRecord.level==='system')$('#zoom-reset').setAttribute('aria-label',`Camera zoom ${(2.2/state.systemView.distance).toFixed(2)} times full-system fit`);state.orbitActive=false;cancelOrbitFade();renderOrbitControl();const safe=state.mapRecord.level==='system'?systemSafeRect(frame,w,h):hierarchySafeRect(frame,w,h),forceControlRect=hierarchyForceControlRect(frame);if(state.mapRecord.level==='system'&&window.HWSystemView){const thumbnails=systemPreviews?.thumbnails(state.mapRecord)||new Map();if(systemReturnPreview?.epoch===state.contextEpoch&&systemReturnPreview.campaignId===state.campaignId&&systemReturnPreview.snapshotId===state.snapshot?.id&&systemReturnPreview.style===state.mapStyle&&systemReturnPreview.systemId===state.mapRecord.parent?.id)thumbnails.set(systemReturnPreview.planetId,systemReturnPreview.sprite);state.transform=window.HWSystemView.draw(ctx,{w,h,record:state.mapRecord,view:state.systemView,thumbnailsMap:thumbnails,safeRect:safe,theme,forceControlRect});renderSystemSelection();const status=$('#detail-status');status.hidden=true;status.title='Saved coordinates are frozen; symbols enlarged; sky decorative. Unrecorded positions remain unknown.';}else if(state.mapRecord.level==='universe'){if(!animationTime)$('#map-tooltip').hidden=true;const origin=universeOriginDetails(),contactIds=new Set((state.mapRecord.contacts||[]).map(item=>item.n.id));state.transform=window.HWUniverseView.draw(ctx,{w,h,record:state.mapRecord,safe,zoom:state.zoom,panX:state.panX,panY:state.panY,theme,selectedContactId:state.universeContactId,originContactIds:(origin?.contactIds||[]).filter(id=>contactIds.has(id)),originName:origin?.system||'system',time:animationTime||performance.now()});renderSystemSelection();const selection=$('#universe-selection');if(selection)selection.hidden=false;const status=$('#detail-status');status.hidden=false;text(status,'Unexplored space · extent unknown');status.dataset.mode='universe';}else{state.transform=window.HWUniverseView.drawStrategic(ctx,{w,h,record:state.mapRecord,publicState:liveState(),safe,zoom:state.zoom,panX:state.panX,panY:state.panY,theme,forceControlRect});$('#detail-status').hidden=true;}overviewButton.hidden=true;renderForceMap();return;}
     const geometry=state.mapRecord.geometry;if(!geometry){clearOrbitLandmarks(true);placeholder.hidden=false;state.transform=null;overviewButton.hidden=true;renderOrbitControl();renderForceMap();return;}
     const planetId=state.mapRecord?.selected_planet?.id||state.mapRecord?.parent?.id||geometry.planet.id;
     const safe=hierarchySafeRect(frame,w,h),overviewRect=positionOverview(frame,w,h,safe),inspector=$('#command-inspector'),frameRect=frame.getBoundingClientRect(),inspectorObstacle=inspector&&!inspector.hidden?frameLocalRect(inspector,frame,frameRect):null,labelObstacles=[overviewRect,hierarchyForceControlRect(frame),inspectorObstacle].filter(Boolean);clampPlanetPan(geometry,w,h,safe);if(!state.orbitActive||state.orbitFade?.from==='surface')state.transform=window.HWMapRenderer.drawPlanet(ctx,{geometry,detail:state.detailAsset,w,h,zoom:state.zoom,panX:state.panX,panY:state.panY,style:state.mapStyle,theme,selectedProvince:state.selectedProvince,hoveredProvince:state.hoveredProvince,selectedFeatureId:state.selectedFeatureId,featureNamesVisible:state.showFeatureNames,overlay:state.overlay,compact:w<=780||h<=500,sites:s.settlements||[],planetId,safe,labelObstacles,paintOverlay:state.overlay!=='terrain'&&state.overlay!=='provinces'?(target,{tile,ox,oy})=>drawRecordedOverlay(target,geometry,geometry.tiles,ox,oy,tile,state.mapRecord.records||[],s):null});const detailStatus=$('#detail-status');
     renderOrbitControl();
     if(state.orbitActive){
       const star=recordedOrbitStar(planetId),texture=orbitTextureFor(geometry),orbit=ensureOrbitRenderer(),readability=window.HWPlanetOrbit?.nightReadability?.(state.orbitView.distance,orbitDescentDistance())||0,view={...state.orbitView,nightReadability:readability},draw=texture&&orbit&&renderNativeOrbitFrame(texture,w,h,view,orbitRect(),star?.direction,(state.drag?.orbit||state.orbitZoomFrame||state.systemSurfaceEntry?.phase==='pullback'||performance.now()<orbitQualityUntil)?0.5:1);
-      if(!draw){state.orbitActive=false;state.orbitUnavailable=true;state.orbitFade=null;renderOrbitControl();drawMap();return;}
+      if(!draw){state.orbitActive=false;state.orbitUnavailable=true;cancelOrbitFade();renderOrbitControl();drawMap();return;}
       else{
         state.orbitCanvas.style.visibility='visible';
-        const now=performance.now(),fade=state.orbitFade,progress=fade?Math.min(1,(now-fade.start)/fade.duration):1;
-        if(!fade||progress>=1){state.orbitFade=null;if(state.orbitCanvas)state.orbitCanvas.style.opacity='1';paintOrbit(ctx,w,h,safe,1,star);}
-        else {const alpha=fade.from==='surface'?progress:1-progress;if(state.orbitCanvas)state.orbitCanvas.style.opacity=String(alpha);paintOrbit(ctx,w,h,safe,alpha,star);}
-        drawOrbitLandmarks(geometry,planetId,orbitRect(),safe,labelObstacles,star);overviewButton.hidden=true;$('#detail-status').hidden=true;renderOrbitControl();renderForceMap();if(state.orbitFade)scheduleOrbitDraw();return;
+        if(state.orbitFade?.from==='surface'&&presentOrbitFade(w,h,safe,star)){renderForceMap();return;}
+        if(state.orbitFade)cancelOrbitFade();paintOrbit(ctx,w,h,safe,star);
+        drawOrbitLandmarks(geometry,planetId,orbitRect(),safe,labelObstacles,star);overviewButton.hidden=true;$('#detail-status').hidden=true;renderOrbitControl();renderForceMap();return;
       }
-    }
-    if(state.orbitFade?.from==='orbit'){
-      const progress=Math.min(1,(performance.now()-state.orbitFade.start)/state.orbitFade.duration);if(nativeOrbitFrame&&progress<1){if(state.orbitCanvas)state.orbitCanvas.style.opacity=String(1-progress);paintOrbit(ctx,w,h,safe,1-progress,recordedOrbitStar(planetId));scheduleOrbitDraw();}else{state.orbitFade=null;clearNativeOrbitFrame();releaseOrbitComposite();}
     }
     // Reduced motion skips the fade; settled Surface must still release its globe layer.
     if(!state.orbitFade)clearNativeOrbitFrame();
@@ -978,6 +1019,7 @@
     }
     drawOverview(geometry,dpr);renderEntryFocusMarker(frame,geometry,state.transform);text($('#zoom-reset'),zoomPercent());
     renderForceMap();
+    if(state.orbitFade?.from==='orbit'&&!presentOrbitFade(w,h,safe,recordedOrbitStar(planetId))){cancelOrbitFade();clearNativeOrbitFrame();}
   }
   function forceLabel(record) {
     return record?.name || record?.title || `ID …${String(record?.id || 'unknown').slice(-6)}`;

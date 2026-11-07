@@ -1104,3 +1104,27 @@ refreshed badge screenshot, final source hashes, actual navigation regressions a
 62.97-second native video verified. No product changes after that verification.
 Generated evidence/media and private records remain excluded from Git; no merge,
 deployment or data reset. Continue from this commit and the retained review ledger.
+
+## Motion correction — 7 November 2026
+
+Continuation from `f547851`; the preceding UI RC explicitly did not accept motion.
+`docs/reviews/motion-continuity.md` retains causal probes, failed candidates, the
+independent motion blocker and its resolution, final source hashes and artifacts.
+
+Preparation now completes before bridge/fade clocks start. Active Orbit chrome
+has one consistent frame; arrival reuses one native draw. Surface/Orbit fades
+prepare each image once and animate only one pointer-through flattened group,
+with tracked cancellation guards and released temporary backing. Saved close-Orbit
+returns use that prepared bridge to the exact saved camera, truthful pending
+chrome and only context/SHA-valid bounded raw detail reuse. Overlay replacement,
+wrong snapshot, stale cancellation, error fallback and reduced motion are tested.
+A measured slow-device moving filter retains the full renderer at idle/fast/polar/
+demanding cases; tested idle/restored pixels remain byte-identical.
+
+The same independent motion critic accepts the corrected scoped RC, with minor
+dissolve ghosting/software scheduling limits. Final software Chromium median
+browser completion59.94ms vs75.83baseline; layer22.29vs39.74ms. Fade interiors have
+17poses per direction and zero raster work. These are not hardware FPS or whole-game
+parity.14Node suites, final browser/context/private cases, GPU comparisons and a
+fresh63.02-second decoded native MP4 are recorded in the review. Continue hardware
+and WebKit/native Safari validation separately; no merge/deploy/data reset.

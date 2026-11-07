@@ -9,13 +9,14 @@ def main():
     FILES=['public/app.js','public/planet-orbit.js','public/desktop-shell.css']
     def hashes(): return {f:hashlib.sha256(Path(f).read_bytes()).hexdigest() for f in FILES}
     HOOK=r'''(()=>{
-     const d=window.__motionDiag={active:false,events:[],renders:[],rafs:[],longtasks:[],loafs:[],sequence:0};
+     const d=window.__motionDiag={active:false,events:[],renders:[],rafs:[],longtasks:[],loafs:[],bridgeFrames:[],sequence:0};
      for(const type of ['pointerdown','pointermove','pointerup','pointercancel','lostpointercapture'])document.addEventListener(type,e=>{
       if(!d.active)return;const record={type,now:performance.now(),stamp:e.timeStamp,trusted:e.isTrusted,id:e.pointerId,buttons:e.buttons,x:e.clientX,y:e.clientY,sequence:++d.sequence};d.events.push(record);queueMicrotask(()=>record.afterHandlers=performance.now());
      },true);
      try{new PerformanceObserver(list=>{if(d.active)for(const e of list.getEntries())d.longtasks.push({start:e.startTime,duration:e.duration,name:e.name});}).observe({type:'longtask',buffered:true});}catch{}
      try{new PerformanceObserver(list=>{if(d.active)for(const e of list.getEntries())d.loafs.push(e.toJSON());}).observe({type:'long-animation-frame',buffered:true});}catch{}
-     const install=setInterval(()=>{if(!window.HWPlanetOrbit)return;clearInterval(install);const create=HWPlanetOrbit.create;HWPlanetOrbit.create=function(...args){const r=create(...args);if(!r)return r;window.__orbitEngine=r;const render=r.render;r.render=function(...a){const record={start:performance.now(),sequence:d.sequence,scale:a[7]??1,view:{...a[4]},before:[r.canvas.width,r.canvas.height]};const result=render.apply(this,a);record.end=performance.now();record.after=[r.canvas.width,r.canvas.height];record.result=result;if(d.active)d.renders.push(record);window.__orbitAudit={result,view:a[4]};return result;};return r;};},5);
+     const install=setInterval(()=>{if(!window.HWPlanetOrbit)return;clearInterval(install);const create=HWPlanetOrbit.create;HWPlanetOrbit.create=function(...args){const r=create(...args);if(!r)return r;window.__orbitEngine=r;const render=r.render;r.render=function(...a){const record={start:performance.now(),sequence:d.sequence,scale:a[7]??1,movingKernel:a[8]??false,view:{...a[4]},rect:{...a[5]},sun:Array.isArray(a[6])?[...a[6]]:a[6],args:a.map((v,i)=>i===0?'texture':v&&typeof v==='object'?JSON.parse(JSON.stringify(v)):v),chrome:[...document.querySelectorAll('.map-footer span')].map(n=>({id:n.id,text:n.textContent,hidden:n.hidden,rect:{top:n.getBoundingClientRect().top,height:n.getBoundingClientRect().height,width:n.getBoundingClientRect().width}})),before:[r.canvas.width,r.canvas.height]};const result=render.apply(this,a);record.end=performance.now();record.after=[r.canvas.width,r.canvas.height];record.result=result;if(d.active)d.renders.push(record);window.__orbitAudit={result,view:a[4],rect:a[5]};return result;};return r;};},5);
+     const bridgeInstall=setInterval(()=>{if(!window.HWSystemView)return;clearInterval(bridgeInstall);const bridge=HWSystemView.bridgeCircle;HWSystemView.bridgeCircle=function(from,to,progress){if(d.active)d.bridgeFrames.push({from:{...from},to:{...to},progress,time:performance.now()});return bridge.apply(this,arguments);};d.bridgeHookInstalled=true;},5);
      function tick(t){if(d.active)d.rafs.push({timestamp:t,now:performance.now(),sequence:d.sequence});requestAnimationFrame(tick);}requestAnimationFrame(tick);
     })();'''
 
@@ -36,6 +37,22 @@ def main():
      page.evaluate('__motionDiag.dragEnd=performance.now()');page.select_option('#map-level','system');page.wait_for_function('document.querySelector("#view-title h1").textContent.includes("System")');page.wait_for_function('HWSystemPreviewService.stateFor("nav-demo-planet-reach")==="ready"&&HWSystemPreviewService.stateFor("nav-demo-planet-ash")==="ready"',timeout=90000);page.wait_for_timeout(700);page.select_option('#system-body-select','nav-demo-planet-reach');page.wait_for_timeout(200)
      page.evaluate('__motionDiag.entryStart=performance.now()');entry_start=time.monotonic();page.locator('#system-orbit').click();page.wait_for_function('document.querySelector("#map-level").value==="planet"&&document.querySelector("#orbit-toggle").textContent==="Surface"&&!document.querySelector("#zoom-in").disabled',timeout=90000);entry_elapsed=time.monotonic()-entry_start;page.evaluate('__motionDiag.entryControlsReady=performance.now()');page.wait_for_timeout(800)
      d=page.evaluate('''()=>{__motionDiag.active=false;__motionDiag.end=performance.now();return __motionDiag}''');d['rpc']=rpc;d['drag_elapsed_seconds']=drag_elapsed;d['entry_elapsed_seconds']=entry_elapsed;d['elapsed_seconds']=time.monotonic()-began;d['source_hashes']=initial;d['source_unchanged']=hashes()==initial;d['page_errors']=errors
+     (OUT/'report.json').write_text(json.dumps(d,indent=2))
+     bridge=[f for f in d['bridgeFrames'] if f['time']>=d['entryStart']];positive=next((i for i,f in enumerate(bridge) if f['progress']>0),None)
+     assert d.get('bridgeHookInstalled'),'Bridge instrumentation must be installed'
+     assert positive is not None and bridge[positive]['progress']<=.15,bridge[:8]
+     assert sum(.1<f['progress']<.9 for f in bridge)>=3,'Bridge must expose meaningful intermediate poses'
+     assert bridge[0]['progress']==0,'Bridge must publish the exact source pose before advancing'
+     arrival=[r for r in d['renders'] if r['start']>=d['entryStart'] and r['start']<=d['entryControlsReady']]
+     rects={tuple(sorted(r['rect'].items())) for r in arrival}
+     assert len(rects)==1,'Destination arrival draws must use one stable, chrome-settled safe rect'
+     assert len(arrival)==1,'A prepared destination must be reused at bridge completion'
+     dragging=[r for r in d['renders'] if r['start']<d['dragEnd']]
+     settled_scale=dragging[-1]['scale'];moving=[r for r in dragging if r['scale']<settled_scale]
+     assert len(moving)>=3,'Trusted drag must draw changing globe poses'
+     assert len({tuple(r['after']) for r in moving})==1,'Moving output dimensions must remain pinned during a burst'
+     assert len([r for r in dragging if r['scale']==settled_scale])==1,'A drag burst must refine once after release'
+     assert len({r['view']['longitude'] for r in moving})>=3,'The native globe must move during drag'
      (OUT/'report.json').write_text(json.dumps(d,indent=2))
      completed=[];cdp.on('Tracing.tracingComplete',lambda params:completed.append(params));cdp.send('Tracing.end')
      deadline=time.monotonic()+30

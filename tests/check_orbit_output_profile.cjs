@@ -4,6 +4,9 @@ const box={window:{}};vm.createContext(box);vm.runInContext(fs.readFileSync('pub
 const create=box.window.HWPlanetOrbit.createOutputProfile;
 const fast=create();for(let i=0;i<20;i++)fast.observe(1440000,33);
 assert.equal(fast.scale(1440,1000,1,1),1);assert.equal(fast.scale(1440,1000,1,.5),.5,'Fast devices keep existing moving quality');
+const measured=create();measured.observe(1440000,160);
+assert(Math.abs(measured.scale(1440,1000,1,.5)**2*1440000-180000)<1e-7,'Moving output uses a16ms full-kernel throughput budget');
+assert(Math.abs(measured.scale(1440,1000,1,1)**2*1440000-900000)<1e-7,'Idle output retains the80ms budget');
 const slow=create();for(let i=0;i<30;i++)slow.observe(4000,10000);
 assert.equal(slow.scale(1440,1000,1,1),.45,'Stable output cannot collapse below 450 physical pixels on its short side');
 assert.equal(slow.scale(1440,1000,1,.5),.16,'Moving output cannot collapse below 160 physical pixels on its short side');
@@ -32,3 +35,10 @@ for(const mutate of [()=>state.contextEpoch++,()=>state.campaignId+='x',()=>stat
 frame.clientWidth=1440;frame.clientHeight=1000;measure();callbacks.shift()();measure();flush();assert.equal(observed.length,2,'A newer presentation must discard the old generation and train only once');
 box.document.visibilityState='hidden';measure();assert.equal(callbacks.length,0);
 console.log('Presentation samples wait two RAFs and reject obsolete generations, authorization, record/style/viewport and hidden starts');
+
+box.document.visibilityState='visible';const trained=observed.length;
+box.measure(0,291600,1440,1000,false);assert.equal(callbacks.length,0);
+assert.equal(observed.length,trained,'Four-tap presentation must not train the full-kernel throughput profile');
+measure();callbacks.shift()();box.measure(0,291600,1440,1000,false);flush();
+assert.equal(observed.length,trained,'A newer bounded-kernel draw invalidates pending full-kernel measurement');
+console.log('Bounded moving kernel never trains or preserves a stale full-kernel throughput sample');

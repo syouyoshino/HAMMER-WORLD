@@ -2,6 +2,17 @@
 
 Read `AGENTS.md`, `plan.md` and `docs/decisions.md`, then inspect actual source/tests and Git state. The existing repository is accessible and the scheduled continuation resumed the same work. Preserve the existing implementation. Do not duplicate completed acceptance runs without a relevant change.
 
+## Motion correction — 7 November 2026
+
+Read `docs/reviews/motion-continuity.md` before changing this rendering path.
+Preparation precedes animation clocks; saved Orbit returns use exact saved-pose
+bridges and context-valid detail; fades animate a prepared flattened group without
+raster work. Independent scoped motion acceptance follows correction of the saved
+return blocker. Source/evidence manifests and the63-second native video are under
+`data/motion-fix/final-e/`; browser, GPU and software/hardware limits are documented.
+Preserve callback ownership, epoch/snapshot guards, full-quality idle rendering,
+cache limits and permanent map input. No backend/data/generation/character changes.
+
 ## Every-view interface continuation — 6 November 2026
 
 Verified/pushed implementation `2e6c4b8` on `map-generation`, baseline `04a405c`. Read
