@@ -237,3 +237,13 @@ mechanically reproduces the accepted recording's `f1d38db7` hash; every other pu
 file matches. `final-e/delivery-source.json` records this distinction. The same
 critic confirms scoped acceptance carries forward to404da876; no normal movement,
 renderer or easing changed, and minor/evidence limits remain.
+
+
+## Verified delivery
+
+Implementation/tests/review commit `7efcfd5` pushed successfully to
+`origin/map-generation` on7 November2026. Final app hash404da876 is independently
+accepted with the one tested error-only correction documented above. Source and
+video manifests remain under `data/motion-fix/final-e/`; generated media, runtime
+records, private contexts and databases are excluded from Git. No product edits
+followed final verification. No merge, deployment or data reset.

@@ -4,7 +4,7 @@ Read `AGENTS.md`, `plan.md` and `docs/decisions.md`, then inspect actual source/
 
 ## Motion correction — 7 November 2026
 
-Read `docs/reviews/motion-continuity.md` before changing this rendering path.
+Verified implementation `7efcfd5` is pushed to `map-generation`. Read `docs/reviews/motion-continuity.md` before changing this rendering path.
 Preparation precedes animation clocks; saved Orbit returns use exact saved-pose
 bridges and context-valid detail; fades animate a prepared flattened group without
 raster work. Independent scoped motion acceptance follows correction of the saved

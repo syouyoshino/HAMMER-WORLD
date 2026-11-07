@@ -1,11 +1,10 @@
 # Map generation — interface release candidate
 
-Latest continuation (6 November 2026): every-view critique/correction on top of
-`04a405c`. See `docs/reviews/deep-view-critique.md` for retained adverse findings,
-rejected motion candidates, final browser evidence, performance and limitations.
-The earlier credential blocker was resolved: the preceding milestones were pushed
-to `map-generation` on 5 November. This branch remains an interface release
-candidate; no merge, deployment or missing-cloud-data recovery is claimed.
+Latest continuation (7 November 2026): verified motion correction `7efcfd5`,
+pushed to `origin/map-generation`. See `docs/reviews/motion-continuity.md` for
+independent motion acceptance, the resolved saved-return blocker, fresh recording,
+measured software performance and browser/hardware limits. Earlier interface-only
+acceptance is retained in `deep-view-critique.md`. No merge/deployment/data reset.
 
 Date: 22 October 2026 UTC. Branch: `map-generation`, created from `edf243e` on `feature/map-desktop-shell`. The preceding military interface implementation is `2379356`; owned movement projection milestone is `3e97811`. The source branch was clean and its push reported up to date before this branch was created.
 
@@ -1128,3 +1127,8 @@ browser completion59.94ms vs75.83baseline; layer22.29vs39.74ms. Fade interiors h
 parity.14Node suites, final browser/context/private cases, GPU comparisons and a
 fresh63.02-second decoded native MP4 are recorded in the review. Continue hardware
 and WebKit/native Safari validation separately; no merge/deploy/data reset.
+
+
+Motion implementation/review `7efcfd5` pushed successfully on7 November2026.
+Final independent acceptance covers the exercised motion journey; retained minor
+limits and exact source/video evidence are in `docs/reviews/motion-continuity.md`.

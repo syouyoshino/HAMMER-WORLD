@@ -263,3 +263,6 @@ continuation on `map-generation` fixes prepared bridge/fade timing and saved-Orb
 returns; independent motion review and corrected blocked findings are retained in
 `docs/reviews/motion-continuity.md`. Existing shell/character integration, public
 IDs, history, authentication and campaign data remain intact.
+
+Verified motion continuation `7efcfd5` is pushed on `map-generation`; source
+references, independent review and fresh video are in the motion review ledger.
